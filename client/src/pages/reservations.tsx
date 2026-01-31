@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -56,13 +57,15 @@ export default function ReservationsPage() {
             <h1 className="text-3xl font-semibold text-foreground mb-1" data-testid="text-page-title">Reservations</h1>
             <p className="text-muted-foreground" data-testid="text-page-subtitle">Manage and view all of your reservations.</p>
           </div>
-          <Button 
-            className="bg-[#1C1C1C] text-white gap-2"
-            data-testid="button-new-reservation"
-          >
-            <Plus className="h-4 w-4" />
-            New Reservation
-          </Button>
+          <Link href="/new-reservation">
+            <Button 
+              className="bg-[#1C1C1C] text-white gap-2"
+              data-testid="button-new-reservation"
+            >
+              <Plus className="h-4 w-4" />
+              New Reservation
+            </Button>
+          </Link>
         </div>
 
         <div className="flex items-center gap-3 mb-6 flex-wrap">
@@ -139,13 +142,15 @@ export default function ReservationsPage() {
             <p className="text-muted-foreground mb-4 max-w-sm" data-testid="text-empty-description">
               Start by creating your first reservation to manage your restaurant bookings.
             </p>
-            <Button 
-              className="bg-[#1C1C1C] text-white gap-2"
-              data-testid="button-create-first-reservation"
-            >
-              <Plus className="h-4 w-4" />
-              Create Reservation
-            </Button>
+            <Link href="/new-reservation">
+              <Button 
+                className="bg-[#1C1C1C] text-white gap-2"
+                data-testid="button-create-first-reservation"
+              >
+                <Plus className="h-4 w-4" />
+                Create Reservation
+              </Button>
+            </Link>
           </div>
         ) : (
           <div

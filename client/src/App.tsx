@@ -6,12 +6,14 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import ReservationsPage from "@/pages/reservations";
+import NewReservationPage from "@/pages/new-reservation";
 import NotFound from "@/pages/not-found";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={ReservationsPage} />
+      <Route path="/new-reservation" component={NewReservationPage} />
       <Route component={NotFound} />
     </Switch>
   );
