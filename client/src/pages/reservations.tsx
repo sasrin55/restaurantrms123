@@ -18,9 +18,9 @@ import {
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { ReservationCard, ReservationRow, type ReservationStatus } from "@/components/reservation-card";
 import { EditReservationDialog } from "@/components/edit-reservation-dialog";
-import { Plus, Search, Calendar, LayoutGrid, List, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, Calendar, LayoutGrid, List, Loader2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { format, addDays, subDays, startOfWeek, endOfWeek, isWithinInterval, parseISO, isToday, isTomorrow } from "date-fns";
+import { format, addDays, startOfWeek, endOfWeek, isWithinInterval, parseISO, isToday, isTomorrow } from "date-fns";
 import type { Reservation } from "@shared/schema";
 
 type DateFilter = "today" | "tomorrow" | "this-week" | "custom";
@@ -95,16 +95,6 @@ export default function ReservationsPage() {
     }
   };
 
-  const handlePrevDate = () => {
-    setSelectedDate(subDays(selectedDate, 1));
-    setDateFilter("custom");
-  };
-
-  const handleNextDate = () => {
-    setSelectedDate(addDays(selectedDate, 1));
-    setDateFilter("custom");
-  };
-
   const handleCalendarSelect = (date: Date | undefined) => {
     if (date) {
       setSelectedDate(date);
@@ -167,14 +157,14 @@ export default function ReservationsPage() {
   return (
     <div className="flex-1 overflow-auto">
       <div className="p-6 max-w-7xl mx-auto">
-        <div className="flex items-start justify-between gap-4 mb-8">
+        <div className="flex items-center justify-between gap-4 mb-6 border-b pb-6">
           <div>
-            <h1 className="text-3xl font-semibold text-foreground mb-1" data-testid="text-page-title">Reservations</h1>
-            <p className="text-muted-foreground" data-testid="text-page-subtitle">Manage and view all of your reservations.</p>
+            <h1 className="text-2xl font-semibold text-foreground mb-1" data-testid="text-page-title">Reservations</h1>
+            <p className="text-sm text-muted-foreground" data-testid="text-page-subtitle">Manage and view all of your reservations.</p>
           </div>
           <Link href="/new-reservation">
             <Button 
-              className="bg-[#0D7377] text-white gap-2"
+              className="bg-[#0D7377] hover:bg-[#0a5c5f] text-white gap-2 rounded-full px-5"
               data-testid="button-new-reservation"
             >
               <Plus className="h-4 w-4" />
@@ -184,7 +174,7 @@ export default function ReservationsPage() {
         </div>
 
         <div className="flex items-center gap-3 mb-6 flex-wrap">
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <div className="relative flex-1 min-w-[200px] max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by name, phone, or table"
@@ -195,81 +185,61 @@ export default function ReservationsPage() {
             />
           </div>
 
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handlePrevDate}
-              data-testid="button-prev-date"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            
-            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-              <PopoverTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  className="gap-2 min-w-[120px]" 
-                  data-testid="button-date-picker"
+          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+            <PopoverTrigger asChild>
+              <Button 
+                variant="outline" 
+                className="gap-2 min-w-[100px] justify-between" 
+                data-testid="button-date-picker"
+              >
+                <span>{getDateDisplayLabel()}</span>
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <div className="p-2 border-b flex gap-1">
+                <Button
+                  variant={dateFilter === "today" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => {
+                    handleDateFilterChange("today");
+                    setCalendarOpen(false);
+                  }}
+                  data-testid="button-filter-today"
                 >
-                  <span>{getDateDisplayLabel()}</span>
-                  <Calendar className="h-4 w-4" />
+                  Today
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <div className="p-2 border-b flex gap-1">
-                  <Button
-                    variant={dateFilter === "today" ? "secondary" : "ghost"}
-                    size="sm"
-                    onClick={() => {
-                      handleDateFilterChange("today");
-                      setCalendarOpen(false);
-                    }}
-                    data-testid="button-filter-today"
-                  >
-                    Today
-                  </Button>
-                  <Button
-                    variant={dateFilter === "tomorrow" ? "secondary" : "ghost"}
-                    size="sm"
-                    onClick={() => {
-                      handleDateFilterChange("tomorrow");
-                      setCalendarOpen(false);
-                    }}
-                    data-testid="button-filter-tomorrow"
-                  >
-                    Tomorrow
-                  </Button>
-                  <Button
-                    variant={dateFilter === "this-week" ? "secondary" : "ghost"}
-                    size="sm"
-                    onClick={() => {
-                      setDateFilter("this-week");
-                      setCalendarOpen(false);
-                    }}
-                    data-testid="button-filter-this-week"
-                  >
-                    This Week
-                  </Button>
-                </div>
-                <CalendarComponent
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={handleCalendarSelect}
-                  initialFocus
+                <Button
+                  variant={dateFilter === "tomorrow" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => {
+                    handleDateFilterChange("tomorrow");
+                    setCalendarOpen(false);
+                  }}
+                  data-testid="button-filter-tomorrow"
+                >
+                  Tomorrow
+                </Button>
+                <Button
+                  variant={dateFilter === "this-week" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => {
+                    setDateFilter("this-week");
+                    setCalendarOpen(false);
+                  }}
+                  data-testid="button-filter-this-week"
+                >
+                  This Week
+                </Button>
+              </div>
+              <CalendarComponent
+                mode="single"
+                selected={selectedDate}
+                onSelect={handleCalendarSelect}
+                initialFocus
                 />
               </PopoverContent>
             </Popover>
-            
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleNextDate}
-              data-testid="button-next-date"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
 
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[140px]" data-testid="select-status">
