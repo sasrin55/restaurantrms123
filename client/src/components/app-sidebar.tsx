@@ -21,6 +21,7 @@ import {
   HelpCircle,
   ArrowRight,
 } from "lucide-react";
+import paolasLogo from "@/assets/images/paolas-logo.png";
 
 const restaurantItems = [
   {
@@ -69,20 +70,13 @@ export function AppSidebar() {
   return (
     <Sidebar className="border-r border-sidebar-border">
       <div className="p-4 pb-6">
-        <div className="flex flex-col">
-          <span className="text-2xl font-serif tracking-wide" style={{ fontFamily: "'Playfair Display', serif" }}>
-            <span className="text-foreground">PAOLA'S</span>
-          </span>
-          <span 
-            className="text-lg italic tracking-wider" 
-            style={{ 
-              fontFamily: "'Architects Daughter', cursive",
-              color: '#C4A052'
-            }}
-          >
-            Cosa Nostra
-          </span>
-        </div>
+        <img 
+          src={paolasLogo} 
+          alt="PAOLA'S Cosa Nostra" 
+          className="h-14 w-auto"
+          style={{ mixBlendMode: "multiply" }}
+          data-testid="img-logo"
+        />
       </div>
       <SidebarContent>
         <SidebarGroup>
