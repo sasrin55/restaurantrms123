@@ -68,7 +68,7 @@ export function AppSidebar() {
   const [location] = useLocation();
 
   return (
-    <Sidebar className="border-r border-sidebar-border" style={{ backgroundColor: "#FFFFFF" }}>
+    <Sidebar className="border-r border-sidebar-border">
       <div className="pt-6 px-5 pb-4 flex justify-center">
         <img 
           src={paolasLogo} 
