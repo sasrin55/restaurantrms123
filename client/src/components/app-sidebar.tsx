@@ -69,7 +69,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar className="border-r border-sidebar-border">
-      <div className="pt-5 pl-4 pb-6">
+      <div className="pt-3 pl-4 pb-6">
         <img 
           src={paolasLogo} 
           alt="PAOLA'S Cosa Nostra" 
