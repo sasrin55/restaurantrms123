@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Clock, Users, Armchair, Phone } from "lucide-react";
+import { Clock, Users, Phone } from "lucide-react";
 
 export type ReservationStatus = "seated" | "confirmed" | "pending" | "complete";
 
@@ -15,7 +15,6 @@ interface ReservationCardProps {
   onEdit?: () => void;
   onPrimaryAction?: () => void;
   onSecondaryAction?: () => void;
-  onTertiaryAction?: () => void;
 }
 
 const statusConfig: Record<ReservationStatus, { label: string; className: string }> = {
@@ -41,30 +40,26 @@ function getActionButtons(status: ReservationStatus) {
   switch (status) {
     case "seated":
       return {
-        primary: { label: "Mark As Complete", variant: "default" as const },
+        primary: { label: "Mark As Complete", className: "bg-[#0D7377] text-white" },
         secondary: null,
-        tertiary: null,
       };
     case "confirmed":
       return {
-        primary: { label: "Mark As Seated", variant: "default" as const },
+        primary: { label: "Mark As Seated", className: "bg-[#0D7377] text-white" },
         secondary: null,
-        tertiary: null,
       };
     case "pending":
       return {
-        primary: { label: "Confirm", variant: "default" as const },
-        secondary: { label: "Cancel", variant: "destructive" as const },
-        tertiary: null,
+        primary: { label: "Confirm", className: "bg-[#0D7377] text-white" },
+        secondary: { label: "Cancel", className: "bg-rose-100 text-rose-700 border-rose-200" },
       };
     case "complete":
       return {
-        primary: { label: "Remove Reservation", variant: "secondary" as const },
+        primary: { label: "Remove Reservation", className: "bg-rose-100 text-rose-700 border-rose-200" },
         secondary: null,
-        tertiary: null,
       };
     default:
-      return { primary: null, secondary: null, tertiary: null };
+      return { primary: null, secondary: null };
   }
 }
 
@@ -84,18 +79,18 @@ export function ReservationCard({
   const actions = getActionButtons(status);
 
   return (
-    <Card className="p-4 bg-card border border-card-border" data-testid={`reservation-card-${id}`}>
-      <div className="flex items-start justify-between mb-4">
+    <Card className="p-4 bg-card border border-border" data-testid={`reservation-card-${id}`}>
+      <div className="flex items-start justify-between mb-3">
         <h3 className="font-semibold text-foreground text-base">{guestName}</h3>
         <span
-          className={`px-3 py-1 rounded-full text-xs font-medium ${statusStyle.className}`}
+          className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyle.className}`}
         >
           {statusStyle.label}
         </span>
       </div>
 
-      <div className="space-y-2 mb-4">
-        <div className="flex items-center gap-6 text-sm text-muted-foreground">
+      <div className="space-y-2 mb-4 text-sm text-muted-foreground">
+        <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4" />
             <span>{time}</span>
@@ -105,9 +100,13 @@ export function ReservationCard({
             <span>{partySize} people</span>
           </div>
         </div>
-        <div className="flex items-center gap-6 text-sm text-muted-foreground">
+        <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
-            <Armchair className="h-4 w-4" />
+            <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <rect x="3" y="6" width="10" height="2" rx="0.5" />
+              <rect x="4" y="8" width="1" height="4" />
+              <rect x="11" y="8" width="1" height="4" />
+            </svg>
             <span>Table {tableNumber}</span>
           </div>
           <div className="flex items-center gap-2">
@@ -117,7 +116,7 @@ export function ReservationCard({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-2">
         <Button
           variant="outline"
           size="sm"
@@ -128,14 +127,9 @@ export function ReservationCard({
         </Button>
         {actions.primary && (
           <Button
-            variant={actions.primary.variant}
             size="sm"
             onClick={onPrimaryAction}
-            className={
-              actions.primary.variant === "default" || actions.primary.variant === "secondary"
-                ? "bg-[#1C1C1C] text-white"
-                : ""
-            }
+            className={actions.primary.className}
             data-testid={`button-primary-${id}`}
           >
             {actions.primary.label}
@@ -143,9 +137,10 @@ export function ReservationCard({
         )}
         {actions.secondary && (
           <Button
-            variant="destructive"
             size="sm"
+            variant="outline"
             onClick={onSecondaryAction}
+            className={actions.secondary.className}
             data-testid={`button-secondary-${id}`}
           >
             {actions.secondary.label}
@@ -153,5 +148,83 @@ export function ReservationCard({
         )}
       </div>
     </Card>
+  );
+}
+
+interface ReservationRowProps {
+  id: string;
+  guestName: string;
+  status: ReservationStatus;
+  time: string;
+  partySize: number;
+  tableNumber: string;
+  phone: string;
+  onEdit?: () => void;
+  onPrimaryAction?: () => void;
+  onSecondaryAction?: () => void;
+}
+
+export function ReservationRow({
+  id,
+  guestName,
+  status,
+  time,
+  partySize,
+  tableNumber,
+  phone,
+  onEdit,
+  onPrimaryAction,
+  onSecondaryAction,
+}: ReservationRowProps) {
+  const statusStyle = statusConfig[status];
+  const actions = getActionButtons(status);
+
+  return (
+    <tr className="border-b border-border" data-testid={`reservation-row-${id}`}>
+      <td className="py-3 px-4 text-foreground font-medium">{guestName}</td>
+      <td className="py-3 px-4 text-muted-foreground">{time}</td>
+      <td className="py-3 px-4 text-muted-foreground">{partySize} people</td>
+      <td className="py-3 px-4 text-muted-foreground">{tableNumber}</td>
+      <td className="py-3 px-4 text-muted-foreground">{phone}</td>
+      <td className="py-3 px-4">
+        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyle.className}`}>
+          {statusStyle.label}
+        </span>
+      </td>
+      <td className="py-3 px-4">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onEdit}
+            className="text-muted-foreground"
+            data-testid={`button-edit-row-${id}`}
+          >
+            Edit
+          </Button>
+          {actions.primary && (
+            <Button
+              size="sm"
+              onClick={onPrimaryAction}
+              className={actions.primary.className}
+              data-testid={`button-primary-row-${id}`}
+            >
+              {actions.primary.label}
+            </Button>
+          )}
+          {actions.secondary && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onSecondaryAction}
+              className={actions.secondary.className}
+              data-testid={`button-secondary-row-${id}`}
+            >
+              {actions.secondary.label}
+            </Button>
+          )}
+        </div>
+      </td>
+    </tr>
   );
 }

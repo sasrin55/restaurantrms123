@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,8 +10,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ReservationCard, type ReservationStatus } from "@/components/reservation-card";
+import { ReservationCard, ReservationRow, type ReservationStatus } from "@/components/reservation-card";
+import { EditReservationDialog } from "@/components/edit-reservation-dialog";
 import { Plus, Search, Calendar, LayoutGrid, List, Loader2 } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Reservation } from "@shared/schema";
 
 export default function ReservationsPage() {
@@ -19,10 +21,58 @@ export default function ReservationsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [partySizeFilter, setPartySizeFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [editingReservation, setEditingReservation] = useState<Reservation | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const { data: reservations = [], isLoading } = useQuery<Reservation[]>({
     queryKey: ["/api/reservations"],
   });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      return apiRequest("PATCH", `/api/reservations/${id}/status`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
+    },
+  });
+
+  const deleteReservationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/reservations/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
+    },
+  });
+
+  const handleEdit = (reservation: Reservation) => {
+    setEditingReservation(reservation);
+    setEditDialogOpen(true);
+  };
+
+  const handlePrimaryAction = (reservation: Reservation) => {
+    switch (reservation.status) {
+      case "seated":
+        updateStatusMutation.mutate({ id: reservation.id, status: "complete" });
+        break;
+      case "confirmed":
+        updateStatusMutation.mutate({ id: reservation.id, status: "seated" });
+        break;
+      case "pending":
+        updateStatusMutation.mutate({ id: reservation.id, status: "confirmed" });
+        break;
+      case "complete":
+        deleteReservationMutation.mutate(reservation.id);
+        break;
+    }
+  };
+
+  const handleSecondaryAction = (reservation: Reservation) => {
+    if (reservation.status === "pending") {
+      deleteReservationMutation.mutate(reservation.id);
+    }
+  };
 
   const filteredReservations = reservations.filter((reservation) => {
     const matchesSearch =
@@ -53,7 +103,7 @@ export default function ReservationsPage() {
           </div>
           <Link href="/new-reservation">
             <Button 
-              className="bg-[#1C1C1C] text-white gap-2"
+              className="bg-[#0D7377] text-white gap-2"
               data-testid="button-new-reservation"
             >
               <Plus className="h-4 w-4" />
@@ -142,7 +192,7 @@ export default function ReservationsPage() {
             </p>
             <Link href="/new-reservation">
               <Button 
-                className="bg-[#1C1C1C] text-white gap-2"
+                className="bg-[#0D7377] text-white gap-2"
                 data-testid="button-create-first-reservation"
               >
                 <Plus className="h-4 w-4" />
@@ -150,14 +200,8 @@ export default function ReservationsPage() {
               </Button>
             </Link>
           </div>
-        ) : (
-          <div
-            className={
-              viewMode === "grid"
-                ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-                : "flex flex-col gap-4"
-            }
-          >
+        ) : viewMode === "grid" ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredReservations.map((reservation) => (
               <ReservationCard
                 key={reservation.id}
@@ -168,14 +212,53 @@ export default function ReservationsPage() {
                 partySize={reservation.partySize}
                 tableNumber={reservation.tableName.replace("Table ", "")}
                 phone={reservation.phoneNumber}
-                onEdit={() => console.log("Edit", reservation.id)}
-                onPrimaryAction={() => console.log("Primary action", reservation.id)}
-                onSecondaryAction={() => console.log("Secondary action", reservation.id)}
+                onEdit={() => handleEdit(reservation)}
+                onPrimaryAction={() => handlePrimaryAction(reservation)}
+                onSecondaryAction={() => handleSecondaryAction(reservation)}
               />
             ))}
           </div>
+        ) : (
+          <div className="border rounded-md overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-muted/50">
+                <tr className="border-b">
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Guest Name</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Time</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Party Size</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Table</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Phone Number</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredReservations.map((reservation) => (
+                  <ReservationRow
+                    key={reservation.id}
+                    id={reservation.id}
+                    guestName={reservation.customerName}
+                    status={reservation.status as ReservationStatus}
+                    time={reservation.time}
+                    partySize={reservation.partySize}
+                    tableNumber={reservation.tableName.replace("Table ", "")}
+                    phone={reservation.phoneNumber}
+                    onEdit={() => handleEdit(reservation)}
+                    onPrimaryAction={() => handlePrimaryAction(reservation)}
+                    onSecondaryAction={() => handleSecondaryAction(reservation)}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
+
+      <EditReservationDialog
+        reservation={editingReservation}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+      />
     </div>
   );
 }

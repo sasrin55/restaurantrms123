@@ -41,6 +41,21 @@ export async function registerRoutes(
     res.json(reservation);
   });
 
+  app.patch("/api/reservations/:id", async (req, res) => {
+    const { time, partySize, tableId, tableName, phoneNumber } = req.body;
+    const reservation = await storage.updateReservation(req.params.id, {
+      time,
+      partySize,
+      tableId,
+      tableName,
+      phoneNumber,
+    });
+    if (!reservation) {
+      return res.status(404).json({ error: "Reservation not found" });
+    }
+    res.json(reservation);
+  });
+
   app.delete("/api/reservations/:id", async (req, res) => {
     const deleted = await storage.deleteReservation(req.params.id);
     if (!deleted) {

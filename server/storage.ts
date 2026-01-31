@@ -9,6 +9,7 @@ export interface IStorage {
   getReservations(): Promise<Reservation[]>;
   getReservation(id: string): Promise<Reservation | undefined>;
   createReservation(reservation: InsertReservation): Promise<Reservation>;
+  updateReservation(id: string, updates: Partial<Reservation>): Promise<Reservation | undefined>;
   updateReservationStatus(id: string, status: string): Promise<Reservation | undefined>;
   deleteReservation(id: string): Promise<boolean>;
 }
@@ -61,6 +62,15 @@ export class MemStorage implements IStorage {
     };
     this.reservations.set(id, reservation);
     return reservation;
+  }
+
+  async updateReservation(id: string, updates: Partial<Reservation>): Promise<Reservation | undefined> {
+    const reservation = this.reservations.get(id);
+    if (!reservation) return undefined;
+    
+    const updated = { ...reservation, ...updates };
+    this.reservations.set(id, updated);
+    return updated;
   }
 
   async updateReservationStatus(id: string, status: string): Promise<Reservation | undefined> {
