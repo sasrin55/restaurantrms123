@@ -75,7 +75,7 @@ export function AppSidebar() {
           alt="PAOLA'S Cosa Nostra" 
           style={{ 
             width: "178px", 
-            height: "73px", 
+            height: "auto", 
             mixBlendMode: "multiply" 
           }}
           data-testid="img-logo"
