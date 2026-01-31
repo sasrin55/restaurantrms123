@@ -83,7 +83,7 @@ export function AppSidebar() {
       </div>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-4">
+          <SidebarGroupLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 pb-4 mb-2 border-b">
             Restaurant
           </SidebarGroupLabel>
           <SidebarGroupContent>
