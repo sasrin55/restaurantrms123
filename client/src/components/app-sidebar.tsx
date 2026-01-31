@@ -69,12 +69,15 @@ export function AppSidebar() {
 
   return (
     <Sidebar className="border-r border-sidebar-border">
-      <div className="p-4 pb-6">
+      <div className="pt-5 pl-4 pb-6">
         <img 
           src={paolasLogo} 
           alt="PAOLA'S Cosa Nostra" 
-          className="h-14 w-auto"
-          style={{ mixBlendMode: "multiply" }}
+          style={{ 
+            width: "178px", 
+            height: "73px", 
+            mixBlendMode: "multiply" 
+          }}
           data-testid="img-logo"
         />
       </div>
