@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -14,13 +15,15 @@ import {
 } from "@/components/ui/select";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Users, Check, Send } from "lucide-react";
 import { format } from "date-fns";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import restaurantBg from "@/assets/images/restaurant-bg.jpg";
 
 interface ReservationData {
   date: Date | undefined;
   time: string;
   partySize: number;
-  tableNumber: string;
+  tableId: number;
+  tableName: string;
   customerName: string;
   phoneNumber: string;
 }
@@ -33,12 +36,12 @@ const availableTimes = [
 ];
 
 const mockTables = [
-  { id: "1", number: "1", capacity: 4 },
-  { id: "4", number: "4", capacity: 4 },
-  { id: "9", number: "9", capacity: 4 },
-  { id: "12", number: "12", capacity: 4 },
-  { id: "15", number: "15", capacity: 4 },
-  { id: "16", number: "16", capacity: 4 },
+  { id: 1, number: "1", capacity: 4 },
+  { id: 4, number: "4", capacity: 4 },
+  { id: 9, number: "9", capacity: 4 },
+  { id: 12, number: "12", capacity: 4 },
+  { id: 15, number: "15", capacity: 4 },
+  { id: 16, number: "16", capacity: 4 },
 ];
 
 export default function NewReservationPage() {
@@ -48,9 +51,29 @@ export default function NewReservationPage() {
     date: new Date(),
     time: "4:00 PM",
     partySize: 4,
-    tableNumber: "",
+    tableId: 0,
+    tableName: "",
     customerName: "",
     phoneNumber: "",
+  });
+
+  const createReservationMutation = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        customerName: reservationData.customerName,
+        phoneNumber: reservationData.phoneNumber,
+        date: reservationData.date ? format(reservationData.date, "yyyy-MM-dd") : "",
+        time: reservationData.time,
+        partySize: reservationData.partySize,
+        tableId: reservationData.tableId,
+        tableName: reservationData.tableName,
+        status: "confirmed",
+      };
+      return apiRequest("POST", "/api/reservations", payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
+    },
   });
 
   const totalSteps = 6;
@@ -60,14 +83,17 @@ export default function NewReservationPage() {
       case 1: return !!reservationData.date;
       case 2: return !!reservationData.time;
       case 3: return reservationData.partySize > 0;
-      case 4: return !!reservationData.tableNumber;
+      case 4: return reservationData.tableId > 0;
       case 5: return !!reservationData.customerName && !!reservationData.phoneNumber;
       default: return true;
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep < totalSteps && canGoNext()) {
+      if (currentStep === 5) {
+        await createReservationMutation.mutateAsync();
+      }
       setCurrentStep(currentStep + 1);
     }
   };
@@ -172,11 +198,15 @@ export default function NewReservationPage() {
                 <Card
                   key={table.id}
                   className={`p-4 cursor-pointer transition-all flex flex-col items-center justify-center min-w-[100px] ${
-                    reservationData.tableNumber === table.number
+                    reservationData.tableId === table.id
                       ? "ring-2 ring-[#0D7377] bg-[#0D7377]/5"
                       : "bg-white/90"
                   }`}
-                  onClick={() => setReservationData({ ...reservationData, tableNumber: table.number })}
+                  onClick={() => setReservationData({ 
+                    ...reservationData, 
+                    tableId: table.id,
+                    tableName: `Table ${table.number}`
+                  })}
                   data-testid={`table-card-${table.id}`}
                 >
                   <svg width="48" height="32" viewBox="0 0 48 32" fill="none" className="mb-2">
@@ -325,7 +355,7 @@ export default function NewReservationPage() {
               variant="ghost"
               size="icon"
               onClick={handleNext}
-              disabled={!canGoNext()}
+              disabled={!canGoNext() || createReservationMutation.isPending}
               className="rounded-full border border-foreground/20"
               data-testid="button-next-step"
             >

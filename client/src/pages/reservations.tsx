@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,19 +11,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ReservationCard, type ReservationStatus } from "@/components/reservation-card";
-import { Plus, Search, Calendar, LayoutGrid, List } from "lucide-react";
-
-interface Reservation {
-  id: string;
-  guestName: string;
-  status: ReservationStatus;
-  time: string;
-  partySize: number;
-  tableNumber: string;
-  phone: string;
-}
-
-const mockReservations: Reservation[] = [];
+import { Plus, Search, Calendar, LayoutGrid, List, Loader2 } from "lucide-react";
+import type { Reservation } from "@shared/schema";
 
 export default function ReservationsPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -30,11 +20,15 @@ export default function ReservationsPage() {
   const [partySizeFilter, setPartySizeFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
-  const filteredReservations = mockReservations.filter((reservation) => {
+  const { data: reservations = [], isLoading } = useQuery<Reservation[]>({
+    queryKey: ["/api/reservations"],
+  });
+
+  const filteredReservations = reservations.filter((reservation) => {
     const matchesSearch =
-      reservation.guestName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      reservation.phone.includes(searchQuery) ||
-      reservation.tableNumber.includes(searchQuery);
+      reservation.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      reservation.phoneNumber.includes(searchQuery) ||
+      reservation.tableName.includes(searchQuery);
 
     const matchesStatus =
       statusFilter === "all" || reservation.status === statusFilter;
@@ -133,7 +127,11 @@ export default function ReservationsPage() {
           </div>
         </div>
 
-        {filteredReservations.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : filteredReservations.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
               <Calendar className="h-8 w-8 text-muted-foreground" />
@@ -163,7 +161,13 @@ export default function ReservationsPage() {
             {filteredReservations.map((reservation) => (
               <ReservationCard
                 key={reservation.id}
-                {...reservation}
+                id={reservation.id}
+                guestName={reservation.customerName}
+                status={reservation.status as ReservationStatus}
+                time={reservation.time}
+                partySize={reservation.partySize}
+                tableNumber={reservation.tableName.replace("Table ", "")}
+                phone={reservation.phoneNumber}
                 onEdit={() => console.log("Edit", reservation.id)}
                 onPrimaryAction={() => console.log("Primary action", reservation.id)}
                 onSecondaryAction={() => console.log("Secondary action", reservation.id)}

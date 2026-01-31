@@ -1,16 +1,53 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { insertReservationSchema } from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
+  app.get("/api/reservations", async (req, res) => {
+    const reservations = await storage.getReservations();
+    res.json(reservations);
+  });
 
-  // use storage to perform CRUD operations on the storage interface
-  // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
+  app.get("/api/reservations/:id", async (req, res) => {
+    const reservation = await storage.getReservation(req.params.id);
+    if (!reservation) {
+      return res.status(404).json({ error: "Reservation not found" });
+    }
+    res.json(reservation);
+  });
+
+  app.post("/api/reservations", async (req, res) => {
+    const parsed = insertReservationSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.errors });
+    }
+    const reservation = await storage.createReservation(parsed.data);
+    res.status(201).json(reservation);
+  });
+
+  app.patch("/api/reservations/:id/status", async (req, res) => {
+    const { status } = req.body;
+    if (!status || typeof status !== "string") {
+      return res.status(400).json({ error: "Status is required" });
+    }
+    const reservation = await storage.updateReservationStatus(req.params.id, status);
+    if (!reservation) {
+      return res.status(404).json({ error: "Reservation not found" });
+    }
+    res.json(reservation);
+  });
+
+  app.delete("/api/reservations/:id", async (req, res) => {
+    const deleted = await storage.deleteReservation(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ error: "Reservation not found" });
+    }
+    res.status(204).send();
+  });
 
   return httpServer;
 }
