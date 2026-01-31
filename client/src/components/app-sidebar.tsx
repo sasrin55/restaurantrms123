@@ -16,7 +16,7 @@ import {
   Table2,
   Users,
   Bell,
-  Package,
+  Carrot,
   Settings,
   HelpCircle,
   ArrowRight,
@@ -47,7 +47,7 @@ const restaurantItems = [
   {
     title: "Inventory Management",
     url: "/inventory",
-    icon: Package,
+    icon: Carrot,
   },
 ];
 
@@ -68,7 +68,7 @@ export function AppSidebar() {
   const [location] = useLocation();
 
   return (
-    <Sidebar className="border-r border-sidebar-border bg-white">
+    <Sidebar className="border-r border-sidebar-border" style={{ backgroundColor: "#FFFFFF" }}>
       <div className="pt-6 px-5 pb-4 flex justify-center">
         <img 
           src={paolasLogo} 
@@ -112,7 +112,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
         <SidebarGroup>
-          <div className="flex items-center gap-2 px-4 mb-3 mt-2">
+          <div className="flex items-center gap-2 px-4 mb-3 mt-4 pt-4 border-t">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">
               General
             </span>
