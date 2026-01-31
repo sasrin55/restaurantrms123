@@ -328,8 +328,15 @@ export default function NewReservationPage() {
       
       <div className="relative z-10 flex flex-col items-center min-h-full py-8 px-4">
         <h1 
-          className="text-3xl italic mb-8"
-          style={{ fontFamily: "'Playfair Display', serif", color: "#0D7377" }}
+          className="mb-8"
+          style={{ 
+            fontFamily: "'Ortica Linear', 'Playfair Display', serif",
+            fontWeight: 300,
+            fontSize: "40px",
+            lineHeight: "100%",
+            letterSpacing: "0%",
+            color: "#0D7377"
+          }}
           data-testid="text-brand-title"
         >
           seated
