@@ -74,7 +74,7 @@ export function AppSidebar() {
           src={paolasLogo} 
           alt="PAOLA'S Cosa Nostra" 
           style={{ 
-            width: "178px", 
+            width: "134px", 
             height: "auto", 
             mixBlendMode: "multiply" 
           }}
