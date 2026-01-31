@@ -10,11 +10,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { ReservationCard, ReservationRow, type ReservationStatus } from "@/components/reservation-card";
 import { EditReservationDialog } from "@/components/edit-reservation-dialog";
-import { Plus, Search, Calendar, LayoutGrid, List, Loader2 } from "lucide-react";
+import { Plus, Search, Calendar, LayoutGrid, List, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { format, addDays, subDays, startOfWeek, endOfWeek, isWithinInterval, parseISO, isToday, isTomorrow } from "date-fns";
 import type { Reservation } from "@shared/schema";
+
+type DateFilter = "today" | "tomorrow" | "this-week" | "custom";
 
 export default function ReservationsPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -23,6 +32,9 @@ export default function ReservationsPage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [editingReservation, setEditingReservation] = useState<Reservation | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [dateFilter, setDateFilter] = useState<DateFilter>("today");
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const { data: reservations = [], isLoading } = useQuery<Reservation[]>({
     queryKey: ["/api/reservations"],
@@ -74,6 +86,63 @@ export default function ReservationsPage() {
     }
   };
 
+  const handleDateFilterChange = (filter: DateFilter) => {
+    setDateFilter(filter);
+    if (filter === "today") {
+      setSelectedDate(new Date());
+    } else if (filter === "tomorrow") {
+      setSelectedDate(addDays(new Date(), 1));
+    }
+  };
+
+  const handlePrevDate = () => {
+    setSelectedDate(subDays(selectedDate, 1));
+    setDateFilter("custom");
+  };
+
+  const handleNextDate = () => {
+    setSelectedDate(addDays(selectedDate, 1));
+    setDateFilter("custom");
+  };
+
+  const handleCalendarSelect = (date: Date | undefined) => {
+    if (date) {
+      setSelectedDate(date);
+      if (isToday(date)) {
+        setDateFilter("today");
+      } else if (isTomorrow(date)) {
+        setDateFilter("tomorrow");
+      } else {
+        setDateFilter("custom");
+      }
+      setCalendarOpen(false);
+    }
+  };
+
+  const getDateDisplayLabel = () => {
+    if (dateFilter === "today") return "Today";
+    if (dateFilter === "tomorrow") return "Tomorrow";
+    if (dateFilter === "this-week") return "This Week";
+    return format(selectedDate, "MMM d, yyyy");
+  };
+
+  const matchesDateFilter = (reservationDate: string) => {
+    try {
+      const resDate = parseISO(reservationDate);
+      
+      if (dateFilter === "this-week") {
+        const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+        const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
+        return isWithinInterval(resDate, { start: weekStart, end: weekEnd });
+      }
+      
+      const targetDate = format(selectedDate, "yyyy-MM-dd");
+      return reservationDate === targetDate;
+    } catch {
+      return true;
+    }
+  };
+
   const filteredReservations = reservations.filter((reservation) => {
     const matchesSearch =
       reservation.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -90,7 +159,9 @@ export default function ReservationsPage() {
       (partySizeFilter === "5-6" && reservation.partySize >= 5 && reservation.partySize <= 6) ||
       (partySizeFilter === "7+" && reservation.partySize >= 7);
 
-    return matchesSearch && matchesStatus && matchesPartySize;
+    const matchesDate = matchesDateFilter(reservation.date);
+
+    return matchesSearch && matchesStatus && matchesPartySize && matchesDate;
   });
 
   return (
@@ -124,10 +195,81 @@ export default function ReservationsPage() {
             />
           </div>
 
-          <Button variant="outline" className="gap-2 min-w-[120px]" data-testid="button-date-picker">
-            <span>Today</span>
-            <Calendar className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handlePrevDate}
+              data-testid="button-prev-date"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  className="gap-2 min-w-[120px]" 
+                  data-testid="button-date-picker"
+                >
+                  <span>{getDateDisplayLabel()}</span>
+                  <Calendar className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <div className="p-2 border-b flex gap-1">
+                  <Button
+                    variant={dateFilter === "today" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => {
+                      handleDateFilterChange("today");
+                      setCalendarOpen(false);
+                    }}
+                    data-testid="button-filter-today"
+                  >
+                    Today
+                  </Button>
+                  <Button
+                    variant={dateFilter === "tomorrow" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => {
+                      handleDateFilterChange("tomorrow");
+                      setCalendarOpen(false);
+                    }}
+                    data-testid="button-filter-tomorrow"
+                  >
+                    Tomorrow
+                  </Button>
+                  <Button
+                    variant={dateFilter === "this-week" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => {
+                      setDateFilter("this-week");
+                      setCalendarOpen(false);
+                    }}
+                    data-testid="button-filter-this-week"
+                  >
+                    This Week
+                  </Button>
+                </div>
+                <CalendarComponent
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={handleCalendarSelect}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleNextDate}
+              data-testid="button-next-date"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
 
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[140px]" data-testid="select-status">
@@ -186,9 +328,11 @@ export default function ReservationsPage() {
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
               <Calendar className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-medium text-foreground mb-2" data-testid="text-empty-title">No reservations yet</h3>
+            <h3 className="text-lg font-medium text-foreground mb-2" data-testid="text-empty-title">
+              No reservations {dateFilter === "today" ? "for today" : dateFilter === "tomorrow" ? "for tomorrow" : dateFilter === "this-week" ? "this week" : `for ${format(selectedDate, "MMM d")}`}
+            </h3>
             <p className="text-muted-foreground mb-4 max-w-sm" data-testid="text-empty-description">
-              Start by creating your first reservation to manage your restaurant bookings.
+              Start by creating a reservation or try a different date filter.
             </p>
             <Link href="/new-reservation">
               <Button 
