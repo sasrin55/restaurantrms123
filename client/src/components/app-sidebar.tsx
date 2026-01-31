@@ -12,10 +12,10 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  Plus,
-  CalendarDays,
+  PlusCircle,
+  Table2,
   Users,
-  UserCog,
+  Bell,
   Package,
   Settings,
   HelpCircle,
@@ -27,12 +27,12 @@ const restaurantItems = [
   {
     title: "New Reservation",
     url: "/new-reservation",
-    icon: Plus,
+    icon: PlusCircle,
   },
   {
     title: "Reservations",
     url: "/",
-    icon: CalendarDays,
+    icon: Table2,
   },
   {
     title: "Guest List",
@@ -42,7 +42,7 @@ const restaurantItems = [
   {
     title: "Servers",
     url: "/servers",
-    icon: UserCog,
+    icon: Bell,
   },
   {
     title: "Inventory Management",
@@ -68,13 +68,13 @@ export function AppSidebar() {
   const [location] = useLocation();
 
   return (
-    <Sidebar className="border-r border-sidebar-border">
-      <div className="pt-3 pl-4 pb-1">
+    <Sidebar className="border-r border-sidebar-border bg-white">
+      <div className="pt-6 px-5 pb-4 flex justify-center">
         <img 
           src={paolasLogo} 
           alt="PAOLA'S Cosa Nostra" 
           style={{ 
-            width: "134px", 
+            width: "140px", 
             height: "auto", 
             mixBlendMode: "multiply" 
           }}
@@ -83,9 +83,12 @@ export function AppSidebar() {
       </div>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 pb-4 mb-2 border-b">
-            Restaurant
-          </SidebarGroupLabel>
+          <div className="flex items-center gap-2 px-4 mb-3">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+              Restaurant
+            </span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
           <SidebarGroupContent>
             <SidebarMenu>
               {restaurantItems.map((item) => {
@@ -109,9 +112,12 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-4">
-            General
-          </SidebarGroupLabel>
+          <div className="flex items-center gap-2 px-4 mb-3 mt-2">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+              General
+            </span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
           <SidebarGroupContent>
             <SidebarMenu>
               {generalItems.map((item) => {
