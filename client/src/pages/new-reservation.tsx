@@ -22,8 +22,7 @@ interface ReservationData {
   date: Date | undefined;
   time: string;
   partySize: number;
-  tableId: number;
-  tableName: string;
+  selectedTables: { id: number; number: number }[];
   customerName: string;
   phoneNumber: string;
 }
@@ -59,8 +58,7 @@ export default function NewReservationPage() {
     date: new Date(),
     time: "4:00 PM",
     partySize: 2,
-    tableId: 0,
-    tableName: "",
+    selectedTables: [],
     customerName: "",
     phoneNumber: "",
   });
@@ -83,17 +81,21 @@ export default function NewReservationPage() {
 
   const createReservationMutation = useMutation({
     mutationFn: async () => {
-      const payload = {
-        customerName: reservationData.customerName,
-        phoneNumber: reservationData.phoneNumber,
-        date: reservationData.date ? format(reservationData.date, "yyyy-MM-dd") : "",
-        time: reservationData.time,
-        partySize: reservationData.partySize,
-        tableId: reservationData.tableId,
-        tableName: reservationData.tableName,
-        status: "confirmed",
-      };
-      return apiRequest("POST", "/api/reservations", payload);
+      const dateStr = reservationData.date ? format(reservationData.date, "yyyy-MM-dd") : "";
+      const promises = reservationData.selectedTables.map((table) => {
+        const payload = {
+          customerName: reservationData.customerName,
+          phoneNumber: reservationData.phoneNumber,
+          date: dateStr,
+          time: reservationData.time,
+          partySize: reservationData.partySize,
+          tableId: table.id,
+          tableName: `Table ${table.number}`,
+          status: "confirmed",
+        };
+        return apiRequest("POST", "/api/reservations", payload);
+      });
+      return Promise.all(promises);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
@@ -108,7 +110,7 @@ export default function NewReservationPage() {
       case 1: return !!reservationData.date;
       case 2: return !!reservationData.time;
       case 3: return reservationData.partySize > 0;
-      case 4: return reservationData.tableId > 0;
+      case 4: return reservationData.selectedTables.length > 0;
       case 5: return !!reservationData.customerName && !!reservationData.phoneNumber;
       default: return true;
     }
@@ -117,7 +119,7 @@ export default function NewReservationPage() {
   const handleNext = async () => {
     if (currentStep < totalSteps && canGoNext()) {
       if (currentStep === 3) {
-        setReservationData(prev => ({ ...prev, tableId: 0, tableName: "" }));
+        setReservationData(prev => ({ ...prev, selectedTables: [] }));
       }
       if (currentStep === 5) {
         await createReservationMutation.mutateAsync();
@@ -222,9 +224,14 @@ export default function NewReservationPage() {
       case 4:
         return (
           <div className="flex flex-col items-center">
-            <h2 className="text-xl font-medium text-foreground mb-6" data-testid="text-step-title">
+            <h2 className="text-xl font-medium text-foreground mb-2" data-testid="text-step-title">
               Available Tables
             </h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              {reservationData.selectedTables.length === 0
+                ? "Tap to select one or more tables"
+                : `${reservationData.selectedTables.length} table${reservationData.selectedTables.length > 1 ? "s" : ""} selected`}
+            </p>
             {availableTables.length === 0 ? (
               <p className="text-muted-foreground text-sm">No tables available for this party size, date, and time.</p>
             ) : (
@@ -233,15 +240,17 @@ export default function NewReservationPage() {
                   <Card
                     key={table.id}
                     className={`p-4 cursor-pointer transition-all flex flex-col items-center justify-center min-w-[100px] ${
-                      reservationData.tableId === table.id
+                      reservationData.selectedTables.some(t => t.id === table.id)
                         ? "ring-2 ring-[#0D7377] bg-[#0D7377]/5"
                         : "bg-white/90"
                     }`}
-                    onClick={() => setReservationData({ 
-                      ...reservationData, 
-                      tableId: table.id,
-                      tableName: `Table ${table.number}`
-                    })}
+                    onClick={() => {
+                      const isSelected = reservationData.selectedTables.some(t => t.id === table.id);
+                      const updated = isSelected
+                        ? reservationData.selectedTables.filter(t => t.id !== table.id)
+                        : [...reservationData.selectedTables, { id: table.id, number: table.number }];
+                      setReservationData({ ...reservationData, selectedTables: updated });
+                    }}
                     data-testid={`table-card-${table.id}`}
                   >
                     <svg width="48" height="32" viewBox="0 0 48 32" fill="none" className="mb-2">
@@ -330,6 +339,15 @@ export default function NewReservationPage() {
                     <span className="text-muted-foreground">Party Size:</span>
                     <span className="font-medium">{reservationData.partySize} people</span>
                   </div>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Tables:</span>
+                  <span className="font-medium">
+                    {reservationData.selectedTables
+                      .sort((a, b) => a.number - b.number)
+                      .map(t => `Table ${t.number}`)
+                      .join(", ")}
+                  </span>
                 </div>
               </div>
 
