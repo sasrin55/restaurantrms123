@@ -146,20 +146,22 @@ export default function NewReservationPage() {
             <h2 className="text-xl font-medium text-foreground mb-6" data-testid="text-step-title">
               What time does the customer want a booking for?
             </h2>
-            <Select 
-              value={reservationData.time} 
-              onValueChange={(time) => setReservationData({ ...reservationData, time })}
-            >
-              <SelectTrigger className="w-[200px] bg-white" data-testid="select-time">
-                <SelectValue placeholder="Select time" />
-                <Clock className="h-4 w-4 text-muted-foreground" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableTimes.map((time) => (
-                  <SelectItem key={time} value={time}>{time}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Select 
+                value={reservationData.time} 
+                onValueChange={(time) => setReservationData({ ...reservationData, time })}
+              >
+                <SelectTrigger className="w-[200px] bg-white" data-testid="select-time">
+                  <SelectValue placeholder="Select time" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableTimes.map((time) => (
+                    <SelectItem key={time} value={time}>{time}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Clock className="h-5 w-5 text-muted-foreground" />
+            </div>
           </div>
         );
 
@@ -169,22 +171,24 @@ export default function NewReservationPage() {
             <h2 className="text-xl font-medium text-foreground mb-6" data-testid="text-step-title">
               What is the party size?
             </h2>
-            <Select 
-              value={reservationData.partySize.toString()} 
-              onValueChange={(size) => setReservationData({ ...reservationData, partySize: parseInt(size) })}
-            >
-              <SelectTrigger className="w-[200px] bg-white" data-testid="select-party-size">
-                <SelectValue placeholder="Select party size" />
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </SelectTrigger>
-              <SelectContent>
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((size) => (
-                  <SelectItem key={size} value={size.toString()}>
-                    {size} {size === 1 ? "person" : "people"}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Select 
+                value={reservationData.partySize.toString()} 
+                onValueChange={(size) => setReservationData({ ...reservationData, partySize: parseInt(size) })}
+              >
+                <SelectTrigger className="w-[200px] bg-white" data-testid="select-party-size">
+                  <SelectValue placeholder="Select party size" />
+                </SelectTrigger>
+                <SelectContent>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((size) => (
+                    <SelectItem key={size} value={size.toString()}>
+                      {size} {size === 1 ? "person" : "people"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Users className="h-5 w-5 text-muted-foreground" />
+            </div>
           </div>
         );
 
