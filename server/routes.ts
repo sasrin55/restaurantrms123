@@ -82,7 +82,7 @@ export async function registerRoutes(
     if (!deleted) {
       return res.status(404).json({ error: "Guest not found" });
     }
-    res.status(204).send();
+    res.json({ success: true });
   });
 
   return httpServer;

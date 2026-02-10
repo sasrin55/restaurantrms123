@@ -28,7 +28,7 @@ export default function GuestListPage() {
   const deleteGuestMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/guests/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/guests"] });
+      queryClient.refetchQueries({ queryKey: ["/api/guests"] });
     },
   });
 
