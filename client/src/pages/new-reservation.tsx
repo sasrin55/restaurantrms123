@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -35,13 +35,21 @@ const availableTimes = [
   "9:00 PM", "9:30 PM", "10:00 PM"
 ];
 
-const mockTables = [
-  { id: 1, number: "1", capacity: 4 },
-  { id: 4, number: "4", capacity: 4 },
-  { id: 9, number: "9", capacity: 4 },
-  { id: 12, number: "12", capacity: 4 },
-  { id: 15, number: "15", capacity: 4 },
-  { id: 16, number: "16", capacity: 4 },
+const restaurantTables = [
+  { id: 1, number: 1, minCapacity: 4, maxCapacity: 6 },
+  { id: 2, number: 2, minCapacity: 4, maxCapacity: 6 },
+  { id: 3, number: 3, minCapacity: 2, maxCapacity: 2 },
+  { id: 4, number: 4, minCapacity: 2, maxCapacity: 2 },
+  { id: 5, number: 5, minCapacity: 8, maxCapacity: 10 },
+  { id: 6, number: 6, minCapacity: 3, maxCapacity: 3 },
+  { id: 7, number: 7, minCapacity: 4, maxCapacity: 4 },
+  { id: 8, number: 8, minCapacity: 2, maxCapacity: 2 },
+  { id: 9, number: 9, minCapacity: 2, maxCapacity: 2 },
+  { id: 10, number: 10, minCapacity: 2, maxCapacity: 2 },
+  { id: 11, number: 11, minCapacity: 8, maxCapacity: 10 },
+  { id: 12, number: 12, minCapacity: 3, maxCapacity: 4 },
+  { id: 13, number: 13, minCapacity: 3, maxCapacity: 4 },
+  { id: 14, number: 14, minCapacity: 4, maxCapacity: 6 },
 ];
 
 export default function NewReservationPage() {
@@ -50,12 +58,28 @@ export default function NewReservationPage() {
   const [reservationData, setReservationData] = useState<ReservationData>({
     date: new Date(),
     time: "4:00 PM",
-    partySize: 4,
+    partySize: 2,
     tableId: 0,
     tableName: "",
     customerName: "",
     phoneNumber: "",
   });
+
+  const { data: existingReservations = [] } = useQuery<any[]>({
+    queryKey: ["/api/reservations"],
+  });
+
+  const bookedTableIds = existingReservations
+    .filter((r: any) => {
+      if (!reservationData.date) return false;
+      const selectedDate = format(reservationData.date, "yyyy-MM-dd");
+      return r.date === selectedDate && r.time === reservationData.time && r.status !== "complete";
+    })
+    .map((r: any) => r.tableId);
+
+  const availableTables = restaurantTables.filter(
+    (t) => reservationData.partySize >= t.minCapacity && reservationData.partySize <= t.maxCapacity && !bookedTableIds.includes(t.id)
+  );
 
   const createReservationMutation = useMutation({
     mutationFn: async () => {
@@ -92,6 +116,9 @@ export default function NewReservationPage() {
 
   const handleNext = async () => {
     if (currentStep < totalSteps && canGoNext()) {
+      if (currentStep === 3) {
+        setReservationData(prev => ({ ...prev, tableId: 0, tableName: "" }));
+      }
       if (currentStep === 5) {
         await createReservationMutation.mutateAsync();
       }
@@ -198,34 +225,42 @@ export default function NewReservationPage() {
             <h2 className="text-xl font-medium text-foreground mb-6" data-testid="text-step-title">
               Available Tables
             </h2>
-            <div className="grid grid-cols-4 gap-4">
-              {mockTables.filter(t => t.capacity >= reservationData.partySize).map((table) => (
-                <Card
-                  key={table.id}
-                  className={`p-4 cursor-pointer transition-all flex flex-col items-center justify-center min-w-[100px] ${
-                    reservationData.tableId === table.id
-                      ? "ring-2 ring-[#0D7377] bg-[#0D7377]/5"
-                      : "bg-white/90"
-                  }`}
-                  onClick={() => setReservationData({ 
-                    ...reservationData, 
-                    tableId: table.id,
-                    tableName: `Table ${table.number}`
-                  })}
-                  data-testid={`table-card-${table.id}`}
-                >
-                  <svg width="48" height="32" viewBox="0 0 48 32" fill="none" className="mb-2">
-                    <rect x="8" y="12" width="32" height="4" fill="#0D7377" rx="1" />
-                    <rect x="10" y="16" width="2" height="12" fill="#0D7377" />
-                    <rect x="36" y="16" width="2" height="12" fill="#0D7377" />
-                    <rect x="2" y="8" width="8" height="16" rx="2" stroke="#0D7377" strokeWidth="1.5" fill="none" />
-                    <rect x="38" y="8" width="8" height="16" rx="2" stroke="#0D7377" strokeWidth="1.5" fill="none" />
-                  </svg>
-                  <span className="font-medium text-foreground">Table {table.number}</span>
-                  <span className="text-xs text-muted-foreground">{table.capacity} people</span>
-                </Card>
-              ))}
-            </div>
+            {availableTables.length === 0 ? (
+              <p className="text-muted-foreground text-sm">No tables available for this party size, date, and time.</p>
+            ) : (
+              <div className="grid grid-cols-4 gap-4">
+                {availableTables.map((table) => (
+                  <Card
+                    key={table.id}
+                    className={`p-4 cursor-pointer transition-all flex flex-col items-center justify-center min-w-[100px] ${
+                      reservationData.tableId === table.id
+                        ? "ring-2 ring-[#0D7377] bg-[#0D7377]/5"
+                        : "bg-white/90"
+                    }`}
+                    onClick={() => setReservationData({ 
+                      ...reservationData, 
+                      tableId: table.id,
+                      tableName: `Table ${table.number}`
+                    })}
+                    data-testid={`table-card-${table.id}`}
+                  >
+                    <svg width="48" height="32" viewBox="0 0 48 32" fill="none" className="mb-2">
+                      <rect x="8" y="12" width="32" height="4" fill="#0D7377" rx="1" />
+                      <rect x="10" y="16" width="2" height="12" fill="#0D7377" />
+                      <rect x="36" y="16" width="2" height="12" fill="#0D7377" />
+                      <rect x="2" y="8" width="8" height="16" rx="2" stroke="#0D7377" strokeWidth="1.5" fill="none" />
+                      <rect x="38" y="8" width="8" height="16" rx="2" stroke="#0D7377" strokeWidth="1.5" fill="none" />
+                    </svg>
+                    <span className="font-medium text-foreground">Table {table.number}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {table.minCapacity === table.maxCapacity
+                        ? `${table.minCapacity} seats`
+                        : `${table.minCapacity} to ${table.maxCapacity} seats`}
+                    </span>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         );
 
