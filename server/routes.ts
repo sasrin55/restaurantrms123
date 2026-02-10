@@ -26,6 +26,14 @@ export async function registerRoutes(
       return res.status(400).json({ error: parsed.error.errors });
     }
     const reservation = await storage.createReservation(parsed.data);
+
+    await storage.upsertGuest(
+      reservation.customerName,
+      reservation.phoneNumber,
+      reservation.date,
+      reservation.partySize
+    );
+
     res.status(201).json(reservation);
   });
 
@@ -65,44 +73,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/guests", async (req, res) => {
-    const reservations = await storage.getReservations();
-    
-    const guestMap = new Map<string, {
-      id: string;
-      name: string;
-      phone: string;
-      visitCount: number;
-      lastVisit: string;
-      totalPartySize: number;
-    }>();
-
-    for (const reservation of reservations) {
-      const key = reservation.phoneNumber;
-      const existing = guestMap.get(key);
-      
-      if (existing) {
-        existing.visitCount += 1;
-        existing.totalPartySize += reservation.partySize;
-        if (reservation.date > existing.lastVisit) {
-          existing.lastVisit = reservation.date;
-          existing.name = reservation.customerName;
-        }
-      } else {
-        guestMap.set(key, {
-          id: key,
-          name: reservation.customerName,
-          phone: reservation.phoneNumber,
-          visitCount: 1,
-          lastVisit: reservation.date,
-          totalPartySize: reservation.partySize,
-        });
-      }
-    }
-
-    const guests = Array.from(guestMap.values()).sort((a, b) => 
-      b.visitCount - a.visitCount
-    );
-    
+    const guests = await storage.getGuests();
     res.json(guests);
   });
 

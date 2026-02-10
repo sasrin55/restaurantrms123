@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Reservation, type InsertReservation } from "@shared/schema";
+import { type User, type InsertUser, type Reservation, type InsertReservation, type Guest, type InsertGuest } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -12,15 +12,21 @@ export interface IStorage {
   updateReservation(id: string, updates: Partial<Reservation>): Promise<Reservation | undefined>;
   updateReservationStatus(id: string, status: string): Promise<Reservation | undefined>;
   deleteReservation(id: string): Promise<boolean>;
+
+  getGuests(): Promise<Guest[]>;
+  getGuest(id: string): Promise<Guest | undefined>;
+  upsertGuest(name: string, phone: string, date: string, partySize: number): Promise<Guest>;
 }
 
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private reservations: Map<string, Reservation>;
+  private guestsStore: Map<string, Guest>;
 
   constructor() {
     this.users = new Map();
     this.reservations = new Map();
+    this.guestsStore = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -84,6 +90,43 @@ export class MemStorage implements IStorage {
 
   async deleteReservation(id: string): Promise<boolean> {
     return this.reservations.delete(id);
+  }
+
+  async getGuests(): Promise<Guest[]> {
+    return Array.from(this.guestsStore.values()).sort((a, b) => 
+      b.visitCount - a.visitCount
+    );
+  }
+
+  async getGuest(id: string): Promise<Guest | undefined> {
+    return this.guestsStore.get(id);
+  }
+
+  async upsertGuest(name: string, phone: string, date: string, partySize: number): Promise<Guest> {
+    const existingByPhone = Array.from(this.guestsStore.values()).find(g => g.phone === phone);
+    
+    if (existingByPhone) {
+      existingByPhone.visitCount += 1;
+      existingByPhone.totalPartySize += partySize;
+      if (date > existingByPhone.lastVisit) {
+        existingByPhone.lastVisit = date;
+        existingByPhone.name = name;
+      }
+      this.guestsStore.set(existingByPhone.id, existingByPhone);
+      return existingByPhone;
+    }
+
+    const id = randomUUID();
+    const guest: Guest = {
+      id,
+      name,
+      phone,
+      visitCount: 1,
+      lastVisit: date,
+      totalPartySize: partySize,
+    };
+    this.guestsStore.set(id, guest);
+    return guest;
   }
 }
 

@@ -37,3 +37,19 @@ export const insertReservationSchema = createInsertSchema(reservations).omit({
 
 export type InsertReservation = z.infer<typeof insertReservationSchema>;
 export type Reservation = typeof reservations.$inferSelect;
+
+export const guests = pgTable("guests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  phone: text("phone").notNull().unique(),
+  visitCount: integer("visit_count").notNull().default(1),
+  lastVisit: text("last_visit").notNull(),
+  totalPartySize: integer("total_party_size").notNull().default(0),
+});
+
+export const insertGuestSchema = createInsertSchema(guests).omit({
+  id: true,
+});
+
+export type InsertGuest = z.infer<typeof insertGuestSchema>;
+export type Guest = typeof guests.$inferSelect;
