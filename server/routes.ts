@@ -77,5 +77,13 @@ export async function registerRoutes(
     res.json(guests);
   });
 
+  app.delete("/api/guests/:id", async (req, res) => {
+    const deleted = await storage.deleteGuest(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ error: "Guest not found" });
+    }
+    res.status(204).send();
+  });
+
   return httpServer;
 }

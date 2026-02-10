@@ -16,6 +16,7 @@ export interface IStorage {
   getGuests(): Promise<Guest[]>;
   getGuest(id: string): Promise<Guest | undefined>;
   upsertGuest(name: string, phone: string, date: string, partySize: number): Promise<Guest>;
+  deleteGuest(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -127,6 +128,9 @@ export class MemStorage implements IStorage {
     };
     this.guestsStore.set(id, guest);
     return guest;
+  }
+  async deleteGuest(id: string): Promise<boolean> {
+    return this.guestsStore.delete(id);
   }
 }
 

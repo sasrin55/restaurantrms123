@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, Users, Phone, Calendar, Loader2 } from "lucide-react";
+import { Search, Users, Phone, Calendar, Loader2, Trash2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface Guest {
   id: string;
@@ -21,6 +23,13 @@ export default function GuestListPage() {
 
   const { data: guests = [], isLoading } = useQuery<Guest[]>({
     queryKey: ["/api/guests"],
+  });
+
+  const deleteGuestMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/guests/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/guests"] });
+    },
   });
 
   const filteredGuests = guests.filter((guest) => {
@@ -113,13 +122,23 @@ export default function GuestListPage() {
                         <span data-testid={`text-guest-phone-${guest.id}`}>{guest.phone}</span>
                       </div>
                     </div>
-                    <Badge 
-                      variant="secondary" 
-                      className="shrink-0"
-                      data-testid={`badge-visit-count-${guest.id}`}
-                    >
-                      {guest.visitCount} {guest.visitCount === 1 ? "visit" : "visits"}
-                    </Badge>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge 
+                        variant="secondary" 
+                        data-testid={`badge-visit-count-${guest.id}`}
+                      >
+                        {guest.visitCount} {guest.visitCount === 1 ? "visit" : "visits"}
+                      </Badge>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => deleteGuestMutation.mutate(guest.id)}
+                        disabled={deleteGuestMutation.isPending}
+                        data-testid={`button-remove-guest-${guest.id}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </div>
                   </div>
                   <div className="mt-4 pt-4 border-t flex items-center justify-between text-sm">
                     <div className="flex items-center gap-1.5 text-muted-foreground">
