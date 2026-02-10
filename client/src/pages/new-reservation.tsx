@@ -73,6 +73,7 @@ export default function NewReservationPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/guests"] });
     },
   });
 
