@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar as CalendarIcon, Clock, Users, Check, Send, Link2 } from "lucide-react";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { restaurantTables, getAvailableSingleTables, getAvailableTableCombos, type TableCombo } from "@/lib/tables";
+import { restaurantTables, getAvailableSingleTables } from "@/lib/tables";
 import restaurantBg from "@/assets/images/restaurant-bg.jpg";
 
 const availableTimes = [
@@ -37,7 +37,7 @@ export default function NewReservationPage() {
   const [time, setTime] = useState("7:00 PM");
   const [partySize, setPartySize] = useState("2");
   const [selectedTables, setSelectedTables] = useState<{ id: number; number: string }[]>([]);
-  const [selectedCombo, setSelectedCombo] = useState<TableCombo | null>(null);
+  const [selectionMode, setSelectionMode] = useState<"single" | "join">("single");
   const [customerName, setCustomerName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [comments, setComments] = useState("");
@@ -57,7 +57,7 @@ export default function NewReservationPage() {
     .map((r: any) => r.tableId);
 
   const availableTables = getAvailableSingleTables(parsedSize, bookedTableIds);
-  const availableCombos = parsedSize > 0 ? getAvailableTableCombos(parsedSize, bookedTableIds) : [];
+  const joinableTables = restaurantTables.filter((t) => !bookedTableIds.includes(t.id));
 
   const createReservationMutation = useMutation({
     mutationFn: async () => {
@@ -101,7 +101,6 @@ export default function NewReservationPage() {
 
   const clearSelections = () => {
     setSelectedTables([]);
-    setSelectedCombo(null);
   };
 
   const handlePartySizeChange = (val: string) => {
@@ -120,26 +119,25 @@ export default function NewReservationPage() {
   };
 
   const toggleTable = (table: { id: number; number: string }) => {
-    setSelectedCombo(null);
     const isSelected = selectedTables.some((t) => t.id === table.id);
     if (isSelected) {
       setSelectedTables(selectedTables.filter((t) => t.id !== table.id));
     } else {
-      setSelectedTables([...selectedTables, table]);
+      if (selectionMode === "single") {
+        setSelectedTables([table]);
+      } else {
+        if (selectedTables.length >= 2) {
+          setSelectedTables([selectedTables[1], table]);
+        } else {
+          setSelectedTables([...selectedTables, table]);
+        }
+      }
     }
   };
 
-  const selectCombo = (combo: TableCombo) => {
-    if (selectedCombo && selectedCombo.table1.id === combo.table1.id && selectedCombo.table2.id === combo.table2.id) {
-      setSelectedCombo(null);
-      setSelectedTables([]);
-    } else {
-      setSelectedCombo(combo);
-      setSelectedTables([
-        { id: combo.table1.id, number: combo.table1.number },
-        { id: combo.table2.id, number: combo.table2.number },
-      ]);
-    }
+  const switchMode = (mode: "single" | "join") => {
+    setSelectionMode(mode);
+    setSelectedTables([]);
   };
 
   if (confirmed) {
@@ -328,93 +326,108 @@ export default function NewReservationPage() {
           <div className="mb-6">
             <Label className="text-muted-foreground text-sm mb-2 block">Select Table(s)</Label>
 
-            {availableTables.length === 0 && availableCombos.length === 0 ? (
-              <p className="text-muted-foreground text-sm py-4 text-center" data-testid="text-no-tables">
-                No tables available for this party size, date, and time.
-              </p>
+            <div className="flex gap-2 mb-4">
+              <Button
+                type="button"
+                variant={selectionMode === "single" ? "default" : "outline"}
+                size="sm"
+                onClick={() => switchMode("single")}
+                className={selectionMode === "single" ? "bg-[#0D7377] hover:bg-[#0D7377]/90" : ""}
+                data-testid="button-mode-single"
+              >
+                Single Table
+              </Button>
+              <Button
+                type="button"
+                variant={selectionMode === "join" ? "default" : "outline"}
+                size="sm"
+                onClick={() => switchMode("join")}
+                className={selectionMode === "join" ? "bg-[#0D7377] hover:bg-[#0D7377]/90" : ""}
+                data-testid="button-mode-join"
+              >
+                <Link2 className="h-3.5 w-3.5 mr-1" />
+                Join Two Tables
+              </Button>
+            </div>
+
+            {selectionMode === "single" ? (
+              availableTables.length === 0 ? (
+                <p className="text-muted-foreground text-sm py-4 text-center" data-testid="text-no-tables">
+                  No single tables available for this party size, date, and time.
+                </p>
+              ) : (
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                  {availableTables.map((table) => {
+                    const isSelected = selectedTables.some((t) => t.id === table.id);
+                    return (
+                      <div
+                        key={table.id}
+                        className={`flex flex-col items-center justify-center p-3 rounded-md cursor-pointer border transition-colors ${
+                          isSelected
+                            ? "border-[#0D7377] bg-[#0D7377]/10"
+                            : "border-border hover-elevate"
+                        }`}
+                        onClick={() => toggleTable({ id: table.id, number: table.number })}
+                        data-testid={`table-card-${table.id}`}
+                      >
+                        <svg width="36" height="24" viewBox="0 0 48 32" fill="none" className="mb-1">
+                          <rect x="8" y="12" width="32" height="4" fill="#0D7377" rx="1" />
+                          <rect x="10" y="16" width="2" height="12" fill="#0D7377" />
+                          <rect x="36" y="16" width="2" height="12" fill="#0D7377" />
+                          <rect x="2" y="8" width="8" height="16" rx="2" stroke="#0D7377" strokeWidth="1.5" fill="none" />
+                          <rect x="38" y="8" width="8" height="16" rx="2" stroke="#0D7377" strokeWidth="1.5" fill="none" />
+                        </svg>
+                        <span className="font-medium text-sm text-foreground">Table {table.number}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {table.minCapacity === table.maxCapacity
+                            ? `${table.minCapacity} seats`
+                            : `${table.minCapacity}-${table.maxCapacity}`}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )
             ) : (
               <>
-                {availableTables.length > 0 && (
-                  <div className="mb-4">
-                    <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Single Tables</p>
-                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-                      {availableTables.map((table) => {
-                        const isSelected = !selectedCombo && selectedTables.some((t) => t.id === table.id);
-                        return (
-                          <div
-                            key={table.id}
-                            className={`flex flex-col items-center justify-center p-3 rounded-md cursor-pointer border transition-colors ${
-                              isSelected
-                                ? "border-[#0D7377] bg-[#0D7377]/10"
-                                : "border-border hover-elevate"
-                            }`}
-                            onClick={() => toggleTable({ id: table.id, number: table.number })}
-                            data-testid={`table-card-${table.id}`}
-                          >
-                            <svg width="36" height="24" viewBox="0 0 48 32" fill="none" className="mb-1">
-                              <rect x="8" y="12" width="32" height="4" fill="#0D7377" rx="1" />
-                              <rect x="10" y="16" width="2" height="12" fill="#0D7377" />
-                              <rect x="36" y="16" width="2" height="12" fill="#0D7377" />
-                              <rect x="2" y="8" width="8" height="16" rx="2" stroke="#0D7377" strokeWidth="1.5" fill="none" />
-                              <rect x="38" y="8" width="8" height="16" rx="2" stroke="#0D7377" strokeWidth="1.5" fill="none" />
-                            </svg>
-                            <span className="font-medium text-sm text-foreground">Table {table.number}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {table.minCapacity === table.maxCapacity
-                                ? `${table.minCapacity} seats`
-                                : `${table.minCapacity}-${table.maxCapacity}`}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {availableCombos.length > 0 && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide flex items-center gap-1">
-                      <Link2 className="h-3 w-3" />
-                      Join Two Tables
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {availableCombos.map((combo) => {
-                        const isSelected = selectedCombo &&
-                          selectedCombo.table1.id === combo.table1.id &&
-                          selectedCombo.table2.id === combo.table2.id;
-                        return (
-                          <div
-                            key={`${combo.table1.id}-${combo.table2.id}`}
-                            className={`flex items-center justify-center gap-3 p-3 rounded-md cursor-pointer border transition-colors ${
-                              isSelected
-                                ? "border-[#0D7377] bg-[#0D7377]/10"
-                                : "border-border hover-elevate"
-                            }`}
-                            onClick={() => selectCombo(combo)}
-                            data-testid={`combo-card-${combo.table1.id}-${combo.table2.id}`}
-                          >
-                            <div className="flex flex-col items-center">
-                              <span className="font-medium text-sm text-foreground">T{combo.table1.number}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {combo.table1.minCapacity === combo.table1.maxCapacity
-                                  ? `${combo.table1.maxCapacity}`
-                                  : `${combo.table1.minCapacity}-${combo.table1.maxCapacity}`}
-                              </span>
-                            </div>
-                            <span className="text-xs font-medium text-[#0D7377]">+</span>
-                            <div className="flex flex-col items-center">
-                              <span className="font-medium text-sm text-foreground">T{combo.table2.number}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {combo.table2.minCapacity === combo.table2.maxCapacity
-                                  ? `${combo.table2.maxCapacity}`
-                                  : `${combo.table2.minCapacity}-${combo.table2.maxCapacity}`}
-                              </span>
-                            </div>
-                            <span className="text-xs text-muted-foreground ml-1">= {combo.totalMax} seats</span>
-                          </div>
-                        );
-                      })}
-                    </div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Select 2 tables to join together for your party of {parsedSize}.
+                </p>
+                {joinableTables.length === 0 ? (
+                  <p className="text-muted-foreground text-sm py-4 text-center" data-testid="text-no-tables">
+                    No tables available for this date and time.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                    {joinableTables.map((table) => {
+                      const isSelected = selectedTables.some((t) => t.id === table.id);
+                      return (
+                        <div
+                          key={table.id}
+                          className={`flex flex-col items-center justify-center p-3 rounded-md cursor-pointer border transition-colors ${
+                            isSelected
+                              ? "border-[#0D7377] bg-[#0D7377]/10"
+                              : "border-border hover-elevate"
+                          }`}
+                          onClick={() => toggleTable({ id: table.id, number: table.number })}
+                          data-testid={`join-table-card-${table.id}`}
+                        >
+                          <svg width="36" height="24" viewBox="0 0 48 32" fill="none" className="mb-1">
+                            <rect x="8" y="12" width="32" height="4" fill="#0D7377" rx="1" />
+                            <rect x="10" y="16" width="2" height="12" fill="#0D7377" />
+                            <rect x="36" y="16" width="2" height="12" fill="#0D7377" />
+                            <rect x="2" y="8" width="8" height="16" rx="2" stroke="#0D7377" strokeWidth="1.5" fill="none" />
+                            <rect x="38" y="8" width="8" height="16" rx="2" stroke="#0D7377" strokeWidth="1.5" fill="none" />
+                          </svg>
+                          <span className="font-medium text-sm text-foreground">Table {table.number}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {table.minCapacity === table.maxCapacity
+                              ? `${table.minCapacity} seats`
+                              : `${table.minCapacity}-${table.maxCapacity}`}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </>
@@ -422,8 +435,10 @@ export default function NewReservationPage() {
 
             {selectedTables.length > 0 && (
               <p className="text-sm text-[#0D7377] mt-2" data-testid="text-tables-selected">
-                {selectedCombo
-                  ? `Tables ${selectedCombo.table1.number} + ${selectedCombo.table2.number} joined`
+                {selectionMode === "join" && selectedTables.length === 2
+                  ? `Tables ${selectedTables[0].number} + ${selectedTables[1].number} joined`
+                  : selectionMode === "join" && selectedTables.length === 1
+                  ? `1 table selected — pick one more to join`
                   : `${selectedTables.length} table${selectedTables.length > 1 ? "s" : ""} selected`}
               </p>
             )}
