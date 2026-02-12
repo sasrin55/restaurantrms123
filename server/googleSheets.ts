@@ -50,7 +50,7 @@ async function getUncachableGoogleSheetClient() {
 
 let cachedSpreadsheetId: string | null = null;
 
-const HEADERS = ['ID', 'Name', 'Phone', 'Date', 'Time', 'Party Size', 'Table', 'Comments', 'Status', 'Created At'];
+const HEADERS = ['Name', 'Phone', 'Date', 'Time', 'Party Size', 'Table', 'Comments', 'Status', 'Created At', 'ID'];
 
 async function getOrCreateSpreadsheet(): Promise<string> {
   if (cachedSpreadsheetId) {
@@ -111,7 +111,6 @@ function reservationToRow(reservation: {
   createdAt: Date | null;
 }) {
   return [
-    reservation.id,
     reservation.customerName,
     reservation.phoneNumber,
     reservation.date,
@@ -121,13 +120,14 @@ function reservationToRow(reservation: {
     reservation.comments || "",
     reservation.status,
     reservation.createdAt ? reservation.createdAt.toISOString() : new Date().toISOString(),
+    reservation.id,
   ];
 }
 
 async function findRowByReservationId(sheets: any, spreadsheetId: string, reservationId: string): Promise<number> {
   const result = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: 'Reservations!A:A',
+    range: 'Reservations!J:J',
   });
 
   const rows = result.data.values || [];
