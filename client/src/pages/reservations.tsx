@@ -18,8 +18,7 @@ import {
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { ReservationCard, ReservationRow, type ReservationStatus } from "@/components/reservation-card";
 import { EditReservationDialog } from "@/components/edit-reservation-dialog";
-import { Plus, Search, Calendar, LayoutGrid, List, Loader2, FileSpreadsheet } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Plus, Search, Calendar, LayoutGrid, List, Loader2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format, addDays, startOfWeek, endOfWeek, isWithinInterval, parseISO, isToday, isTomorrow } from "date-fns";
 import type { Reservation } from "@shared/schema";
@@ -27,7 +26,6 @@ import type { Reservation } from "@shared/schema";
 type DateFilter = "today" | "tomorrow" | "this-week" | "custom";
 
 export default function ReservationsPage() {
-  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [partySizeFilter, setPartySizeFilter] = useState("all");
@@ -57,29 +55,6 @@ export default function ReservationsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
-    },
-  });
-
-  const exportToSheetsMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/reservations/export-sheets");
-      return res.json();
-    },
-    onSuccess: (data: any) => {
-      toast({
-        title: "Exported to Google Sheets",
-        description: "Your reservations have been exported successfully.",
-      });
-      if (data?.url) {
-        window.open(data.url, "_blank");
-      }
-    },
-    onError: () => {
-      toast({
-        title: "Export failed",
-        description: "Could not export to Google Sheets. Please try again.",
-        variant: "destructive",
-      });
     },
   });
 
@@ -187,31 +162,15 @@ export default function ReservationsPage() {
             <h1 className="text-2xl font-semibold text-foreground mb-1" data-testid="text-page-title">Reservations</h1>
             <p className="text-sm text-muted-foreground" data-testid="text-page-subtitle">Manage and view all of your reservations.</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              className="gap-2 rounded-full px-5"
-              onClick={() => exportToSheetsMutation.mutate()}
-              disabled={exportToSheetsMutation.isPending}
-              data-testid="button-export-sheets"
+          <Link href="/new-reservation">
+            <Button 
+              className="bg-[#0D7377] hover:bg-[#0a5c5f] text-white gap-2 rounded-full px-5"
+              data-testid="button-new-reservation"
             >
-              {exportToSheetsMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <FileSpreadsheet className="h-4 w-4" />
-              )}
-              Export to Sheets
+              <Plus className="h-4 w-4" />
+              New Reservation
             </Button>
-            <Link href="/new-reservation">
-              <Button 
-                className="bg-[#0D7377] hover:bg-[#0a5c5f] text-white gap-2 rounded-full px-5"
-                data-testid="button-new-reservation"
-              >
-                <Plus className="h-4 w-4" />
-                New Reservation
-              </Button>
-            </Link>
-          </div>
+          </Link>
         </div>
 
         <div className="flex items-center gap-3 mb-6 flex-wrap">
