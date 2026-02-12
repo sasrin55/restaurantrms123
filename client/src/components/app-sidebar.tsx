@@ -20,6 +20,7 @@ import {
   Settings,
   HelpCircle,
   ArrowRight,
+  LayoutGrid,
 } from "lucide-react";
 import paolasLogo from "@/assets/images/paolas-logo.png";
 
@@ -33,6 +34,11 @@ const restaurantItems = [
     title: "Reservations",
     url: "/",
     icon: Table2,
+  },
+  {
+    title: "Tables",
+    url: "/tables",
+    icon: LayoutGrid,
   },
   {
     title: "Guest List",
