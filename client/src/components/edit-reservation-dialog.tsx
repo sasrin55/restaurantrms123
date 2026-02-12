@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Reservation } from "@shared/schema";
+import { restaurantTables } from "@/lib/tables";
 
 interface EditReservationDialogProps {
   reservation: Reservation | null;
@@ -31,23 +32,6 @@ const availableTimes = [
   "3:00 PM", "3:30 PM", "4:00 PM", "4:30 PM", "5:00 PM", "5:30 PM",
   "6:00 PM", "6:30 PM", "7:00 PM", "7:30 PM", "8:00 PM", "8:30 PM",
   "9:00 PM", "9:30 PM", "10:00 PM"
-];
-
-const restaurantTables = [
-  { id: 1, number: 1, minCapacity: 4, maxCapacity: 6 },
-  { id: 2, number: 2, minCapacity: 4, maxCapacity: 6 },
-  { id: 3, number: 3, minCapacity: 2, maxCapacity: 2 },
-  { id: 4, number: 4, minCapacity: 2, maxCapacity: 2 },
-  { id: 5, number: 5, minCapacity: 8, maxCapacity: 10 },
-  { id: 6, number: 6, minCapacity: 3, maxCapacity: 3 },
-  { id: 7, number: 7, minCapacity: 4, maxCapacity: 4 },
-  { id: 8, number: 8, minCapacity: 2, maxCapacity: 2 },
-  { id: 9, number: 9, minCapacity: 2, maxCapacity: 2 },
-  { id: 10, number: 10, minCapacity: 2, maxCapacity: 2 },
-  { id: 11, number: 11, minCapacity: 8, maxCapacity: 10 },
-  { id: 12, number: 12, minCapacity: 3, maxCapacity: 4 },
-  { id: 13, number: 13, minCapacity: 3, maxCapacity: 4 },
-  { id: 14, number: 14, minCapacity: 4, maxCapacity: 6 },
 ];
 
 export function EditReservationDialog({
@@ -134,7 +118,7 @@ export function EditReservationDialog({
                 <SelectValue placeholder="Select party size" />
               </SelectTrigger>
               <SelectContent>
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((size) => (
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((size) => (
                   <SelectItem key={size} value={size.toString()}>
                     {size} {size === 1 ? "person" : "people"}
                   </SelectItem>

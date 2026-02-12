@@ -6,23 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Reservation } from "@shared/schema";
 import { format, addDays, subDays, isToday } from "date-fns";
-
-const restaurantTables = [
-  { id: 1, number: 1, minCapacity: 4, maxCapacity: 6 },
-  { id: 2, number: 2, minCapacity: 4, maxCapacity: 6 },
-  { id: 3, number: 3, minCapacity: 2, maxCapacity: 2 },
-  { id: 4, number: 4, minCapacity: 2, maxCapacity: 2 },
-  { id: 5, number: 5, minCapacity: 8, maxCapacity: 10 },
-  { id: 6, number: 6, minCapacity: 3, maxCapacity: 3 },
-  { id: 7, number: 7, minCapacity: 4, maxCapacity: 4 },
-  { id: 8, number: 8, minCapacity: 2, maxCapacity: 2 },
-  { id: 9, number: 9, minCapacity: 2, maxCapacity: 2 },
-  { id: 10, number: 10, minCapacity: 2, maxCapacity: 2 },
-  { id: 11, number: 11, minCapacity: 8, maxCapacity: 10 },
-  { id: 12, number: 12, minCapacity: 3, maxCapacity: 4 },
-  { id: 13, number: 13, minCapacity: 3, maxCapacity: 4 },
-  { id: 14, number: 14, minCapacity: 4, maxCapacity: 6 },
-];
+import { restaurantTables } from "@/lib/tables";
 
 export default function TablesPage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
