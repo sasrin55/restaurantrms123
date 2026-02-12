@@ -25,6 +25,49 @@ import type { Reservation } from "@shared/schema";
 
 type DateFilter = "today" | "tomorrow" | "this-week" | "custom";
 
+interface GroupedReservation {
+  ids: string[];
+  reservations: Reservation[];
+  customerName: string;
+  status: string;
+  time: string;
+  partySize: number;
+  tableNames: string[];
+  phoneNumber: string;
+  comments: string;
+  date: string;
+}
+
+function groupReservations(reservations: Reservation[]): GroupedReservation[] {
+  const groups = new Map<string, Reservation[]>();
+
+  for (const r of reservations) {
+    const key = `${r.customerName}|${r.date}|${r.time}|${r.partySize}|${r.phoneNumber}`;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.push(r);
+    } else {
+      groups.set(key, [r]);
+    }
+  }
+
+  return Array.from(groups.values()).map((group) => {
+    const first = group[0];
+    return {
+      ids: group.map((r) => r.id),
+      reservations: group,
+      customerName: first.customerName,
+      status: first.status,
+      time: first.time,
+      partySize: first.partySize,
+      tableNames: group.map((r) => r.tableName.replace("Table ", "")),
+      phoneNumber: first.phoneNumber,
+      comments: first.comments || "",
+      date: first.date,
+    };
+  });
+}
+
 export default function ReservationsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -63,26 +106,31 @@ export default function ReservationsPage() {
     setEditDialogOpen(true);
   };
 
-  const handlePrimaryAction = (reservation: Reservation) => {
-    switch (reservation.status) {
-      case "seated":
-        updateStatusMutation.mutate({ id: reservation.id, status: "complete" });
-        break;
-      case "confirmed":
-        updateStatusMutation.mutate({ id: reservation.id, status: "seated" });
-        break;
-      case "pending":
-        updateStatusMutation.mutate({ id: reservation.id, status: "confirmed" });
-        break;
-      case "complete":
-      case "cancelled":
-        deleteReservationMutation.mutate(reservation.id);
-        break;
+  const handleGroupPrimaryAction = (group: GroupedReservation) => {
+    const status = group.status;
+    for (const id of group.ids) {
+      switch (status) {
+        case "seated":
+          updateStatusMutation.mutate({ id, status: "complete" });
+          break;
+        case "confirmed":
+          updateStatusMutation.mutate({ id, status: "seated" });
+          break;
+        case "pending":
+          updateStatusMutation.mutate({ id, status: "confirmed" });
+          break;
+        case "complete":
+        case "cancelled":
+          deleteReservationMutation.mutate(id);
+          break;
+      }
     }
   };
 
-  const handleSecondaryAction = (reservation: Reservation) => {
-    updateStatusMutation.mutate({ id: reservation.id, status: "cancelled" });
+  const handleGroupSecondaryAction = (group: GroupedReservation) => {
+    for (const id of group.ids) {
+      updateStatusMutation.mutate({ id, status: "cancelled" });
+    }
   };
 
   const handleDateFilterChange = (filter: DateFilter) => {
@@ -152,6 +200,8 @@ export default function ReservationsPage() {
 
     return matchesSearch && matchesStatus && matchesPartySize && matchesDate;
   });
+
+  const groupedReservations = groupReservations(filteredReservations);
 
   return (
     <div className="flex-1 overflow-auto">
@@ -292,7 +342,7 @@ export default function ReservationsPage() {
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
-        ) : filteredReservations.length === 0 ? (
+        ) : groupedReservations.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
               <Calendar className="h-8 w-8 text-muted-foreground" />
@@ -315,20 +365,20 @@ export default function ReservationsPage() {
           </div>
         ) : viewMode === "grid" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredReservations.map((reservation) => (
+            {groupedReservations.map((group) => (
               <ReservationCard
-                key={reservation.id}
-                id={reservation.id}
-                guestName={reservation.customerName}
-                status={reservation.status as ReservationStatus}
-                time={reservation.time}
-                partySize={reservation.partySize}
-                tableNumber={reservation.tableName.replace("Table ", "")}
-                phone={reservation.phoneNumber}
-                comments={reservation.comments || ""}
-                onEdit={() => handleEdit(reservation)}
-                onPrimaryAction={() => handlePrimaryAction(reservation)}
-                onSecondaryAction={() => handleSecondaryAction(reservation)}
+                key={group.ids.join("-")}
+                id={group.ids[0]}
+                guestName={group.customerName}
+                status={group.status as ReservationStatus}
+                time={group.time}
+                partySize={group.partySize}
+                tableNumber={group.tableNames.join(" + ")}
+                phone={group.phoneNumber}
+                comments={group.comments}
+                onEdit={() => handleEdit(group.reservations[0])}
+                onPrimaryAction={() => handleGroupPrimaryAction(group)}
+                onSecondaryAction={() => handleGroupSecondaryAction(group)}
               />
             ))}
           </div>
@@ -348,20 +398,20 @@ export default function ReservationsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredReservations.map((reservation) => (
+                {groupedReservations.map((group) => (
                   <ReservationRow
-                    key={reservation.id}
-                    id={reservation.id}
-                    guestName={reservation.customerName}
-                    status={reservation.status as ReservationStatus}
-                    time={reservation.time}
-                    partySize={reservation.partySize}
-                    tableNumber={reservation.tableName.replace("Table ", "")}
-                    phone={reservation.phoneNumber}
-                    comments={reservation.comments || ""}
-                    onEdit={() => handleEdit(reservation)}
-                    onPrimaryAction={() => handlePrimaryAction(reservation)}
-                    onSecondaryAction={() => handleSecondaryAction(reservation)}
+                    key={group.ids.join("-")}
+                    id={group.ids[0]}
+                    guestName={group.customerName}
+                    status={group.status as ReservationStatus}
+                    time={group.time}
+                    partySize={group.partySize}
+                    tableNumber={group.tableNames.join(" + ")}
+                    phone={group.phoneNumber}
+                    comments={group.comments}
+                    onEdit={() => handleEdit(group.reservations[0])}
+                    onPrimaryAction={() => handleGroupPrimaryAction(group)}
+                    onSecondaryAction={() => handleGroupSecondaryAction(group)}
                   />
                 ))}
               </tbody>

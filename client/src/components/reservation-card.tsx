@@ -118,7 +118,7 @@ export function ReservationCard({
               <rect x="4" y="8" width="1" height="4" />
               <rect x="11" y="8" width="1" height="4" />
             </svg>
-            <span>Table {tableNumber}</span>
+            <span>{tableNumber.includes("+") ? "Tables" : "Table"} {tableNumber}</span>
           </div>
           <div className="flex items-center gap-2">
             <Phone className="h-4 w-4" />
@@ -203,7 +203,7 @@ export function ReservationRow({
       <td className="py-3 px-4 text-foreground font-medium">{guestName}</td>
       <td className="py-3 px-4 text-muted-foreground">{time}</td>
       <td className="py-3 px-4 text-muted-foreground">{partySize} people</td>
-      <td className="py-3 px-4 text-muted-foreground">{tableNumber}</td>
+      <td className="py-3 px-4 text-muted-foreground">{tableNumber.includes("+") ? "Tables" : "Table"} {tableNumber}</td>
       <td className="py-3 px-4 text-muted-foreground">{phone}</td>
       <td className="py-3 px-4 text-muted-foreground max-w-[200px]">
         {comments ? (
