@@ -19,22 +19,24 @@ import { Calendar as CalendarIcon, Clock, Users, Check, Send, Link2 } from "luci
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { restaurantTables, getAvailableSingleTables } from "@/lib/tables";
+import { getTimeSlotsForDate, isMonday, getPeriodLabel, type MealPeriod } from "@/lib/timeSlots";
 import restaurantBg from "@/assets/images/restaurant-bg.jpg";
-
-const availableTimes = [
-  "12:00 PM", "12:30 PM", "1:00 PM", "1:30 PM", "2:00 PM", "2:30 PM",
-  "3:00 PM", "3:30 PM", "4:00 PM", "4:30 PM", "5:00 PM", "5:30 PM",
-  "6:00 PM", "6:30 PM", "7:00 PM", "7:30 PM", "8:00 PM", "8:30 PM",
-  "9:00 PM", "9:30 PM", "10:00 PM",
-];
 
 
 export default function NewReservationPage() {
   const [, navigate] = useLocation();
   const [confirmed, setConfirmed] = useState(false);
 
-  const [date, setDate] = useState<Date | undefined>(new Date());
-  const [time, setTime] = useState("7:00 PM");
+  const [date, setDate] = useState<Date | undefined>(() => {
+    const today = new Date();
+    if (isMonday(today)) {
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      return tomorrow;
+    }
+    return today;
+  });
+  const [time, setTime] = useState("");
   const [partySize, setPartySize] = useState("2");
   const [selectedTables, setSelectedTables] = useState<{ id: number; number: string }[]>([]);
   const [selectionMode, setSelectionMode] = useState<"single" | "join">("single");
@@ -115,8 +117,17 @@ export default function NewReservationPage() {
 
   const handleDateChange = (d: Date | undefined) => {
     setDate(d);
+    setTime("");
     clearSelections();
   };
+
+  const timeSlots = getTimeSlotsForDate(date);
+  const groupedSlots = timeSlots.reduce<Record<MealPeriod, typeof timeSlots>>((acc, slot) => {
+    if (!acc[slot.period]) acc[slot.period] = [];
+    acc[slot.period].push(slot);
+    return acc;
+  }, {} as Record<MealPeriod, typeof timeSlots>);
+  const periodOrder: MealPeriod[] = ["breakfast", "lunch", "dinner"];
 
   const toggleTable = (table: { id: number; number: string }) => {
     const isSelected = selectedTables.some((t) => t.id === table.id);
@@ -279,7 +290,13 @@ export default function NewReservationPage() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={date} onSelect={handleDateChange} initialFocus />
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={handleDateChange}
+                    initialFocus
+                    disabled={(d) => isMonday(d)}
+                  />
                 </PopoverContent>
               </Popover>
             </div>
@@ -289,14 +306,23 @@ export default function NewReservationPage() {
               <div className="flex items-center gap-2">
                 <Select value={time} onValueChange={handleTimeChange}>
                   <SelectTrigger className="w-full" data-testid="select-time">
-                    <SelectValue placeholder="Select time" />
+                    <SelectValue placeholder="Select time slot" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableTimes.map((t) => (
-                      <SelectItem key={t} value={t}>
-                        {t}
-                      </SelectItem>
-                    ))}
+                    {timeSlots.length === 0 ? (
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">Closed on Mondays</div>
+                    ) : (
+                      periodOrder.filter(p => groupedSlots[p]).map((period) => (
+                        <div key={period}>
+                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{getPeriodLabel(period)}</div>
+                          {groupedSlots[period].map((slot) => (
+                            <SelectItem key={slot.label} value={slot.label}>
+                              {slot.label}
+                            </SelectItem>
+                          ))}
+                        </div>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
                 <Clock className="h-5 w-5 text-muted-foreground shrink-0" />
