@@ -50,7 +50,7 @@ async function getUncachableGoogleSheetClient() {
 
 let cachedSpreadsheetId: string | null = null;
 
-const HEADERS = ['ID', 'Name', 'Phone', 'Date', 'Time', 'Party Size', 'Table', 'Status', 'Created At'];
+const HEADERS = ['ID', 'Name', 'Phone', 'Date', 'Time', 'Party Size', 'Table', 'Comments', 'Status', 'Created At'];
 
 async function getOrCreateSpreadsheet(): Promise<string> {
   if (cachedSpreadsheetId) {
@@ -88,7 +88,7 @@ async function getOrCreateSpreadsheet(): Promise<string> {
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: cachedSpreadsheetId,
-    range: `Reservations!A1:I1`,
+    range: `Reservations!A1:J1`,
     valueInputOption: 'RAW',
     requestBody: {
       values: [HEADERS],
@@ -106,6 +106,7 @@ function reservationToRow(reservation: {
   time: string;
   partySize: number;
   tableName: string;
+  comments?: string | null;
   status: string;
   createdAt: Date | null;
 }) {
@@ -117,6 +118,7 @@ function reservationToRow(reservation: {
     reservation.time,
     reservation.partySize,
     reservation.tableName,
+    reservation.comments || "",
     reservation.status,
     reservation.createdAt ? reservation.createdAt.toISOString() : new Date().toISOString(),
   ];
@@ -145,6 +147,7 @@ export async function appendReservationToSheet(reservation: {
   time: string;
   partySize: number;
   tableName: string;
+  comments?: string | null;
   status: string;
   createdAt: Date | null;
 }) {
@@ -154,7 +157,7 @@ export async function appendReservationToSheet(reservation: {
 
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: 'Reservations!A:I',
+      range: 'Reservations!A:J',
       valueInputOption: 'RAW',
       requestBody: {
         values: [reservationToRow(reservation)],
@@ -173,6 +176,7 @@ export async function updateReservationInSheet(reservation: {
   time: string;
   partySize: number;
   tableName: string;
+  comments?: string | null;
   status: string;
   createdAt: Date | null;
 }) {
@@ -185,7 +189,7 @@ export async function updateReservationInSheet(reservation: {
     if (rowIndex > 0) {
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `Reservations!A${rowIndex}:I${rowIndex}`,
+        range: `Reservations!A${rowIndex}:J${rowIndex}`,
         valueInputOption: 'RAW',
         requestBody: {
           values: [reservationToRow(reservation)],
@@ -194,7 +198,7 @@ export async function updateReservationInSheet(reservation: {
     } else {
       await sheets.spreadsheets.values.append({
         spreadsheetId,
-        range: 'Reservations!A:I',
+        range: 'Reservations!A:J',
         valueInputOption: 'RAW',
         requestBody: {
           values: [reservationToRow(reservation)],
@@ -214,6 +218,7 @@ export async function exportAllReservationsToSheet(reservations: Array<{
   time: string;
   partySize: number;
   tableName: string;
+  comments?: string | null;
   status: string;
   createdAt: Date | null;
 }>) {
@@ -224,7 +229,7 @@ export async function exportAllReservationsToSheet(reservations: Array<{
 
   await sheets.spreadsheets.values.clear({
     spreadsheetId,
-    range: 'Reservations!A:I',
+    range: 'Reservations!A:J',
   });
 
   await sheets.spreadsheets.values.update({

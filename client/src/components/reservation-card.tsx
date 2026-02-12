@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Clock, Users, Phone } from "lucide-react";
+import { Clock, Users, Phone, MessageSquare } from "lucide-react";
 
 export type ReservationStatus = "seated" | "confirmed" | "pending" | "complete" | "cancelled";
 
@@ -12,6 +12,7 @@ interface ReservationCardProps {
   partySize: number;
   tableNumber: string;
   phone: string;
+  comments?: string;
   onEdit?: () => void;
   onPrimaryAction?: () => void;
   onSecondaryAction?: () => void;
@@ -80,6 +81,7 @@ export function ReservationCard({
   partySize,
   tableNumber,
   phone,
+  comments,
   onEdit,
   onPrimaryAction,
   onSecondaryAction,
@@ -123,6 +125,12 @@ export function ReservationCard({
             <span>{phone}</span>
           </div>
         </div>
+        {comments && (
+          <div className="flex items-start gap-2 mt-1">
+            <MessageSquare className="h-4 w-4 shrink-0 mt-0.5" />
+            <span className="text-foreground/80 italic" data-testid={`text-comments-${id}`}>{comments}</span>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
@@ -168,6 +176,7 @@ interface ReservationRowProps {
   partySize: number;
   tableNumber: string;
   phone: string;
+  comments?: string;
   onEdit?: () => void;
   onPrimaryAction?: () => void;
   onSecondaryAction?: () => void;
@@ -181,6 +190,7 @@ export function ReservationRow({
   partySize,
   tableNumber,
   phone,
+  comments,
   onEdit,
   onPrimaryAction,
   onSecondaryAction,
@@ -195,6 +205,13 @@ export function ReservationRow({
       <td className="py-3 px-4 text-muted-foreground">{partySize} people</td>
       <td className="py-3 px-4 text-muted-foreground">{tableNumber}</td>
       <td className="py-3 px-4 text-muted-foreground">{phone}</td>
+      <td className="py-3 px-4 text-muted-foreground max-w-[200px]">
+        {comments ? (
+          <span className="italic truncate block" title={comments} data-testid={`text-comments-row-${id}`}>{comments}</span>
+        ) : (
+          <span className="text-muted-foreground/50">-</span>
+        )}
+      </td>
       <td className="py-3 px-4">
         <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyle.className}`}>
           {statusStyle.label}

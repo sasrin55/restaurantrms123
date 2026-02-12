@@ -64,6 +64,7 @@ export class MemStorage implements IStorage {
     const reservation: Reservation = {
       ...insertReservation,
       id,
+      comments: insertReservation.comments ?? "",
       status: insertReservation.status || "confirmed",
       createdAt: new Date(),
     };

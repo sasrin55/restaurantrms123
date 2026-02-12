@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -58,6 +59,7 @@ export function EditReservationDialog({
   const [partySize, setPartySize] = useState("4");
   const [tableId, setTableId] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [comments, setComments] = useState("");
 
   useEffect(() => {
     if (reservation) {
@@ -65,6 +67,7 @@ export function EditReservationDialog({
       setPartySize(reservation.partySize.toString());
       setTableId(reservation.tableId.toString());
       setPhoneNumber(reservation.phoneNumber);
+      setComments(reservation.comments || "");
     }
   }, [reservation]);
 
@@ -78,6 +81,7 @@ export function EditReservationDialog({
         tableId: parseInt(tableId),
         tableName: selectedTable ? `Table ${selectedTable.number}` : reservation.tableName,
         phoneNumber,
+        comments: comments.trim(),
       });
     },
     onSuccess: () => {
@@ -164,6 +168,18 @@ export function EditReservationDialog({
               value={phoneNumber}
               onChange={(e) => setPhoneNumber(e.target.value)}
               data-testid="input-edit-phone"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="comments">Comments</Label>
+            <Textarea
+              id="comments"
+              placeholder="Any special requests, allergies, or notes..."
+              value={comments}
+              onChange={(e) => setComments(e.target.value)}
+              className="resize-none"
+              rows={3}
+              data-testid="input-edit-comments"
             />
           </div>
         </div>

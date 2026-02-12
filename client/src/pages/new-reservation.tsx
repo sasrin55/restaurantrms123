@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Calendar as CalendarIcon, Clock, Users, Check, Send } from "lucide-react";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -53,6 +54,7 @@ export default function NewReservationPage() {
   const [selectedTables, setSelectedTables] = useState<{ id: number; number: number }[]>([]);
   const [customerName, setCustomerName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [comments, setComments] = useState("");
 
   const { data: existingReservations = [] } = useQuery<any[]>({
     queryKey: ["/api/reservations"],
@@ -87,6 +89,7 @@ export default function NewReservationPage() {
           partySize: parsedSize,
           tableId: table.id,
           tableName: `Table ${table.number}`,
+          comments: comments.trim(),
           status: "confirmed",
         };
         return apiRequest("POST", "/api/reservations", payload);
@@ -209,6 +212,12 @@ export default function NewReservationPage() {
                     .join(", ")}
                 </span>
               </div>
+              {comments.trim() && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Comments:</span>
+                  <span className="font-medium italic text-right max-w-[200px]" data-testid="text-confirm-comments">{comments}</span>
+                </div>
+              )}
             </div>
             <div className="mt-6 space-y-3">
               <Button variant="outline" className="w-full gap-2" data-testid="button-send-confirmation">
@@ -380,6 +389,18 @@ export default function NewReservationPage() {
                 data-testid="input-phone-number"
               />
             </div>
+          </div>
+
+          <div className="space-y-2 mb-6">
+            <Label className="text-muted-foreground text-sm">Comments</Label>
+            <Textarea
+              placeholder="Any special requests, allergies, or notes..."
+              value={comments}
+              onChange={(e) => setComments(e.target.value)}
+              className="resize-none"
+              rows={3}
+              data-testid="input-comments"
+            />
           </div>
 
           <Button

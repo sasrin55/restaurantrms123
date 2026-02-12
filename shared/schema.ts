@@ -26,6 +26,7 @@ export const reservations = pgTable("reservations", {
   partySize: integer("party_size").notNull(),
   tableId: integer("table_id").notNull(),
   tableName: text("table_name").notNull(),
+  comments: text("comments").default(""),
   status: text("status").notNull().default("confirmed"),
   createdAt: timestamp("created_at").defaultNow(),
 });

@@ -325,6 +325,7 @@ export default function ReservationsPage() {
                 partySize={reservation.partySize}
                 tableNumber={reservation.tableName.replace("Table ", "")}
                 phone={reservation.phoneNumber}
+                comments={reservation.comments || ""}
                 onEdit={() => handleEdit(reservation)}
                 onPrimaryAction={() => handlePrimaryAction(reservation)}
                 onSecondaryAction={() => handleSecondaryAction(reservation)}
@@ -341,6 +342,7 @@ export default function ReservationsPage() {
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Party Size</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Table</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Phone Number</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Comments</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Actions</th>
                 </tr>
@@ -356,6 +358,7 @@ export default function ReservationsPage() {
                     partySize={reservation.partySize}
                     tableNumber={reservation.tableName.replace("Table ", "")}
                     phone={reservation.phoneNumber}
+                    comments={reservation.comments || ""}
                     onEdit={() => handleEdit(reservation)}
                     onPrimaryAction={() => handlePrimaryAction(reservation)}
                     onSecondaryAction={() => handleSecondaryAction(reservation)}
