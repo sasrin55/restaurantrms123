@@ -3,35 +3,27 @@ import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Users, Check, Send } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, Users, Check, Send } from "lucide-react";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import restaurantBg from "@/assets/images/restaurant-bg.jpg";
-
-interface ReservationData {
-  date: Date | undefined;
-  time: string;
-  partySize: number;
-  selectedTables: { id: number; number: number }[];
-  customerName: string;
-  phoneNumber: string;
-}
 
 const availableTimes = [
   "12:00 PM", "12:30 PM", "1:00 PM", "1:30 PM", "2:00 PM", "2:30 PM",
   "3:00 PM", "3:30 PM", "4:00 PM", "4:30 PM", "5:00 PM", "5:30 PM",
   "6:00 PM", "6:30 PM", "7:00 PM", "7:30 PM", "8:00 PM", "8:30 PM",
-  "9:00 PM", "9:30 PM", "10:00 PM"
+  "9:00 PM", "9:30 PM", "10:00 PM",
 ];
 
 const restaurantTables = [
@@ -53,42 +45,46 @@ const restaurantTables = [
 
 export default function NewReservationPage() {
   const [, navigate] = useLocation();
-  const [currentStep, setCurrentStep] = useState(1);
-  const [reservationData, setReservationData] = useState<ReservationData>({
-    date: new Date(),
-    time: "4:00 PM",
-    partySize: 2,
-    selectedTables: [],
-    customerName: "",
-    phoneNumber: "",
-  });
+  const [confirmed, setConfirmed] = useState(false);
+
+  const [date, setDate] = useState<Date | undefined>(new Date());
+  const [time, setTime] = useState("7:00 PM");
+  const [partySize, setPartySize] = useState("2");
+  const [selectedTables, setSelectedTables] = useState<{ id: number; number: number }[]>([]);
+  const [customerName, setCustomerName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
 
   const { data: existingReservations = [] } = useQuery<any[]>({
     queryKey: ["/api/reservations"],
   });
 
+  const parsedSize = parseInt(partySize);
+
   const bookedTableIds = existingReservations
     .filter((r: any) => {
-      if (!reservationData.date) return false;
-      const selectedDate = format(reservationData.date, "yyyy-MM-dd");
-      return r.date === selectedDate && r.time === reservationData.time && r.status !== "complete";
+      if (!date) return false;
+      const selectedDate = format(date, "yyyy-MM-dd");
+      return r.date === selectedDate && r.time === time && r.status !== "complete" && r.status !== "cancelled";
     })
     .map((r: any) => r.tableId);
 
   const availableTables = restaurantTables.filter(
-    (t) => reservationData.partySize >= t.minCapacity && reservationData.partySize <= t.maxCapacity && !bookedTableIds.includes(t.id)
+    (t) =>
+      parsedSize >= t.minCapacity &&
+      parsedSize <= t.maxCapacity &&
+      !bookedTableIds.includes(t.id)
   );
 
   const createReservationMutation = useMutation({
     mutationFn: async () => {
-      const dateStr = reservationData.date ? format(reservationData.date, "yyyy-MM-dd") : "";
-      const promises = reservationData.selectedTables.map((table) => {
+      const dateStr = date ? format(date, "yyyy-MM-dd") : "";
+      const promises = selectedTables.map((table) => {
         const payload = {
-          customerName: reservationData.customerName,
-          phoneNumber: reservationData.phoneNumber,
+          customerName,
+          phoneNumber,
           date: dateStr,
-          time: reservationData.time,
-          partySize: reservationData.partySize,
+          time,
+          partySize: parsedSize,
           tableId: table.id,
           tableName: `Table ${table.number}`,
           status: "confirmed",
@@ -100,334 +96,301 @@ export default function NewReservationPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/guests"] });
+      setConfirmed(true);
     },
   });
 
-  const totalSteps = 6;
+  const canSubmit =
+    !!date &&
+    !!time &&
+    parsedSize > 0 &&
+    selectedTables.length > 0 &&
+    !!customerName.trim() &&
+    !!phoneNumber.trim();
 
-  const canGoNext = () => {
-    switch (currentStep) {
-      case 1: return !!reservationData.date;
-      case 2: return !!reservationData.time;
-      case 3: return reservationData.partySize > 0;
-      case 4: return reservationData.selectedTables.length > 0;
-      case 5: return !!reservationData.customerName && !!reservationData.phoneNumber;
-      default: return true;
+  const handleSubmit = () => {
+    if (canSubmit) {
+      createReservationMutation.mutate();
     }
   };
 
-  const handleNext = async () => {
-    if (currentStep < totalSteps && canGoNext()) {
-      if (currentStep === 3) {
-        setReservationData(prev => ({ ...prev, selectedTables: [] }));
-      }
-      if (currentStep === 5) {
-        await createReservationMutation.mutateAsync();
-      }
-      setCurrentStep(currentStep + 1);
+  const handlePartySizeChange = (val: string) => {
+    setPartySize(val);
+    setSelectedTables([]);
+  };
+
+  const handleTimeChange = (val: string) => {
+    setTime(val);
+    setSelectedTables([]);
+  };
+
+  const handleDateChange = (d: Date | undefined) => {
+    setDate(d);
+    setSelectedTables([]);
+  };
+
+  const toggleTable = (table: { id: number; number: number }) => {
+    const isSelected = selectedTables.some((t) => t.id === table.id);
+    if (isSelected) {
+      setSelectedTables(selectedTables.filter((t) => t.id !== table.id));
+    } else {
+      setSelectedTables([...selectedTables, table]);
     }
   };
 
-  const handlePrev = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  const handleFinish = () => {
-    navigate("/");
-  };
-
-  const renderStep = () => {
-    switch (currentStep) {
-      case 1:
-        return (
-          <div className="flex flex-col items-center">
-            <h2 className="text-xl font-medium text-foreground mb-6" data-testid="text-step-title">
-              What date does the customer want a booking?
-            </h2>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-[200px] justify-between text-left font-normal bg-white"
-                  data-testid="button-date-picker"
-                >
-                  {reservationData.date ? format(reservationData.date, "dd/MM/yyyy") : "Select date"}
-                  <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="center">
-                <Calendar
-                  mode="single"
-                  selected={reservationData.date}
-                  onSelect={(date) => setReservationData({ ...reservationData, date })}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-        );
-
-      case 2:
-        return (
-          <div className="flex flex-col items-center">
-            <h2 className="text-xl font-medium text-foreground mb-6" data-testid="text-step-title">
-              What time does the customer want a booking for?
-            </h2>
-            <div className="flex items-center gap-2">
-              <Select 
-                value={reservationData.time} 
-                onValueChange={(time) => setReservationData({ ...reservationData, time })}
-              >
-                <SelectTrigger className="w-[200px] bg-white" data-testid="select-time">
-                  <SelectValue placeholder="Select time" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableTimes.map((time) => (
-                    <SelectItem key={time} value={time}>{time}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Clock className="h-5 w-5 text-muted-foreground" />
+  if (confirmed) {
+    return (
+      <div
+        className="flex-1 h-full bg-cover bg-center bg-no-repeat relative overflow-auto"
+        style={{ backgroundImage: `url(${restaurantBg})` }}
+      >
+        <div className="absolute inset-0 bg-white/40" />
+        <div className="relative z-10 flex flex-col items-center justify-center min-h-full py-8 px-4">
+          <h1
+            className="mb-8"
+            style={{
+              fontFamily: "'Ortica Linear', 'Playfair Display', serif",
+              fontWeight: 300,
+              fontSize: "40px",
+              lineHeight: "100%",
+              color: "#0D7377",
+            }}
+            data-testid="text-brand-title"
+          >
+            seated
+          </h1>
+          <Card className="p-6 bg-white/95 shadow-lg max-w-md w-full">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+                <Check className="h-4 w-4 text-white" />
+              </div>
+              <h2 className="text-xl font-semibold text-foreground" data-testid="text-confirmation-title">
+                Booking Confirmed
+              </h2>
             </div>
-          </div>
-        );
-
-      case 3:
-        return (
-          <div className="flex flex-col items-center">
-            <h2 className="text-xl font-medium text-foreground mb-6" data-testid="text-step-title">
-              What is the party size?
-            </h2>
-            <div className="flex items-center gap-2">
-              <Select 
-                value={reservationData.partySize.toString()} 
-                onValueChange={(size) => setReservationData({ ...reservationData, partySize: parseInt(size) })}
-              >
-                <SelectTrigger className="w-[200px] bg-white" data-testid="select-party-size">
-                  <SelectValue placeholder="Select party size" />
-                </SelectTrigger>
-                <SelectContent>
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((size) => (
-                    <SelectItem key={size} value={size.toString()}>
-                      {size} {size === 1 ? "person" : "people"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Users className="h-5 w-5 text-muted-foreground" />
-            </div>
-          </div>
-        );
-
-      case 4:
-        return (
-          <div className="flex flex-col items-center">
-            <h2 className="text-xl font-medium text-foreground mb-2" data-testid="text-step-title">
-              Available Tables
-            </h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              {reservationData.selectedTables.length === 0
-                ? "Tap to select one or more tables"
-                : `${reservationData.selectedTables.length} table${reservationData.selectedTables.length > 1 ? "s" : ""} selected`}
+            <p className="text-center text-muted-foreground text-sm mb-6">
+              The reservation has been successfully added
+              <br />
+              Please review the details below
             </p>
-            {availableTables.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No tables available for this party size, date, and time.</p>
-            ) : (
-              <div className="grid grid-cols-4 gap-4">
-                {availableTables.map((table) => (
-                  <Card
-                    key={table.id}
-                    className={`p-4 cursor-pointer transition-all flex flex-col items-center justify-center min-w-[100px] ${
-                      reservationData.selectedTables.some(t => t.id === table.id)
-                        ? "ring-2 ring-[#0D7377] bg-[#0D7377]/5"
-                        : "bg-white/90"
-                    }`}
-                    onClick={() => {
-                      const isSelected = reservationData.selectedTables.some(t => t.id === table.id);
-                      const updated = isSelected
-                        ? reservationData.selectedTables.filter(t => t.id !== table.id)
-                        : [...reservationData.selectedTables, { id: table.id, number: table.number }];
-                      setReservationData({ ...reservationData, selectedTables: updated });
-                    }}
-                    data-testid={`table-card-${table.id}`}
-                  >
-                    <svg width="48" height="32" viewBox="0 0 48 32" fill="none" className="mb-2">
-                      <rect x="8" y="12" width="32" height="4" fill="#0D7377" rx="1" />
-                      <rect x="10" y="16" width="2" height="12" fill="#0D7377" />
-                      <rect x="36" y="16" width="2" height="12" fill="#0D7377" />
-                      <rect x="2" y="8" width="8" height="16" rx="2" stroke="#0D7377" strokeWidth="1.5" fill="none" />
-                      <rect x="38" y="8" width="8" height="16" rx="2" stroke="#0D7377" strokeWidth="1.5" fill="none" />
-                    </svg>
-                    <span className="font-medium text-foreground">Table {table.number}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {table.minCapacity === table.maxCapacity
-                        ? `${table.minCapacity} seats`
-                        : `${table.minCapacity} to ${table.maxCapacity} seats`}
-                    </span>
-                  </Card>
-                ))}
+            <div className="border-t pt-4 space-y-3">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Name:</span>
+                <span className="font-medium" data-testid="text-confirm-name">{customerName}</span>
               </div>
-            )}
-          </div>
-        );
-
-      case 5:
-        return (
-          <div className="flex flex-col items-center">
-            <h2 className="text-xl font-medium text-foreground mb-6" data-testid="text-step-title">
-              Customer Details
-            </h2>
-            <div className="flex gap-4">
-              <Input
-                placeholder="Name"
-                value={reservationData.customerName}
-                onChange={(e) => setReservationData({ ...reservationData, customerName: e.target.value })}
-                className="w-[180px] bg-white"
-                data-testid="input-customer-name"
-              />
-              <Input
-                placeholder="Phone Number"
-                value={reservationData.phoneNumber}
-                onChange={(e) => setReservationData({ ...reservationData, phoneNumber: e.target.value })}
-                className="w-[180px] bg-white"
-                data-testid="input-phone-number"
-              />
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Phone Number:</span>
+                <span className="font-medium" data-testid="text-confirm-phone">{phoneNumber}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Date:</span>
+                <span className="font-medium" data-testid="text-confirm-date">
+                  {date ? format(date, "dd/MM/yyyy") : ""}
+                </span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <div className="flex gap-2">
+                  <span className="text-muted-foreground">Time:</span>
+                  <span className="font-medium" data-testid="text-confirm-time">{time}</span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-muted-foreground">Party Size:</span>
+                  <span className="font-medium" data-testid="text-confirm-party">
+                    {partySize} {parsedSize === 1 ? "person" : "people"}
+                  </span>
+                </div>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Tables:</span>
+                <span className="font-medium" data-testid="text-confirm-tables">
+                  {selectedTables
+                    .sort((a, b) => a.number - b.number)
+                    .map((t) => `Table ${t.number}`)
+                    .join(", ")}
+                </span>
+              </div>
             </div>
-          </div>
-        );
-
-      case 6:
-        return (
-          <div className="flex flex-col items-center">
-            <Card className="p-6 bg-white/95 shadow-lg max-w-md w-full">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
-                  <Check className="h-4 w-4 text-white" />
-                </div>
-                <h2 className="text-xl font-semibold text-foreground" data-testid="text-confirmation-title">
-                  Booking Confirmed
-                </h2>
-              </div>
-              <p className="text-center text-muted-foreground text-sm mb-6">
-                The reservation has been successfully added<br />
-                Please review the details below
-              </p>
-              
-              <div className="border-t pt-4 space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Name:</span>
-                  <span className="font-medium">{reservationData.customerName}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Phone Number:</span>
-                  <span className="font-medium">{reservationData.phoneNumber}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Date:</span>
-                  <span className="font-medium">
-                    {reservationData.date ? format(reservationData.date, "dd/MM/yyyy") : ""}
-                  </span>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <div className="flex gap-2">
-                    <span className="text-muted-foreground">Time:</span>
-                    <span className="font-medium">{reservationData.time}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="text-muted-foreground">Party Size:</span>
-                    <span className="font-medium">{reservationData.partySize} people</span>
-                  </div>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tables:</span>
-                  <span className="font-medium">
-                    {reservationData.selectedTables
-                      .sort((a, b) => a.number - b.number)
-                      .map(t => `Table ${t.number}`)
-                      .join(", ")}
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-6 space-y-3">
-                <Button
-                  variant="outline"
-                  className="w-full gap-2"
-                  data-testid="button-send-confirmation"
-                >
-                  <Send className="h-4 w-4" />
-                  Send Confirmation
-                </Button>
-                <Button
-                  className="w-full bg-[#1C1C1C] text-white"
-                  onClick={handleFinish}
-                  data-testid="button-finish"
-                >
-                  Finish
-                </Button>
-              </div>
-            </Card>
-          </div>
-        );
-
-      default:
-        return null;
-    }
-  };
+            <div className="mt-6 space-y-3">
+              <Button variant="outline" className="w-full gap-2" data-testid="button-send-confirmation">
+                <Send className="h-4 w-4" />
+                Send Confirmation
+              </Button>
+              <Button
+                className="w-full bg-[#1C1C1C] text-white"
+                onClick={() => navigate("/")}
+                data-testid="button-finish"
+              >
+                Finish
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div 
+    <div
       className="flex-1 h-full bg-cover bg-center bg-no-repeat relative overflow-auto"
       style={{ backgroundImage: `url(${restaurantBg})` }}
     >
       <div className="absolute inset-0 bg-white/40" />
-      
+
       <div className="relative z-10 flex flex-col items-center min-h-full py-8 px-4">
-        <h1 
-          className="mb-8"
-          style={{ 
+        <h1
+          className="mb-6"
+          style={{
             fontFamily: "'Ortica Linear', 'Playfair Display', serif",
             fontWeight: 300,
             fontSize: "40px",
             lineHeight: "100%",
-            letterSpacing: "0%",
-            color: "#0D7377"
+            color: "#0D7377",
           }}
           data-testid="text-brand-title"
         >
           seated
         </h1>
 
-        <div className="flex-1 flex items-center justify-center">
-          {renderStep()}
-        </div>
+        <Card className="bg-white/95 shadow-lg w-full max-w-2xl p-6">
+          <h2 className="text-xl font-semibold text-foreground mb-6" data-testid="text-form-title">
+            New Reservation
+          </h2>
 
-        {currentStep < 6 && (
-          <div className="flex items-center gap-6 mt-8">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handlePrev}
-              disabled={currentStep === 1}
-              className="rounded-full border border-foreground/20"
-              data-testid="button-prev-step"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleNext}
-              disabled={!canGoNext() || createReservationMutation.isPending}
-              className="rounded-full border border-foreground/20"
-              data-testid="button-next-step"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </Button>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <div className="space-y-2">
+              <Label className="text-muted-foreground text-sm">Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between text-left font-normal"
+                    data-testid="button-date-picker"
+                  >
+                    {date ? format(date, "dd/MM/yyyy") : "Select date"}
+                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={date} onSelect={handleDateChange} initialFocus />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-muted-foreground text-sm">Time</Label>
+              <div className="flex items-center gap-2">
+                <Select value={time} onValueChange={handleTimeChange}>
+                  <SelectTrigger className="w-full" data-testid="select-time">
+                    <SelectValue placeholder="Select time" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableTimes.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Clock className="h-5 w-5 text-muted-foreground shrink-0" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-muted-foreground text-sm">Party Size</Label>
+              <div className="flex items-center gap-2">
+                <Select value={partySize} onValueChange={handlePartySizeChange}>
+                  <SelectTrigger className="w-full" data-testid="select-party-size">
+                    <SelectValue placeholder="Party size" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((size) => (
+                      <SelectItem key={size} value={size.toString()}>
+                        {size} {size === 1 ? "person" : "people"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Users className="h-5 w-5 text-muted-foreground shrink-0" />
+              </div>
+            </div>
           </div>
-        )}
+
+          <div className="mb-6">
+            <Label className="text-muted-foreground text-sm mb-2 block">Select Table(s)</Label>
+            {availableTables.length === 0 ? (
+              <p className="text-muted-foreground text-sm py-4 text-center" data-testid="text-no-tables">
+                No tables available for this party size, date, and time.
+              </p>
+            ) : (
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                {availableTables.map((table) => {
+                  const isSelected = selectedTables.some((t) => t.id === table.id);
+                  return (
+                    <div
+                      key={table.id}
+                      className={`flex flex-col items-center justify-center p-3 rounded-md cursor-pointer border transition-colors ${
+                        isSelected
+                          ? "border-[#0D7377] bg-[#0D7377]/10"
+                          : "border-border hover-elevate"
+                      }`}
+                      onClick={() => toggleTable({ id: table.id, number: table.number })}
+                      data-testid={`table-card-${table.id}`}
+                    >
+                      <svg width="36" height="24" viewBox="0 0 48 32" fill="none" className="mb-1">
+                        <rect x="8" y="12" width="32" height="4" fill="#0D7377" rx="1" />
+                        <rect x="10" y="16" width="2" height="12" fill="#0D7377" />
+                        <rect x="36" y="16" width="2" height="12" fill="#0D7377" />
+                        <rect x="2" y="8" width="8" height="16" rx="2" stroke="#0D7377" strokeWidth="1.5" fill="none" />
+                        <rect x="38" y="8" width="8" height="16" rx="2" stroke="#0D7377" strokeWidth="1.5" fill="none" />
+                      </svg>
+                      <span className="font-medium text-sm text-foreground">Table {table.number}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {table.minCapacity === table.maxCapacity
+                          ? `${table.minCapacity} seats`
+                          : `${table.minCapacity}-${table.maxCapacity}`}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {selectedTables.length > 0 && (
+              <p className="text-sm text-[#0D7377] mt-2" data-testid="text-tables-selected">
+                {selectedTables.length} table{selectedTables.length > 1 ? "s" : ""} selected
+              </p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <div className="space-y-2">
+              <Label className="text-muted-foreground text-sm">Guest Name</Label>
+              <Input
+                placeholder="Full name"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                data-testid="input-customer-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-muted-foreground text-sm">Phone Number</Label>
+              <Input
+                placeholder="Phone number"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                data-testid="input-phone-number"
+              />
+            </div>
+          </div>
+
+          <Button
+            className="w-full bg-[#0D7377] text-white"
+            onClick={handleSubmit}
+            disabled={!canSubmit || createReservationMutation.isPending}
+            data-testid="button-create-reservation"
+          >
+            {createReservationMutation.isPending ? "Creating..." : "Create Reservation"}
+          </Button>
+        </Card>
       </div>
     </div>
   );
