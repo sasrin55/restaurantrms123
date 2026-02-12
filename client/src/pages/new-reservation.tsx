@@ -236,7 +236,7 @@ export default function NewReservationPage() {
     >
       <div className="absolute inset-0 bg-white/40" />
 
-      <div className="relative z-10 flex flex-col items-center min-h-full py-8 px-4">
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-full py-8 px-4">
         <h1
           className="mb-6"
           style={{
@@ -251,7 +251,7 @@ export default function NewReservationPage() {
           seated
         </h1>
 
-        <Card className="bg-white/95 shadow-lg w-full max-w-2xl p-6">
+        <Card className="bg-white/95 shadow-lg w-full max-w-3xl p-8">
           <h2 className="text-xl font-semibold text-foreground mb-6" data-testid="text-form-title">
             New Reservation
           </h2>
