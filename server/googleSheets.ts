@@ -50,7 +50,19 @@ async function getUncachableGoogleSheetClient() {
 
 let cachedSpreadsheetId: string | null = null;
 
-const HEADERS = ['#', 'Name', 'Phone', 'Date', 'Time', 'Party Size', 'Table', 'Comments', 'Status', 'Created At', 'ID'];
+const HEADERS = ['#', 'Name', 'Phone', 'Time', 'Party Size', 'Table', 'Comments', 'Status', 'Created At', 'ID'];
+
+function formatDateForTab(dateStr: string): string {
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = months[parseInt(parts[1]) - 1] || parts[1];
+    const day = parseInt(parts[2]);
+    const year = parts[0];
+    return `${month} ${day}, ${year}`;
+  }
+  return dateStr;
+}
 
 async function getOrCreateSpreadsheet(): Promise<string> {
   if (cachedSpreadsheetId) {
@@ -79,26 +91,52 @@ async function getOrCreateSpreadsheet(): Promise<string> {
     requestBody: {
       properties: { title: "PAOLA's Reservations" },
       sheets: [{
-        properties: { title: 'Reservations' },
+        properties: { title: 'Overview' },
       }],
     },
   });
 
   cachedSpreadsheetId = spreadsheet.data.spreadsheetId!;
-
-  await sheets.spreadsheets.values.update({
-    spreadsheetId: cachedSpreadsheetId,
-    range: `Reservations!A1:K1`,
-    valueInputOption: 'RAW',
-    requestBody: {
-      values: [HEADERS],
-    },
-  });
-
   return cachedSpreadsheetId;
 }
 
-function reservationToRow(reservation: {
+async function ensureDateTab(sheets: any, spreadsheetId: string, dateStr: string): Promise<string> {
+  const tabName = formatDateForTab(dateStr);
+
+  const spreadsheet = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: 'sheets.properties.title',
+  });
+
+  const existingSheets = spreadsheet.data.sheets || [];
+  const tabExists = existingSheets.some((s: any) => s.properties?.title === tabName);
+
+  if (!tabExists) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [{
+          addSheet: {
+            properties: { title: tabName },
+          },
+        }],
+      },
+    });
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `'${tabName}'!A1:J1`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [HEADERS],
+      },
+    });
+  }
+
+  return tabName;
+}
+
+type ReservationData = {
   id: string;
   customerName: string;
   phoneNumber: string;
@@ -109,12 +147,13 @@ function reservationToRow(reservation: {
   comments?: string | null;
   status: string;
   createdAt: Date | null;
-}, rowNumber?: number) {
+};
+
+function reservationToRow(reservation: ReservationData, rowNumber?: number) {
   return [
     rowNumber ?? "",
     reservation.customerName,
     reservation.phoneNumber,
-    reservation.date,
     reservation.time,
     reservation.partySize,
     reservation.tableName,
@@ -125,40 +164,33 @@ function reservationToRow(reservation: {
   ];
 }
 
-async function findRowByReservationId(sheets: any, spreadsheetId: string, reservationId: string): Promise<number> {
-  const result = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: 'Reservations!K:K',
-  });
+async function findRowByReservationId(sheets: any, spreadsheetId: string, tabName: string, reservationId: string): Promise<number> {
+  try {
+    const result = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `'${tabName}'!J:J`,
+    });
 
-  const rows = result.data.values || [];
-  for (let i = 1; i < rows.length; i++) {
-    if (rows[i][0] === reservationId) {
-      return i + 1;
+    const rows = result.data.values || [];
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][0] === reservationId) {
+        return i + 1;
+      }
     }
+  } catch {
   }
   return -1;
 }
 
-export async function appendReservationToSheet(reservation: {
-  id: string;
-  customerName: string;
-  phoneNumber: string;
-  date: string;
-  time: string;
-  partySize: number;
-  tableName: string;
-  comments?: string | null;
-  status: string;
-  createdAt: Date | null;
-}) {
+export async function appendReservationToSheet(reservation: ReservationData) {
   try {
     const sheets = await getUncachableGoogleSheetClient();
     const spreadsheetId = await getOrCreateSpreadsheet();
+    const tabName = await ensureDateTab(sheets, spreadsheetId, reservation.date);
 
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: 'Reservations!A:K',
+      range: `'${tabName}'!A:J`,
       valueInputOption: 'RAW',
       requestBody: {
         values: [reservationToRow(reservation)],
@@ -169,28 +201,18 @@ export async function appendReservationToSheet(reservation: {
   }
 }
 
-export async function updateReservationInSheet(reservation: {
-  id: string;
-  customerName: string;
-  phoneNumber: string;
-  date: string;
-  time: string;
-  partySize: number;
-  tableName: string;
-  comments?: string | null;
-  status: string;
-  createdAt: Date | null;
-}) {
+export async function updateReservationInSheet(reservation: ReservationData) {
   try {
     const sheets = await getUncachableGoogleSheetClient();
     const spreadsheetId = await getOrCreateSpreadsheet();
+    const tabName = await ensureDateTab(sheets, spreadsheetId, reservation.date);
 
-    const rowIndex = await findRowByReservationId(sheets, spreadsheetId, reservation.id);
+    const rowIndex = await findRowByReservationId(sheets, spreadsheetId, tabName, reservation.id);
 
     if (rowIndex > 0) {
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `Reservations!A${rowIndex}:K${rowIndex}`,
+        range: `'${tabName}'!A${rowIndex}:J${rowIndex}`,
         valueInputOption: 'RAW',
         requestBody: {
           values: [reservationToRow(reservation, rowIndex - 1)],
@@ -199,7 +221,7 @@ export async function updateReservationInSheet(reservation: {
     } else {
       await sheets.spreadsheets.values.append({
         spreadsheetId,
-        range: 'Reservations!A:K',
+        range: `'${tabName}'!A:J`,
         valueInputOption: 'RAW',
         requestBody: {
           values: [reservationToRow(reservation)],
@@ -211,36 +233,71 @@ export async function updateReservationInSheet(reservation: {
   }
 }
 
-export async function exportAllReservationsToSheet(reservations: Array<{
-  id: string;
-  customerName: string;
-  phoneNumber: string;
-  date: string;
-  time: string;
-  partySize: number;
-  tableName: string;
-  comments?: string | null;
-  status: string;
-  createdAt: Date | null;
-}>) {
+export async function exportAllReservationsToSheet(reservations: ReservationData[]) {
   const sheets = await getUncachableGoogleSheetClient();
   const spreadsheetId = await getOrCreateSpreadsheet();
 
-  const rows = reservations.map((r, i) => reservationToRow(r, i + 1));
+  const byDate = new Map<string, ReservationData[]>();
+  for (const r of reservations) {
+    const existing = byDate.get(r.date);
+    if (existing) {
+      existing.push(r);
+    } else {
+      byDate.set(r.date, [r]);
+    }
+  }
 
-  await sheets.spreadsheets.values.clear({
+  const spreadsheet = await sheets.spreadsheets.get({
     spreadsheetId,
-    range: 'Reservations!A:K',
+    fields: 'sheets.properties.title,sheets.properties.sheetId',
   });
 
-  await sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range: 'Reservations!A1',
-    valueInputOption: 'RAW',
-    requestBody: {
-      values: [HEADERS, ...rows],
-    },
-  });
+  const existingSheets = spreadsheet.data.sheets || [];
+  const deleteRequests: any[] = [];
+  for (const s of existingSheets) {
+    const title = s.properties?.title;
+    if (title && title !== 'Overview') {
+      deleteRequests.push({
+        deleteSheet: { sheetId: s.properties?.sheetId },
+      });
+    }
+  }
+
+  if (deleteRequests.length > 0) {
+    const hasOverview = existingSheets.some((s: any) => s.properties?.title === 'Overview');
+    if (!hasOverview) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [{
+            addSheet: { properties: { title: 'Overview' } },
+          }],
+        },
+      });
+    }
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: { requests: deleteRequests },
+    });
+  }
+
+  const sortedDates = Array.from(byDate.keys()).sort();
+
+  for (const dateStr of sortedDates) {
+    const dateReservations = byDate.get(dateStr)!;
+    const tabName = await ensureDateTab(sheets, spreadsheetId, dateStr);
+    const rows = dateReservations.map((r, i) => reservationToRow(r, i + 1));
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `'${tabName}'!A1`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [HEADERS, ...rows],
+      },
+    });
+  }
 
   return spreadsheetId;
 }

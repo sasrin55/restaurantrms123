@@ -77,6 +77,8 @@ The `shared/` directory contains code used by both frontend and backend:
 
 ### Google Sheets Integration
 - **googleapis**: Google Sheets API client for exporting reservation data
+- Each reservation date gets its own tab (e.g., "Jan 12, 2026") — no Date column in rows since the tab name is the date
+- Columns per tab: #, Name, Phone, Time, Party Size, Table, Comments, Status, Created At, ID
 - **server/googleSheets.ts**: Helper module for Replit Google Sheets connector authentication and spreadsheet operations
 - Auto-syncs new reservations to a "PAOLA's Reservations" Google Sheet on creation
 - Manual export available via "Export to Sheets" button on reservations page
