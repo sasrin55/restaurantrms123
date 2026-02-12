@@ -75,6 +75,13 @@ The `shared/` directory contains code used by both frontend and backend:
 - **esbuild**: Server bundling for production
 - **tsx**: TypeScript execution for development
 
+### Google Sheets Integration
+- **googleapis**: Google Sheets API client for exporting reservation data
+- **server/googleSheets.ts**: Helper module for Replit Google Sheets connector authentication and spreadsheet operations
+- Auto-syncs new reservations to a "PAOLA's Reservations" Google Sheet on creation
+- Manual export available via "Export to Sheets" button on reservations page
+- Uses Replit connector for OAuth token management (no manual API keys needed)
+
 ### Replit-Specific
 - **@replit/vite-plugin-runtime-error-modal**: Error overlay in development
 - **@replit/vite-plugin-cartographer**: Development tooling

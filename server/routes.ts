@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertReservationSchema } from "@shared/schema";
+import { appendReservationToSheet, exportAllReservationsToSheet } from "./googleSheets";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -32,6 +33,10 @@ export async function registerRoutes(
       reservation.phoneNumber,
       reservation.date,
       reservation.partySize
+    );
+
+    appendReservationToSheet(reservation).catch(err =>
+      console.error("Google Sheets sync error:", err)
     );
 
     res.status(201).json(reservation);
@@ -70,6 +75,21 @@ export async function registerRoutes(
       return res.status(404).json({ error: "Reservation not found" });
     }
     res.status(204).send();
+  });
+
+  app.post("/api/reservations/export-sheets", async (_req, res) => {
+    try {
+      const reservations = await storage.getReservations();
+      const spreadsheetId = await exportAllReservationsToSheet(reservations);
+      res.json({
+        success: true,
+        spreadsheetId,
+        url: `https://docs.google.com/spreadsheets/d/${spreadsheetId}`,
+      });
+    } catch (error: any) {
+      console.error("Export to Google Sheets failed:", error);
+      res.status(500).json({ error: error.message || "Failed to export to Google Sheets" });
+    }
   });
 
   app.get("/api/guests", async (req, res) => {
