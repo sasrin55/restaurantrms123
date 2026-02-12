@@ -32,15 +32,21 @@ const availableTimes = [
   "9:00 PM", "9:30 PM", "10:00 PM"
 ];
 
-const mockTables = [
-  { id: 1, number: "1", capacity: 4 },
-  { id: 4, number: "4", capacity: 4 },
-  { id: 9, number: "9", capacity: 4 },
-  { id: 12, number: "12", capacity: 4 },
-  { id: 15, number: "15", capacity: 4 },
-  { id: 16, number: "16", capacity: 4 },
-  { id: 18, number: "18", capacity: 6 },
-  { id: 21, number: "21", capacity: 6 },
+const restaurantTables = [
+  { id: 1, number: 1, minCapacity: 4, maxCapacity: 6 },
+  { id: 2, number: 2, minCapacity: 4, maxCapacity: 6 },
+  { id: 3, number: 3, minCapacity: 2, maxCapacity: 2 },
+  { id: 4, number: 4, minCapacity: 2, maxCapacity: 2 },
+  { id: 5, number: 5, minCapacity: 8, maxCapacity: 10 },
+  { id: 6, number: 6, minCapacity: 3, maxCapacity: 3 },
+  { id: 7, number: 7, minCapacity: 4, maxCapacity: 4 },
+  { id: 8, number: 8, minCapacity: 2, maxCapacity: 2 },
+  { id: 9, number: 9, minCapacity: 2, maxCapacity: 2 },
+  { id: 10, number: 10, minCapacity: 2, maxCapacity: 2 },
+  { id: 11, number: 11, minCapacity: 8, maxCapacity: 10 },
+  { id: 12, number: 12, minCapacity: 3, maxCapacity: 4 },
+  { id: 13, number: 13, minCapacity: 3, maxCapacity: 4 },
+  { id: 14, number: 14, minCapacity: 4, maxCapacity: 6 },
 ];
 
 export function EditReservationDialog({
@@ -65,7 +71,7 @@ export function EditReservationDialog({
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!reservation) return;
-      const selectedTable = mockTables.find(t => t.id.toString() === tableId);
+      const selectedTable = restaurantTables.find(t => t.id.toString() === tableId);
       return apiRequest("PATCH", `/api/reservations/${reservation.id}`, {
         time,
         partySize: parseInt(partySize),
@@ -85,6 +91,8 @@ export function EditReservationDialog({
   };
 
   if (!reservation) return null;
+
+  const parsedSize = parseInt(partySize);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -117,7 +125,7 @@ export function EditReservationDialog({
           </div>
           <div className="grid gap-2">
             <Label htmlFor="party-size">Party Size</Label>
-            <Select value={partySize} onValueChange={setPartySize}>
+            <Select value={partySize} onValueChange={(val) => { setPartySize(val); setTableId(""); }}>
               <SelectTrigger data-testid="select-edit-party-size">
                 <SelectValue placeholder="Select party size" />
               </SelectTrigger>
@@ -137,9 +145,13 @@ export function EditReservationDialog({
                 <SelectValue placeholder="Select table" />
               </SelectTrigger>
               <SelectContent>
-                {mockTables.map((table) => (
+                {restaurantTables
+                  .filter(t => parsedSize >= t.minCapacity && parsedSize <= t.maxCapacity)
+                  .map((table) => (
                   <SelectItem key={table.id} value={table.id.toString()}>
-                    Table {table.number} ({table.capacity} people)
+                    Table {table.number} ({table.minCapacity === table.maxCapacity
+                      ? `${table.minCapacity} seats`
+                      : `${table.minCapacity}-${table.maxCapacity} seats`})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -157,11 +169,11 @@ export function EditReservationDialog({
         </div>
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            Close
           </Button>
           <Button
             onClick={handleSave}
-            disabled={updateMutation.isPending}
+            disabled={updateMutation.isPending || !tableId}
             className="bg-[#0D7377] text-white"
             data-testid="button-save-edit"
           >

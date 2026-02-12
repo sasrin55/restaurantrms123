@@ -50,6 +50,8 @@ async function getUncachableGoogleSheetClient() {
 
 let cachedSpreadsheetId: string | null = null;
 
+const HEADERS = ['ID', 'Name', 'Phone', 'Date', 'Time', 'Party Size', 'Table', 'Status', 'Created At'];
+
 async function getOrCreateSpreadsheet(): Promise<string> {
   if (cachedSpreadsheetId) {
     return cachedSpreadsheetId;
@@ -86,17 +88,57 @@ async function getOrCreateSpreadsheet(): Promise<string> {
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: cachedSpreadsheetId,
-    range: 'Reservations!A1:H1',
+    range: `Reservations!A1:I1`,
     valueInputOption: 'RAW',
     requestBody: {
-      values: [['Name', 'Phone', 'Date', 'Time', 'Party Size', 'Table', 'Status', 'Created At']],
+      values: [HEADERS],
     },
   });
 
   return cachedSpreadsheetId;
 }
 
+function reservationToRow(reservation: {
+  id: string;
+  customerName: string;
+  phoneNumber: string;
+  date: string;
+  time: string;
+  partySize: number;
+  tableName: string;
+  status: string;
+  createdAt: Date | null;
+}) {
+  return [
+    reservation.id,
+    reservation.customerName,
+    reservation.phoneNumber,
+    reservation.date,
+    reservation.time,
+    reservation.partySize,
+    reservation.tableName,
+    reservation.status,
+    reservation.createdAt ? reservation.createdAt.toISOString() : new Date().toISOString(),
+  ];
+}
+
+async function findRowByReservationId(sheets: any, spreadsheetId: string, reservationId: string): Promise<number> {
+  const result = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: 'Reservations!A:A',
+  });
+
+  const rows = result.data.values || [];
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i][0] === reservationId) {
+      return i + 1;
+    }
+  }
+  return -1;
+}
+
 export async function appendReservationToSheet(reservation: {
+  id: string;
   customerName: string;
   phoneNumber: string;
   date: string;
@@ -112,19 +154,10 @@ export async function appendReservationToSheet(reservation: {
 
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: 'Reservations!A:H',
+      range: 'Reservations!A:I',
       valueInputOption: 'RAW',
       requestBody: {
-        values: [[
-          reservation.customerName,
-          reservation.phoneNumber,
-          reservation.date,
-          reservation.time,
-          reservation.partySize,
-          reservation.tableName,
-          reservation.status,
-          reservation.createdAt ? reservation.createdAt.toISOString() : new Date().toISOString(),
-        ]],
+        values: [reservationToRow(reservation)],
       },
     });
   } catch (error) {
@@ -132,7 +165,49 @@ export async function appendReservationToSheet(reservation: {
   }
 }
 
+export async function updateReservationInSheet(reservation: {
+  id: string;
+  customerName: string;
+  phoneNumber: string;
+  date: string;
+  time: string;
+  partySize: number;
+  tableName: string;
+  status: string;
+  createdAt: Date | null;
+}) {
+  try {
+    const sheets = await getUncachableGoogleSheetClient();
+    const spreadsheetId = await getOrCreateSpreadsheet();
+
+    const rowIndex = await findRowByReservationId(sheets, spreadsheetId, reservation.id);
+
+    if (rowIndex > 0) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `Reservations!A${rowIndex}:I${rowIndex}`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [reservationToRow(reservation)],
+        },
+      });
+    } else {
+      await sheets.spreadsheets.values.append({
+        spreadsheetId,
+        range: 'Reservations!A:I',
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [reservationToRow(reservation)],
+        },
+      });
+    }
+  } catch (error) {
+    console.error('Failed to update reservation in Google Sheet:', error);
+  }
+}
+
 export async function exportAllReservationsToSheet(reservations: Array<{
+  id: string;
   customerName: string;
   phoneNumber: string;
   date: string;
@@ -145,21 +220,11 @@ export async function exportAllReservationsToSheet(reservations: Array<{
   const sheets = await getUncachableGoogleSheetClient();
   const spreadsheetId = await getOrCreateSpreadsheet();
 
-  const header = [['Name', 'Phone', 'Date', 'Time', 'Party Size', 'Table', 'Status', 'Created At']];
-  const rows = reservations.map(r => [
-    r.customerName,
-    r.phoneNumber,
-    r.date,
-    r.time,
-    r.partySize,
-    r.tableName,
-    r.status,
-    r.createdAt ? r.createdAt.toISOString() : '',
-  ]);
+  const rows = reservations.map(r => reservationToRow(r));
 
   await sheets.spreadsheets.values.clear({
     spreadsheetId,
-    range: 'Reservations!A:H',
+    range: 'Reservations!A:I',
   });
 
   await sheets.spreadsheets.values.update({
@@ -167,7 +232,7 @@ export async function exportAllReservationsToSheet(reservations: Array<{
     range: 'Reservations!A1',
     valueInputOption: 'RAW',
     requestBody: {
-      values: [...header, ...rows],
+      values: [HEADERS, ...rows],
     },
   });
 

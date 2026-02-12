@@ -75,15 +75,14 @@ export default function ReservationsPage() {
         updateStatusMutation.mutate({ id: reservation.id, status: "confirmed" });
         break;
       case "complete":
+      case "cancelled":
         deleteReservationMutation.mutate(reservation.id);
         break;
     }
   };
 
   const handleSecondaryAction = (reservation: Reservation) => {
-    if (reservation.status === "pending") {
-      deleteReservationMutation.mutate(reservation.id);
-    }
+    updateStatusMutation.mutate({ id: reservation.id, status: "cancelled" });
   };
 
   const handleDateFilterChange = (filter: DateFilter) => {

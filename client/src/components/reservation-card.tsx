@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Clock, Users, Phone } from "lucide-react";
 
-export type ReservationStatus = "seated" | "confirmed" | "pending" | "complete";
+export type ReservationStatus = "seated" | "confirmed" | "pending" | "complete" | "cancelled";
 
 interface ReservationCardProps {
   id: string;
@@ -34,6 +34,10 @@ const statusConfig: Record<ReservationStatus, { label: string; className: string
     label: "Complete",
     className: "bg-[#6B7280] text-white",
   },
+  cancelled: {
+    label: "Cancelled",
+    className: "bg-rose-500 text-white",
+  },
 };
 
 function getActionButtons(status: ReservationStatus) {
@@ -41,12 +45,12 @@ function getActionButtons(status: ReservationStatus) {
     case "seated":
       return {
         primary: { label: "Mark As Complete", className: "bg-[#0D7377] text-white" },
-        secondary: null,
+        secondary: { label: "Cancel", className: "bg-rose-100 text-rose-700 border-rose-200" },
       };
     case "confirmed":
       return {
         primary: { label: "Mark As Seated", className: "bg-[#0D7377] text-white" },
-        secondary: null,
+        secondary: { label: "Cancel", className: "bg-rose-100 text-rose-700 border-rose-200" },
       };
     case "pending":
       return {
@@ -54,6 +58,11 @@ function getActionButtons(status: ReservationStatus) {
         secondary: { label: "Cancel", className: "bg-rose-100 text-rose-700 border-rose-200" },
       };
     case "complete":
+      return {
+        primary: { label: "Remove Reservation", className: "bg-rose-100 text-rose-700 border-rose-200" },
+        secondary: null,
+      };
+    case "cancelled":
       return {
         primary: { label: "Remove Reservation", className: "bg-rose-100 text-rose-700 border-rose-200" },
         secondary: null,

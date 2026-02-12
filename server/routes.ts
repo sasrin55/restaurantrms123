@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertReservationSchema } from "@shared/schema";
-import { appendReservationToSheet, exportAllReservationsToSheet } from "./googleSheets";
+import { appendReservationToSheet, updateReservationInSheet, exportAllReservationsToSheet } from "./googleSheets";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -51,6 +51,11 @@ export async function registerRoutes(
     if (!reservation) {
       return res.status(404).json({ error: "Reservation not found" });
     }
+
+    updateReservationInSheet(reservation).catch(err =>
+      console.error("Google Sheets status sync error:", err)
+    );
+
     res.json(reservation);
   });
 
@@ -66,6 +71,11 @@ export async function registerRoutes(
     if (!reservation) {
       return res.status(404).json({ error: "Reservation not found" });
     }
+
+    updateReservationInSheet(reservation).catch(err =>
+      console.error("Google Sheets edit sync error:", err)
+    );
+
     res.json(reservation);
   });
 
