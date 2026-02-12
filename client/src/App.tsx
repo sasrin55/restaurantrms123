@@ -9,6 +9,7 @@ import ReservationsPage from "@/pages/reservations";
 import NewReservationPage from "@/pages/new-reservation";
 import GuestListPage from "@/pages/guest-list";
 import TablesPage from "@/pages/tables";
+import SeatingChartPage from "@/pages/seating-chart";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/new-reservation" component={NewReservationPage} />
       <Route path="/guests" component={GuestListPage} />
       <Route path="/tables" component={TablesPage} />
+      <Route path="/seating-chart" component={SeatingChartPage} />
       <Route component={NotFound} />
     </Switch>
   );
