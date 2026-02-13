@@ -25,7 +25,7 @@ const statusConfig: Record<ReservationStatus, { label: string; className: string
   },
   confirmed: {
     label: "Confirmed",
-    className: "bg-[#0D7377] text-white",
+    className: "bg-green-600 text-white",
   },
   pending: {
     label: "Pending",
