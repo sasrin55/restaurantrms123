@@ -206,28 +206,40 @@ export async function syncFromSheet(): Promise<{ updated: number; errors: string
         const row = rows[i];
         if (!row || row.length < 10) continue;
 
-        const id = (row[9] || '').toString().trim();
-        if (!id) continue;
+        const idCell = (row[9] || '').toString().trim();
+        if (!idCell) continue;
 
-        const tableName = (row[5] || '').toString().trim();
-        const tableId = TABLE_NAME_TO_ID[tableName];
-        if (!tableId) {
-          errors.push(`Row ${i + 1} in "${tabName}": unknown table "${tableName}"`);
-          continue;
+        const ids = idCell.split(',').map((s: string) => s.trim()).filter(Boolean);
+        const tableCell = (row[5] || '').toString().trim();
+        const tableNames = tableCell.split(',').map((s: string) => s.trim()).filter(Boolean);
+
+        const customerName = (row[1] || '').toString().trim();
+        const phoneNumber = (row[2] || '').toString().trim();
+        const time = (row[3] || '').toString().trim();
+        const partySize = parseInt(row[4]) || 0;
+        const comments = (row[6] || '').toString().trim();
+        const status = (row[7] || '').toString().trim();
+
+        for (let j = 0; j < ids.length; j++) {
+          const tName = tableNames[j] || tableNames[0] || tableCell;
+          const tId = TABLE_NAME_TO_ID[tName];
+          if (!tId) {
+            errors.push(`Row ${i + 1} in "${tabName}": unknown table "${tName}"`);
+            continue;
+          }
+          updates.push({
+            id: ids[j],
+            customerName,
+            phoneNumber,
+            date: dateStr!,
+            time,
+            partySize,
+            tableName: tName,
+            tableId: tId,
+            comments,
+            status,
+          });
         }
-
-        updates.push({
-          id,
-          customerName: (row[1] || '').toString().trim(),
-          phoneNumber: (row[2] || '').toString().trim(),
-          date: dateStr,
-          time: (row[3] || '').toString().trim(),
-          partySize: parseInt(row[4]) || 0,
-          tableName,
-          tableId,
-          comments: (row[6] || '').toString().trim(),
-          status: (row[7] || '').toString().trim(),
-        });
       }
     } catch (err: any) {
       errors.push(`Failed to read tab "${tabName}": ${err.message}`);
@@ -250,6 +262,47 @@ type ReservationData = {
   createdAt: Date | null;
 };
 
+interface GroupedReservationData {
+  ids: string[];
+  customerName: string;
+  phoneNumber: string;
+  date: string;
+  time: string;
+  partySize: number;
+  tableNames: string[];
+  comments: string;
+  status: string;
+  createdAt: Date | null;
+}
+
+function groupReservationsForSheet(reservations: ReservationData[]): GroupedReservationData[] {
+  const groups = new Map<string, ReservationData[]>();
+  for (const r of reservations) {
+    const key = `${r.customerName}|${r.date}|${r.time}|${r.partySize}|${r.phoneNumber}`;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.push(r);
+    } else {
+      groups.set(key, [r]);
+    }
+  }
+  return Array.from(groups.values()).map((group) => {
+    const first = group[0];
+    return {
+      ids: group.map((r) => r.id),
+      customerName: first.customerName,
+      phoneNumber: first.phoneNumber,
+      date: first.date,
+      time: first.time,
+      partySize: first.partySize,
+      tableNames: group.map((r) => r.tableName),
+      comments: first.comments || "",
+      status: first.status,
+      createdAt: first.createdAt,
+    };
+  });
+}
+
 function reservationToRow(reservation: ReservationData, rowNumber?: number) {
   return [
     rowNumber ?? "",
@@ -265,6 +318,21 @@ function reservationToRow(reservation: ReservationData, rowNumber?: number) {
   ];
 }
 
+function groupedToRow(group: GroupedReservationData, rowNumber?: number) {
+  return [
+    rowNumber ?? "",
+    group.customerName,
+    group.phoneNumber,
+    group.time,
+    group.partySize,
+    group.tableNames.join(", "),
+    group.comments,
+    group.status,
+    group.createdAt ? group.createdAt.toISOString() : new Date().toISOString(),
+    group.ids.join(","),
+  ];
+}
+
 async function findRowByReservationId(sheets: any, spreadsheetId: string, tabName: string, reservationId: string): Promise<number> {
   try {
     const result = await sheets.spreadsheets.values.get({
@@ -274,7 +342,9 @@ async function findRowByReservationId(sheets: any, spreadsheetId: string, tabNam
 
     const rows = result.data.values || [];
     for (let i = 1; i < rows.length; i++) {
-      if (rows[i][0] === reservationId) {
+      const cellValue = (rows[i]?.[0] || '').toString();
+      const ids = cellValue.split(',').map((s: string) => s.trim());
+      if (ids.includes(reservationId)) {
         return i + 1;
       }
     }
@@ -289,14 +359,51 @@ export async function appendReservationToSheet(reservation: ReservationData) {
     const spreadsheetId = await getOrCreateSpreadsheet();
     const tabName = await ensureDateTab(sheets, spreadsheetId, reservation.date);
 
-    await sheets.spreadsheets.values.append({
+    const result = await sheets.spreadsheets.values.get({
       spreadsheetId,
       range: `'${tabName}'!A:J`,
-      valueInputOption: 'RAW',
-      requestBody: {
-        values: [reservationToRow(reservation)],
-      },
     });
+    const rows = result.data.values || [];
+    let mergedRowIndex = -1;
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || row.length < 10) continue;
+      const name = (row[1] || '').toString().trim();
+      const phone = (row[2] || '').toString().trim();
+      const time = (row[3] || '').toString().trim();
+      const pSize = parseInt(row[4]) || 0;
+      if (name === reservation.customerName && phone === reservation.phoneNumber && time === reservation.time && pSize === reservation.partySize) {
+        mergedRowIndex = i + 1;
+        const existingTables = (row[5] || '').toString().trim();
+        const existingIds = (row[9] || '').toString().trim();
+        const newTables = existingTables ? `${existingTables}, ${reservation.tableName}` : reservation.tableName;
+        const newIds = existingIds ? `${existingIds},${reservation.id}` : reservation.id;
+        await sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: `'${tabName}'!F${mergedRowIndex}:F${mergedRowIndex}`,
+          valueInputOption: 'RAW',
+          requestBody: { values: [[newTables]] },
+        });
+        await sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: `'${tabName}'!J${mergedRowIndex}:J${mergedRowIndex}`,
+          valueInputOption: 'RAW',
+          requestBody: { values: [[newIds]] },
+        });
+        break;
+      }
+    }
+
+    if (mergedRowIndex === -1) {
+      await sheets.spreadsheets.values.append({
+        spreadsheetId,
+        range: `'${tabName}'!A:J`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [reservationToRow(reservation)],
+        },
+      });
+    }
   } catch (error) {
     console.error('Failed to append reservation to Google Sheet:', error);
   }
@@ -311,14 +418,43 @@ export async function updateReservationInSheet(reservation: ReservationData) {
     const rowIndex = await findRowByReservationId(sheets, spreadsheetId, tabName, reservation.id);
 
     if (rowIndex > 0) {
-      await sheets.spreadsheets.values.update({
+      const existingResult = await sheets.spreadsheets.values.get({
         spreadsheetId,
         range: `'${tabName}'!A${rowIndex}:J${rowIndex}`,
-        valueInputOption: 'RAW',
-        requestBody: {
-          values: [reservationToRow(reservation, rowIndex - 1)],
-        },
       });
+      const existingRow = existingResult.data.values?.[0];
+      const existingIds = existingRow ? (existingRow[9] || '').toString().trim() : '';
+      const existingTables = existingRow ? (existingRow[5] || '').toString().trim() : '';
+      const isGroupedRow = existingIds.includes(',');
+
+      if (isGroupedRow) {
+        await sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: `'${tabName}'!B${rowIndex}:I${rowIndex}`,
+          valueInputOption: 'RAW',
+          requestBody: {
+            values: [[
+              reservation.customerName,
+              reservation.phoneNumber,
+              reservation.time,
+              reservation.partySize,
+              existingTables,
+              reservation.comments || "",
+              reservation.status,
+              reservation.createdAt ? reservation.createdAt.toISOString() : new Date().toISOString(),
+            ]],
+          },
+        });
+      } else {
+        await sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: `'${tabName}'!A${rowIndex}:J${rowIndex}`,
+          valueInputOption: 'RAW',
+          requestBody: {
+            values: [reservationToRow(reservation, rowIndex - 1)],
+          },
+        });
+      }
     } else {
       await sheets.spreadsheets.values.append({
         spreadsheetId,
@@ -388,7 +524,8 @@ export async function exportAllReservationsToSheet(reservations: ReservationData
   for (const dateStr of sortedDates) {
     const dateReservations = byDate.get(dateStr)!;
     const tabName = await ensureDateTab(sheets, spreadsheetId, dateStr);
-    const rows = dateReservations.map((r, i) => reservationToRow(r, i + 1));
+    const grouped = groupReservationsForSheet(dateReservations);
+    const rows = grouped.map((g, i) => groupedToRow(g, i + 1));
 
     await sheets.spreadsheets.values.update({
       spreadsheetId,

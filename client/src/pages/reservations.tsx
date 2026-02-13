@@ -22,6 +22,7 @@ import { Plus, Search, Calendar, LayoutGrid, List, Loader2, RefreshCw } from "lu
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format, addDays, startOfWeek, endOfWeek, isWithinInterval, parseISO, isToday, isTomorrow } from "date-fns";
 import type { Reservation } from "@shared/schema";
+import { getTimeSlotsForDate, type MealPeriod } from "@/lib/timeSlots";
 
 type DateFilter = "today" | "tomorrow" | "this-week" | "custom";
 
@@ -37,6 +38,25 @@ interface GroupedReservation {
   comments: string;
   date: string;
 }
+
+function getTimePeriod(time: string, date: Date): MealPeriod {
+  const slots = getTimeSlotsForDate(date);
+  const slot = slots.find(s => s.label === time);
+  if (slot) return slot.period;
+  const hour = parseInt(time.match(/(\d+):/)?.[1] || "12");
+  const isPM = time.toLowerCase().includes("pm");
+  const h24 = isPM && hour !== 12 ? hour + 12 : (!isPM && hour === 12 ? 0 : hour);
+  if (h24 < 14) return "breakfast";
+  if (h24 < 19) return "lunch";
+  return "dinner";
+}
+
+const PERIOD_ORDER: MealPeriod[] = ["breakfast", "lunch", "dinner"];
+const PERIOD_LABELS: Record<MealPeriod, string> = {
+  breakfast: "Breakfast",
+  lunch: "Lunch",
+  dinner: "Dinner",
+};
 
 function groupReservations(reservations: Reservation[]): GroupedReservation[] {
   const groups = new Map<string, Reservation[]>();
@@ -386,58 +406,88 @@ export default function ReservationsPage() {
             </Link>
           </div>
         ) : viewMode === "grid" ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {groupedReservations.map((group) => (
-              <ReservationCard
-                key={group.ids.join("-")}
-                id={group.ids[0]}
-                guestName={group.customerName}
-                status={group.status as ReservationStatus}
-                time={group.time}
-                partySize={group.partySize}
-                tableNumber={group.tableNames.join(" + ")}
-                phone={group.phoneNumber}
-                comments={group.comments}
-                onEdit={() => handleEdit(group.reservations[0])}
-                onPrimaryAction={() => handleGroupPrimaryAction(group)}
-                onSecondaryAction={() => handleGroupSecondaryAction(group)}
-              />
-            ))}
+          <div className="space-y-8">
+            {PERIOD_ORDER.map((period) => {
+              const periodGroups = groupedReservations.filter(
+                (g) => getTimePeriod(g.time, selectedDate) === period
+              );
+              if (periodGroups.length === 0) return null;
+              return (
+                <div key={period}>
+                  <h2 className="text-lg font-semibold text-foreground mb-4" data-testid={`text-period-${period}`}>
+                    {PERIOD_LABELS[period]}
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {periodGroups.map((group) => (
+                      <ReservationCard
+                        key={group.ids.join("-")}
+                        id={group.ids[0]}
+                        guestName={group.customerName}
+                        status={group.status as ReservationStatus}
+                        time={group.time}
+                        partySize={group.partySize}
+                        tableNumber={group.tableNames.join(" + ")}
+                        phone={group.phoneNumber}
+                        comments={group.comments}
+                        onEdit={() => handleEdit(group.reservations[0])}
+                        onPrimaryAction={() => handleGroupPrimaryAction(group)}
+                        onSecondaryAction={() => handleGroupSecondaryAction(group)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ) : (
-          <div className="border rounded-md overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-muted/50">
-                <tr className="border-b">
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Guest Name</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Time</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Party Size</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Table</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Phone Number</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Comments</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {groupedReservations.map((group) => (
-                  <ReservationRow
-                    key={group.ids.join("-")}
-                    id={group.ids[0]}
-                    guestName={group.customerName}
-                    status={group.status as ReservationStatus}
-                    time={group.time}
-                    partySize={group.partySize}
-                    tableNumber={group.tableNames.join(" + ")}
-                    phone={group.phoneNumber}
-                    comments={group.comments}
-                    onEdit={() => handleEdit(group.reservations[0])}
-                    onPrimaryAction={() => handleGroupPrimaryAction(group)}
-                    onSecondaryAction={() => handleGroupSecondaryAction(group)}
-                  />
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-8">
+            {PERIOD_ORDER.map((period) => {
+              const periodGroups = groupedReservations.filter(
+                (g) => getTimePeriod(g.time, selectedDate) === period
+              );
+              if (periodGroups.length === 0) return null;
+              return (
+                <div key={period}>
+                  <h2 className="text-lg font-semibold text-foreground mb-4" data-testid={`text-period-list-${period}`}>
+                    {PERIOD_LABELS[period]}
+                  </h2>
+                  <div className="border rounded-md overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-muted/50">
+                        <tr className="border-b">
+                          <th className="text-left py-3 px-4 font-medium text-muted-foreground">Guest Name</th>
+                          <th className="text-left py-3 px-4 font-medium text-muted-foreground">Time</th>
+                          <th className="text-left py-3 px-4 font-medium text-muted-foreground">Party Size</th>
+                          <th className="text-left py-3 px-4 font-medium text-muted-foreground">Table</th>
+                          <th className="text-left py-3 px-4 font-medium text-muted-foreground">Phone Number</th>
+                          <th className="text-left py-3 px-4 font-medium text-muted-foreground">Comments</th>
+                          <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
+                          <th className="text-left py-3 px-4 font-medium text-muted-foreground">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {periodGroups.map((group) => (
+                          <ReservationRow
+                            key={group.ids.join("-")}
+                            id={group.ids[0]}
+                            guestName={group.customerName}
+                            status={group.status as ReservationStatus}
+                            time={group.time}
+                            partySize={group.partySize}
+                            tableNumber={group.tableNames.join(" + ")}
+                            phone={group.phoneNumber}
+                            comments={group.comments}
+                            onEdit={() => handleEdit(group.reservations[0])}
+                            onPrimaryAction={() => handleGroupPrimaryAction(group)}
+                            onSecondaryAction={() => handleGroupSecondaryAction(group)}
+                          />
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
