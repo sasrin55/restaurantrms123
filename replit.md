@@ -41,9 +41,10 @@ The backend uses a clean separation:
 - **ORM**: Drizzle ORM with PostgreSQL dialect
 - **Schema**: Defined in `shared/schema.ts` using Drizzle's schema builder
 - **Validation**: Zod schemas generated from Drizzle schemas via drizzle-zod
-- **Current Implementation**: In-memory storage (`MemStorage` class) with interface ready for database swap
+- **Current Implementation**: PostgreSQL via `DatabaseStorage` class using Drizzle ORM
+- **Connection**: `server/db.ts` creates a connection pool using `DATABASE_URL`
 
-The storage layer uses an interface pattern (`IStorage`) allowing easy transition from in-memory to PostgreSQL storage.
+The storage layer uses an interface pattern (`IStorage`) backed by PostgreSQL for persistent data storage.
 
 ### Shared Code
 The `shared/` directory contains code used by both frontend and backend:
