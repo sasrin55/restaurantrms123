@@ -98,6 +98,7 @@ export default function ReservationsPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>("today");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [periodFilter, setPeriodFilter] = useState<"all" | MealPeriod>("all");
 
   const { data: reservations = [], isLoading } = useQuery<Reservation[]>({
     queryKey: ["/api/reservations"],
@@ -389,6 +390,30 @@ export default function ReservationsPage() {
           </div>
         </div>
 
+        <div className="flex items-center gap-2 mb-6" data-testid="period-tabs">
+          {(["all", ...PERIOD_ORDER] as const).map((p) => {
+            const label = p === "all" ? "All" : PERIOD_LABELS[p];
+            const count = p === "all"
+              ? groupedReservations.length
+              : groupedReservations.filter((g) => getTimePeriod(g.time, selectedDate) === p).length;
+            if (p !== "all" && count === 0) return null;
+            return (
+              <button
+                key={p}
+                onClick={() => setPeriodFilter(p)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  periodFilter === p
+                    ? "bg-[#0D7377] text-white"
+                    : "bg-muted text-muted-foreground hover-elevate"
+                }`}
+                data-testid={`button-period-${p}`}
+              >
+                {label} ({count})
+              </button>
+            );
+          })}
+        </div>
+
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -416,16 +441,18 @@ export default function ReservationsPage() {
           </div>
         ) : viewMode === "grid" ? (
           <div className="space-y-8">
-            {PERIOD_ORDER.map((period) => {
+            {(periodFilter === "all" ? PERIOD_ORDER : [periodFilter]).map((period) => {
               const periodGroups = groupedReservations.filter(
                 (g) => getTimePeriod(g.time, selectedDate) === period
               );
               if (periodGroups.length === 0) return null;
               return (
                 <div key={period}>
-                  <h2 className="text-lg font-semibold text-foreground mb-4" data-testid={`text-period-${period}`}>
-                    {PERIOD_LABELS[period]}
-                  </h2>
+                  {periodFilter === "all" && (
+                    <h2 className="text-lg font-semibold text-foreground mb-4" data-testid={`text-period-${period}`}>
+                      {PERIOD_LABELS[period]}
+                    </h2>
+                  )}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {periodGroups.map((group) => (
                       <ReservationCard
@@ -450,16 +477,18 @@ export default function ReservationsPage() {
           </div>
         ) : (
           <div className="space-y-8">
-            {PERIOD_ORDER.map((period) => {
+            {(periodFilter === "all" ? PERIOD_ORDER : [periodFilter]).map((period) => {
               const periodGroups = groupedReservations.filter(
                 (g) => getTimePeriod(g.time, selectedDate) === period
               );
               if (periodGroups.length === 0) return null;
               return (
                 <div key={period}>
-                  <h2 className="text-lg font-semibold text-foreground mb-4" data-testid={`text-period-list-${period}`}>
-                    {PERIOD_LABELS[period]}
-                  </h2>
+                  {periodFilter === "all" && (
+                    <h2 className="text-lg font-semibold text-foreground mb-4" data-testid={`text-period-list-${period}`}>
+                      {PERIOD_LABELS[period]}
+                    </h2>
+                  )}
                   <div className="border rounded-md overflow-hidden">
                     <table className="w-full">
                       <thead className="bg-muted/50">
