@@ -13,6 +13,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   PlusCircle,
+  Footprints,
   Table2,
   Users,
   Bell,
@@ -29,6 +30,11 @@ const restaurantItems = [
     title: "New Reservation",
     url: "/new-reservation",
     icon: PlusCircle,
+  },
+  {
+    title: "Walk In",
+    url: "/walk-in",
+    icon: Footprints,
   },
   {
     title: "Reservations",

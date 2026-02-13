@@ -7,6 +7,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import ReservationsPage from "@/pages/reservations";
 import NewReservationPage from "@/pages/new-reservation";
+import WalkInPage from "@/pages/walk-in";
 import GuestListPage from "@/pages/guest-list";
 import TablesPage from "@/pages/tables";
 import NotFound from "@/pages/not-found";
@@ -16,6 +17,7 @@ function Router() {
     <Switch>
       <Route path="/" component={ReservationsPage} />
       <Route path="/new-reservation" component={NewReservationPage} />
+      <Route path="/walk-in" component={WalkInPage} />
       <Route path="/guests" component={GuestListPage} />
       <Route path="/tables" component={TablesPage} />
       <Route component={NotFound} />
