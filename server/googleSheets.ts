@@ -333,6 +333,29 @@ function groupedToRow(group: GroupedReservationData, rowNumber?: number) {
   ];
 }
 
+function getMealPeriodFromTime(time: string, dateStr: string): string {
+  const hour = parseInt(time.match(/(\d+):/)?.[1] || "12");
+  const isPM = time.toLowerCase().includes("pm");
+  const h24 = isPM && hour !== 12 ? hour + 12 : (!isPM && hour === 12 ? 0 : hour);
+
+  const parts = dateStr.split('-');
+  const date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+  const day = date.getDay();
+  const isWeekend = day === 0 || day === 6;
+
+  if (isWeekend) {
+    if (h24 < 14) return "Breakfast";
+    if (h24 < 19) return "Lunch";
+    return "Dinner";
+  }
+  if (h24 < 19) return "Lunch";
+  return "Dinner";
+}
+
+function makePeriodDividerRow(label: string): string[] {
+  return [`── ${label} ──`, "", "", "", "", "", "", "", "", ""];
+}
+
 async function findRowByReservationId(sheets: any, spreadsheetId: string, tabName: string, reservationId: string): Promise<number> {
   try {
     const result = await sheets.spreadsheets.values.get({
@@ -525,14 +548,37 @@ export async function exportAllReservationsToSheet(reservations: ReservationData
     const dateReservations = byDate.get(dateStr)!;
     const tabName = await ensureDateTab(sheets, spreadsheetId, dateStr);
     const grouped = groupReservationsForSheet(dateReservations);
-    const rows = grouped.map((g, i) => groupedToRow(g, i + 1));
+
+    const periodOrder = ["Breakfast", "Lunch", "Dinner"];
+    const byPeriod = new Map<string, typeof grouped>();
+    for (const g of grouped) {
+      const period = getMealPeriodFromTime(g.time, dateStr);
+      const existing = byPeriod.get(period);
+      if (existing) {
+        existing.push(g);
+      } else {
+        byPeriod.set(period, [g]);
+      }
+    }
+
+    const allRows: any[][] = [HEADERS];
+    let counter = 1;
+    for (const period of periodOrder) {
+      const periodGroups = byPeriod.get(period);
+      if (!periodGroups || periodGroups.length === 0) continue;
+      allRows.push(makePeriodDividerRow(period));
+      for (const g of periodGroups) {
+        allRows.push(groupedToRow(g, counter));
+        counter++;
+      }
+    }
 
     await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: `'${tabName}'!A1`,
       valueInputOption: 'RAW',
       requestBody: {
-        values: [HEADERS, ...rows],
+        values: allRows,
       },
     });
   }
