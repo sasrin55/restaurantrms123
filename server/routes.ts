@@ -105,46 +105,62 @@ export async function registerRoutes(
     }
   });
 
+  async function applySyncFromSheets(): Promise<{ updated: number; deleted: number; errors: string[] }> {
+    const result = await syncFromSheet() as any;
+    const sheetUpdates: SheetReservationUpdate[] = result.updates || [];
+    let updatedCount = 0;
+    let deletedCount = 0;
+
+    const sheetIds = new Set(sheetUpdates.map(u => u.id));
+
+    for (const u of sheetUpdates) {
+      const existing = await storage.getReservation(u.id);
+      if (!existing) continue;
+
+      const hasChanges =
+        existing.customerName !== u.customerName ||
+        existing.phoneNumber !== u.phoneNumber ||
+        existing.time !== u.time ||
+        existing.partySize !== u.partySize ||
+        existing.tableId !== u.tableId ||
+        existing.tableName !== u.tableName ||
+        existing.comments !== u.comments ||
+        existing.status !== u.status;
+
+      if (hasChanges) {
+        await storage.updateReservation(u.id, {
+          customerName: u.customerName,
+          phoneNumber: u.phoneNumber,
+          time: u.time,
+          partySize: u.partySize,
+          tableId: u.tableId,
+          tableName: u.tableName,
+          comments: u.comments,
+          status: u.status,
+        });
+        updatedCount++;
+      }
+    }
+
+    const allReservations = await storage.getReservations();
+    for (const r of allReservations) {
+      if (!sheetIds.has(r.id)) {
+        await storage.deleteReservation(r.id);
+        deletedCount++;
+      }
+    }
+
+    if (updatedCount > 0 || deletedCount > 0) {
+      await storage.rebuildGuestData();
+    }
+
+    return { updated: updatedCount, deleted: deletedCount, errors: result.errors };
+  }
+
   app.post("/api/reservations/sync-from-sheets", async (_req, res) => {
     try {
-      const result = await syncFromSheet() as any;
-      const updates: SheetReservationUpdate[] = result.updates || [];
-      let updatedCount = 0;
-
-      for (const u of updates) {
-        const existing = await storage.getReservation(u.id);
-        if (!existing) continue;
-
-        const hasChanges =
-          existing.customerName !== u.customerName ||
-          existing.phoneNumber !== u.phoneNumber ||
-          existing.time !== u.time ||
-          existing.partySize !== u.partySize ||
-          existing.tableId !== u.tableId ||
-          existing.tableName !== u.tableName ||
-          existing.comments !== u.comments ||
-          existing.status !== u.status;
-
-        if (hasChanges) {
-          await storage.updateReservation(u.id, {
-            customerName: u.customerName,
-            phoneNumber: u.phoneNumber,
-            time: u.time,
-            partySize: u.partySize,
-            tableId: u.tableId,
-            tableName: u.tableName,
-            comments: u.comments,
-            status: u.status,
-          });
-          updatedCount++;
-        }
-      }
-
-      if (updatedCount > 0) {
-        await storage.rebuildGuestData();
-      }
-
-      res.json({ success: true, updated: updatedCount, errors: result.errors });
+      const result = await applySyncFromSheets();
+      res.json({ success: true, ...result });
     } catch (error: any) {
       console.error("Sync from Google Sheets failed:", error);
       res.status(500).json({ error: error.message || "Failed to sync from Google Sheets" });
@@ -153,42 +169,9 @@ export async function registerRoutes(
 
   setInterval(async () => {
     try {
-      const result = await syncFromSheet() as any;
-      const updates: SheetReservationUpdate[] = result.updates || [];
-      let updatedCount = 0;
-
-      for (const u of updates) {
-        const existing = await storage.getReservation(u.id);
-        if (!existing) continue;
-
-        const hasChanges =
-          existing.customerName !== u.customerName ||
-          existing.phoneNumber !== u.phoneNumber ||
-          existing.time !== u.time ||
-          existing.partySize !== u.partySize ||
-          existing.tableId !== u.tableId ||
-          existing.tableName !== u.tableName ||
-          existing.comments !== u.comments ||
-          existing.status !== u.status;
-
-        if (hasChanges) {
-          await storage.updateReservation(u.id, {
-            customerName: u.customerName,
-            phoneNumber: u.phoneNumber,
-            time: u.time,
-            partySize: u.partySize,
-            tableId: u.tableId,
-            tableName: u.tableName,
-            comments: u.comments,
-            status: u.status,
-          });
-          updatedCount++;
-        }
-      }
-
-      if (updatedCount > 0) {
-        await storage.rebuildGuestData();
-        console.log(`Auto-sync from Sheets: updated ${updatedCount} reservation(s)`);
+      const result = await applySyncFromSheets();
+      if (result.updated > 0 || result.deleted > 0) {
+        console.log(`Auto-sync from Sheets: updated ${result.updated}, deleted ${result.deleted} reservation(s)`);
       }
     } catch (err) {
       console.error("Auto-sync from Sheets error:", err);

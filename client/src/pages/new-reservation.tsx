@@ -58,8 +58,8 @@ export default function NewReservationPage() {
     })
     .map((r: any) => r.tableId);
 
-  const availableTables = getAvailableSingleTables(parsedSize, bookedTableIds);
-  const joinableTables = restaurantTables.filter((t) => !bookedTableIds.includes(t.id));
+  const availableTables = restaurantTables.filter((t) => !bookedTableIds.includes(t.id));
+  const joinableTables = availableTables;
 
   const createReservationMutation = useMutation({
     mutationFn: async () => {
@@ -379,7 +379,7 @@ export default function NewReservationPage() {
             {selectionMode === "single" ? (
               availableTables.length === 0 ? (
                 <p className="text-muted-foreground text-sm py-4 text-center" data-testid="text-no-tables">
-                  No single tables available for this party size, date, and time.
+                  No tables available for this date and time.
                 </p>
               ) : (
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
