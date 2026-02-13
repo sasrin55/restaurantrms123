@@ -18,7 +18,7 @@ import {
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { ReservationCard, ReservationRow, type ReservationStatus } from "@/components/reservation-card";
 import { EditReservationDialog } from "@/components/edit-reservation-dialog";
-import { Plus, Search, Calendar, LayoutGrid, List, Loader2 } from "lucide-react";
+import { Plus, Search, Calendar, LayoutGrid, List, Loader2, RefreshCw } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format, addDays, startOfWeek, endOfWeek, isWithinInterval, parseISO, isToday, isTomorrow } from "date-fns";
 import type { Reservation } from "@shared/schema";
@@ -98,6 +98,16 @@ export default function ReservationsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
+    },
+  });
+
+  const syncFromSheetsMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/reservations/sync-from-sheets");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/guests"] });
     },
   });
 
@@ -211,15 +221,27 @@ export default function ReservationsPage() {
             <h1 className="text-2xl font-semibold text-foreground mb-1" data-testid="text-page-title">Reservations</h1>
             <p className="text-sm text-muted-foreground" data-testid="text-page-subtitle">Manage and view all of your reservations.</p>
           </div>
-          <Link href="/new-reservation">
-            <Button 
-              className="bg-[#0D7377] hover:bg-[#0a5c5f] text-white gap-2 rounded-full px-5"
-              data-testid="button-new-reservation"
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => syncFromSheetsMutation.mutate()}
+              disabled={syncFromSheetsMutation.isPending}
+              title="Sync from Google Sheets"
+              data-testid="button-sync-sheets"
             >
-              <Plus className="h-4 w-4" />
-              New Reservation
+              <RefreshCw className={`h-4 w-4 ${syncFromSheetsMutation.isPending ? "animate-spin" : ""}`} />
             </Button>
-          </Link>
+            <Link href="/new-reservation">
+              <Button 
+                className="bg-[#0D7377] hover:bg-[#0a5c5f] text-white gap-2 rounded-full px-5"
+                data-testid="button-new-reservation"
+              >
+                <Plus className="h-4 w-4" />
+                New Reservation
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className="flex items-center gap-3 mb-6 flex-wrap">

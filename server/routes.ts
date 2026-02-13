@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertReservationSchema } from "@shared/schema";
-import { appendReservationToSheet, updateReservationInSheet, exportAllReservationsToSheet } from "./googleSheets";
+import { appendReservationToSheet, updateReservationInSheet, exportAllReservationsToSheet, syncFromSheet, type SheetReservationUpdate } from "./googleSheets";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -104,6 +104,96 @@ export async function registerRoutes(
       res.status(500).json({ error: error.message || "Failed to export to Google Sheets" });
     }
   });
+
+  app.post("/api/reservations/sync-from-sheets", async (_req, res) => {
+    try {
+      const result = await syncFromSheet() as any;
+      const updates: SheetReservationUpdate[] = result.updates || [];
+      let updatedCount = 0;
+
+      for (const u of updates) {
+        const existing = await storage.getReservation(u.id);
+        if (!existing) continue;
+
+        const hasChanges =
+          existing.customerName !== u.customerName ||
+          existing.phoneNumber !== u.phoneNumber ||
+          existing.time !== u.time ||
+          existing.partySize !== u.partySize ||
+          existing.tableId !== u.tableId ||
+          existing.tableName !== u.tableName ||
+          existing.comments !== u.comments ||
+          existing.status !== u.status;
+
+        if (hasChanges) {
+          await storage.updateReservation(u.id, {
+            customerName: u.customerName,
+            phoneNumber: u.phoneNumber,
+            time: u.time,
+            partySize: u.partySize,
+            tableId: u.tableId,
+            tableName: u.tableName,
+            comments: u.comments,
+            status: u.status,
+          });
+          updatedCount++;
+        }
+      }
+
+      if (updatedCount > 0) {
+        await storage.rebuildGuestData();
+      }
+
+      res.json({ success: true, updated: updatedCount, errors: result.errors });
+    } catch (error: any) {
+      console.error("Sync from Google Sheets failed:", error);
+      res.status(500).json({ error: error.message || "Failed to sync from Google Sheets" });
+    }
+  });
+
+  setInterval(async () => {
+    try {
+      const result = await syncFromSheet() as any;
+      const updates: SheetReservationUpdate[] = result.updates || [];
+      let updatedCount = 0;
+
+      for (const u of updates) {
+        const existing = await storage.getReservation(u.id);
+        if (!existing) continue;
+
+        const hasChanges =
+          existing.customerName !== u.customerName ||
+          existing.phoneNumber !== u.phoneNumber ||
+          existing.time !== u.time ||
+          existing.partySize !== u.partySize ||
+          existing.tableId !== u.tableId ||
+          existing.tableName !== u.tableName ||
+          existing.comments !== u.comments ||
+          existing.status !== u.status;
+
+        if (hasChanges) {
+          await storage.updateReservation(u.id, {
+            customerName: u.customerName,
+            phoneNumber: u.phoneNumber,
+            time: u.time,
+            partySize: u.partySize,
+            tableId: u.tableId,
+            tableName: u.tableName,
+            comments: u.comments,
+            status: u.status,
+          });
+          updatedCount++;
+        }
+      }
+
+      if (updatedCount > 0) {
+        await storage.rebuildGuestData();
+        console.log(`Auto-sync from Sheets: updated ${updatedCount} reservation(s)`);
+      }
+    } catch (err) {
+      console.error("Auto-sync from Sheets error:", err);
+    }
+  }, 2 * 60 * 1000);
 
   app.get("/api/guests", async (req, res) => {
     const guests = await storage.getGuests();
