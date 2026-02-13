@@ -104,12 +104,20 @@ export class MemStorage implements IStorage {
     return this.guestsStore.get(id);
   }
 
+  private visitKeys = new Set<string>();
+
   async upsertGuest(name: string, phone: string, date: string, partySize: number): Promise<Guest> {
+    const visitKey = `${phone}|${date}|${partySize}`;
+    const isNewVisit = !this.visitKeys.has(visitKey);
+    this.visitKeys.add(visitKey);
+
     const existingByPhone = Array.from(this.guestsStore.values()).find(g => g.phone === phone);
     
     if (existingByPhone) {
-      existingByPhone.visitCount += 1;
-      existingByPhone.totalPartySize += partySize;
+      if (isNewVisit) {
+        existingByPhone.visitCount += 1;
+        existingByPhone.totalPartySize += partySize;
+      }
       if (date > existingByPhone.lastVisit) {
         existingByPhone.lastVisit = date;
         existingByPhone.name = name;
@@ -132,6 +140,55 @@ export class MemStorage implements IStorage {
   }
   async deleteGuest(id: string): Promise<boolean> {
     return this.guestsStore.delete(id);
+  }
+
+  async rebuildGuestData(): Promise<void> {
+    const reservations = Array.from(this.reservations.values());
+    const visitMap = new Map<string, { name: string; phone: string; dates: Set<string>; totalPartySize: number; lastVisit: string }>();
+
+    for (const r of reservations) {
+      const key = r.phoneNumber;
+      const visitKey = `${r.phoneNumber}|${r.date}|${r.partySize}`;
+      const existing = visitMap.get(key);
+
+      if (existing) {
+        if (!existing.dates.has(visitKey)) {
+          existing.dates.add(visitKey);
+          existing.totalPartySize += r.partySize;
+        }
+        if (r.date > existing.lastVisit) {
+          existing.lastVisit = r.date;
+          existing.name = r.customerName;
+        }
+      } else {
+        visitMap.set(key, {
+          name: r.customerName,
+          phone: r.phoneNumber,
+          dates: new Set([visitKey]),
+          totalPartySize: r.partySize,
+          lastVisit: r.date,
+        });
+      }
+    }
+
+    const oldGuests = new Map(this.guestsStore);
+    this.guestsStore.clear();
+    this.visitKeys.clear();
+
+    for (const [phone, data] of Array.from(visitMap.entries())) {
+      const existingGuest = Array.from(oldGuests.values()).find(g => g.phone === phone);
+      const id = existingGuest?.id || randomUUID();
+      const guest: Guest = {
+        id,
+        name: data.name,
+        phone: data.phone,
+        visitCount: data.dates.size,
+        lastVisit: data.lastVisit,
+        totalPartySize: data.totalPartySize,
+      };
+      this.guestsStore.set(id, guest);
+      data.dates.forEach(vk => this.visitKeys.add(vk));
+    }
   }
 }
 

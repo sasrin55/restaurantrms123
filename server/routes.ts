@@ -8,6 +8,8 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  storage.rebuildGuestData().catch(err => console.error("Failed to rebuild guest data:", err));
+
   app.get("/api/reservations", async (req, res) => {
     const reservations = await storage.getReservations();
     res.json(reservations);
