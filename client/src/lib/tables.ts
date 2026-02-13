@@ -26,49 +26,12 @@ export const restaurantTables: RestaurantTable[] = [
   { id: 150, number: "15a", minCapacity: 2, maxCapacity: 3 },
 ];
 
-export interface TableCombo {
-  table1: RestaurantTable;
-  table2: RestaurantTable;
-  totalMin: number;
-  totalMax: number;
+export interface TepanyakiSeat {
+  id: number;
+  number: string;
 }
 
-export function getAvailableSingleTables(
-  partySize: number,
-  bookedTableIds: number[]
-): RestaurantTable[] {
-  return restaurantTables.filter(
-    (t) =>
-      partySize >= t.minCapacity &&
-      partySize <= t.maxCapacity &&
-      !bookedTableIds.includes(t.id)
-  );
-}
-
-export function getAvailableTableCombos(
-  partySize: number,
-  bookedTableIds: number[]
-): TableCombo[] {
-  const available = restaurantTables.filter((t) => !bookedTableIds.includes(t.id));
-  const combos: TableCombo[] = [];
-
-  for (let i = 0; i < available.length; i++) {
-    for (let j = i + 1; j < available.length; j++) {
-      const t1 = available[i];
-      const t2 = available[j];
-      const totalMin = t1.minCapacity + t2.minCapacity;
-      const totalMax = t1.maxCapacity + t2.maxCapacity;
-      if (partySize >= totalMin && partySize <= totalMax) {
-        combos.push({
-          table1: t1,
-          table2: t2,
-          totalMin,
-          totalMax,
-        });
-      }
-    }
-  }
-
-  combos.sort((a, b) => a.totalMax - b.totalMax);
-  return combos;
-}
+export const tepanyakiSeats: TepanyakiSeat[] = Array.from({ length: 8 }, (_, i) => ({
+  id: 1000 + i + 1,
+  number: `${i + 1}`,
+}));
