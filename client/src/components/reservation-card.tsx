@@ -65,8 +65,8 @@ function getActionButtons(status: ReservationStatus) {
       };
     case "cancelled":
       return {
-        primary: { label: "Remove Reservation", className: "bg-rose-100 text-rose-700 border-rose-200" },
-        secondary: null,
+        primary: { label: "Undo Cancel", className: "bg-[#0D7377] text-white" },
+        secondary: { label: "Remove Reservation", className: "bg-rose-100 text-rose-700 border-rose-200" },
       };
     default:
       return { primary: null, secondary: null };

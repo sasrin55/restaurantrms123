@@ -150,16 +150,24 @@ export default function ReservationsPage() {
           updateStatusMutation.mutate({ id, status: "confirmed" });
           break;
         case "complete":
-        case "cancelled":
           deleteReservationMutation.mutate(id);
+          break;
+        case "cancelled":
+          updateStatusMutation.mutate({ id, status: "confirmed" });
           break;
       }
     }
   };
 
   const handleGroupSecondaryAction = (group: GroupedReservation) => {
-    for (const id of group.ids) {
-      updateStatusMutation.mutate({ id, status: "cancelled" });
+    if (group.status === "cancelled") {
+      for (const id of group.ids) {
+        deleteReservationMutation.mutate(id);
+      }
+    } else {
+      for (const id of group.ids) {
+        updateStatusMutation.mutate({ id, status: "cancelled" });
+      }
     }
   };
 
@@ -342,6 +350,7 @@ export default function ReservationsPage() {
               <SelectItem value="confirmed">Confirmed</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
               <SelectItem value="complete">Complete</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
             </SelectContent>
           </Select>
 
