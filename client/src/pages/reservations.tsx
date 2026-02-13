@@ -160,6 +160,14 @@ export default function ReservationsPage() {
     }
   };
 
+  const handleGroupTertiaryAction = (group: GroupedReservation) => {
+    if (group.status === "seated") {
+      for (const id of group.ids) {
+        updateStatusMutation.mutate({ id, status: "confirmed" });
+      }
+    }
+  };
+
   const handleGroupSecondaryAction = (group: GroupedReservation) => {
     if (group.status === "cancelled") {
       for (const id of group.ids) {
@@ -468,6 +476,7 @@ export default function ReservationsPage() {
                         onEdit={() => handleEdit(group.reservations[0])}
                         onPrimaryAction={() => handleGroupPrimaryAction(group)}
                         onSecondaryAction={() => handleGroupSecondaryAction(group)}
+                        onTertiaryAction={() => handleGroupTertiaryAction(group)}
                       />
                     ))}
                   </div>
@@ -518,6 +527,7 @@ export default function ReservationsPage() {
                             onEdit={() => handleEdit(group.reservations[0])}
                             onPrimaryAction={() => handleGroupPrimaryAction(group)}
                             onSecondaryAction={() => handleGroupSecondaryAction(group)}
+                            onTertiaryAction={() => handleGroupTertiaryAction(group)}
                           />
                         ))}
                       </tbody>

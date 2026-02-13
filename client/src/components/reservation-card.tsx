@@ -16,6 +16,7 @@ interface ReservationCardProps {
   onEdit?: () => void;
   onPrimaryAction?: () => void;
   onSecondaryAction?: () => void;
+  onTertiaryAction?: () => void;
 }
 
 const statusConfig: Record<ReservationStatus, { label: string; className: string }> = {
@@ -47,29 +48,34 @@ function getActionButtons(status: ReservationStatus) {
       return {
         primary: { label: "Mark As Complete", className: "bg-[#0D7377] text-white" },
         secondary: { label: "Cancel", className: "bg-rose-100 text-rose-700 border-rose-200" },
+        tertiary: { label: "Undo Seated", className: "bg-amber-100 text-amber-700 border-amber-200" },
       };
     case "confirmed":
       return {
         primary: { label: "Mark As Seated", className: "bg-[#0D7377] text-white" },
         secondary: { label: "Cancel", className: "bg-rose-100 text-rose-700 border-rose-200" },
+        tertiary: null,
       };
     case "pending":
       return {
         primary: { label: "Confirm", className: "bg-[#0D7377] text-white" },
         secondary: { label: "Cancel", className: "bg-rose-100 text-rose-700 border-rose-200" },
+        tertiary: null,
       };
     case "complete":
       return {
         primary: { label: "Remove Reservation", className: "bg-rose-100 text-rose-700 border-rose-200" },
         secondary: null,
+        tertiary: null,
       };
     case "cancelled":
       return {
         primary: { label: "Undo Cancel", className: "bg-[#0D7377] text-white" },
         secondary: { label: "Remove Reservation", className: "bg-rose-100 text-rose-700 border-rose-200" },
+        tertiary: null,
       };
     default:
-      return { primary: null, secondary: null };
+      return { primary: null, secondary: null, tertiary: null };
   }
 }
 
@@ -85,6 +91,7 @@ export function ReservationCard({
   onEdit,
   onPrimaryAction,
   onSecondaryAction,
+  onTertiaryAction,
 }: ReservationCardProps) {
   const statusStyle = statusConfig[status];
   const actions = getActionButtons(status);
@@ -163,6 +170,17 @@ export function ReservationCard({
             {actions.secondary.label}
           </Button>
         )}
+        {actions.tertiary && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onTertiaryAction}
+            className={actions.tertiary.className}
+            data-testid={`button-tertiary-${id}`}
+          >
+            {actions.tertiary.label}
+          </Button>
+        )}
       </div>
     </Card>
   );
@@ -180,6 +198,7 @@ interface ReservationRowProps {
   onEdit?: () => void;
   onPrimaryAction?: () => void;
   onSecondaryAction?: () => void;
+  onTertiaryAction?: () => void;
 }
 
 export function ReservationRow({
@@ -194,6 +213,7 @@ export function ReservationRow({
   onEdit,
   onPrimaryAction,
   onSecondaryAction,
+  onTertiaryAction,
 }: ReservationRowProps) {
   const statusStyle = statusConfig[status];
   const actions = getActionButtons(status);
@@ -247,6 +267,17 @@ export function ReservationRow({
               data-testid={`button-secondary-row-${id}`}
             >
               {actions.secondary.label}
+            </Button>
+          )}
+          {actions.tertiary && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onTertiaryAction}
+              className={actions.tertiary.className}
+              data-testid={`button-tertiary-row-${id}`}
+            >
+              {actions.tertiary.label}
             </Button>
           )}
         </div>
