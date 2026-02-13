@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
@@ -22,9 +23,11 @@ import { restaurantTables } from "@/lib/tables";
 import { getTimeSlotsForDate, isMonday, getPeriodLabel, type MealPeriod } from "@/lib/timeSlots";
 import restaurantBg from "@/assets/images/restaurant-bg.jpg";
 
+type CustomerMode = "reservation" | "walkin";
 
-export default function NewReservationPage() {
+export default function NewCustomerPage() {
   const [, navigate] = useLocation();
+  const [mode, setMode] = useState<CustomerMode>("reservation");
   const [confirmed, setConfirmed] = useState(false);
 
   const [date, setDate] = useState<Date | undefined>(() => {
@@ -50,28 +53,32 @@ export default function NewReservationPage() {
 
   const parsedSize = parseInt(partySize);
 
+  const effectiveDate = mode === "walkin"
+    ? (isMonday(new Date()) ? undefined : new Date())
+    : date;
+
   const bookedTableIds = existingReservations
     .filter((r: any) => {
-      if (!date) return false;
-      const selectedDate = format(date, "yyyy-MM-dd");
+      if (!effectiveDate) return false;
+      const selectedDate = format(effectiveDate, "yyyy-MM-dd");
       return r.date === selectedDate && r.time === time && r.status !== "complete" && r.status !== "cancelled";
     })
     .map((r: any) => r.tableId);
 
-  const createReservationMutation = useMutation({
+  const createMutation = useMutation({
     mutationFn: async () => {
-      const dateStr = date ? format(date, "yyyy-MM-dd") : "";
+      const dateStr = effectiveDate ? format(effectiveDate, "yyyy-MM-dd") : "";
       const promises = selectedTables.map((table) => {
         const payload = {
-          customerName,
-          phoneNumber,
+          customerName: mode === "walkin" ? (customerName.trim() || "Walk-in Guest") : customerName,
+          phoneNumber: mode === "walkin" ? (phoneNumber.trim() || "N/A") : phoneNumber,
           date: dateStr,
           time,
           partySize: parsedSize,
           tableId: table.id,
           tableName: `Table ${table.number}`,
           comments: comments.trim(),
-          status: "confirmed",
+          status: mode === "walkin" ? "seated" : "confirmed",
         };
         return apiRequest("POST", "/api/reservations", payload);
       });
@@ -84,17 +91,13 @@ export default function NewReservationPage() {
     },
   });
 
-  const canSubmit =
-    !!date &&
-    !!time &&
-    parsedSize > 0 &&
-    selectedTables.length > 0 &&
-    !!customerName.trim() &&
-    !!phoneNumber.trim();
+  const canSubmit = mode === "reservation"
+    ? (!!date && !!time && parsedSize > 0 && selectedTables.length > 0 && !!customerName.trim() && !!phoneNumber.trim())
+    : (!!effectiveDate && !!time && parsedSize > 0 && selectedTables.length > 0);
 
   const handleSubmit = () => {
     if (canSubmit) {
-      createReservationMutation.mutate();
+      createMutation.mutate();
     }
   };
 
@@ -118,7 +121,16 @@ export default function NewReservationPage() {
     clearSelections();
   };
 
-  const timeSlots = getTimeSlotsForDate(date);
+  const handleModeSwitch = (newMode: CustomerMode) => {
+    if (newMode === mode) return;
+    setMode(newMode);
+    setTime("");
+    setSelectedTables([]);
+    setSelectionMode("single");
+    setConfirmed(false);
+  };
+
+  const timeSlots = getTimeSlotsForDate(effectiveDate);
   const groupedSlots = timeSlots.reduce<Record<MealPeriod, typeof timeSlots>>((acc, slot) => {
     if (!acc[slot.period]) acc[slot.period] = [];
     acc[slot.period].push(slot);
@@ -144,10 +156,64 @@ export default function NewReservationPage() {
     }
   };
 
-  const switchMode = (mode: "single" | "join") => {
-    setSelectionMode(mode);
+  const switchTableMode = (tableMode: "single" | "join") => {
+    setSelectionMode(tableMode);
     setSelectedTables([]);
   };
+
+  const modePills = (
+    <div className="flex gap-2 mb-6" data-testid="mode-pills">
+      <Badge
+        variant={mode === "reservation" ? "default" : "outline"}
+        className={`cursor-pointer px-4 py-1.5 text-sm ${mode === "reservation" ? "bg-[#0D7377] text-white" : ""}`}
+        onClick={() => handleModeSwitch("reservation")}
+        data-testid="pill-reservation"
+      >
+        New Reservation
+      </Badge>
+      <Badge
+        variant={mode === "walkin" ? "default" : "outline"}
+        className={`cursor-pointer px-4 py-1.5 text-sm ${mode === "walkin" ? "bg-[#0D7377] text-white" : ""}`}
+        onClick={() => handleModeSwitch("walkin")}
+        data-testid="pill-walkin"
+      >
+        Walk In
+      </Badge>
+    </div>
+  );
+
+  if (mode === "walkin" && !effectiveDate) {
+    return (
+      <div
+        className="flex-1 h-full bg-cover bg-center bg-no-repeat relative overflow-auto"
+        style={{ backgroundImage: `url(${restaurantBg})` }}
+      >
+        <div className="absolute inset-0 bg-white/40" />
+        <div className="relative z-10 flex flex-col items-center justify-center min-h-full py-8 px-4">
+          <h1
+            className="mb-6"
+            style={{
+              fontFamily: "'Ortica Linear', 'Playfair Display', serif",
+              fontWeight: 300,
+              fontSize: "40px",
+              lineHeight: "100%",
+              color: "#0D7377",
+            }}
+            data-testid="text-brand-title"
+          >
+            seated
+          </h1>
+          <Card className="bg-white/95 shadow-lg w-full max-w-3xl p-8">
+            <h2 className="text-xl font-semibold text-foreground mb-4" data-testid="text-form-title">
+              New Customer
+            </h2>
+            {modePills}
+            <p className="text-muted-foreground text-center py-8">Restaurant is closed on Mondays.</p>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   if (confirmed) {
     return (
@@ -176,27 +242,31 @@ export default function NewReservationPage() {
                 <Check className="h-4 w-4 text-white" />
               </div>
               <h2 className="text-xl font-semibold text-foreground" data-testid="text-confirmation-title">
-                Booking Confirmed
+                {mode === "walkin" ? "Walk-in Seated" : "Booking Confirmed"}
               </h2>
             </div>
             <p className="text-center text-muted-foreground text-sm mb-6">
-              The reservation has been successfully added
-              <br />
-              Please review the details below
+              {mode === "walkin"
+                ? "The guest has been seated successfully."
+                : <>The reservation has been successfully added<br />Please review the details below</>}
             </p>
             <div className="border-t pt-4 space-y-3">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Name:</span>
-                <span className="font-medium" data-testid="text-confirm-name">{customerName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Phone Number:</span>
-                <span className="font-medium" data-testid="text-confirm-phone">{phoneNumber}</span>
-              </div>
+              {(mode === "reservation" || customerName.trim()) && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Name:</span>
+                  <span className="font-medium" data-testid="text-confirm-name">{customerName || "Walk-in Guest"}</span>
+                </div>
+              )}
+              {mode === "reservation" && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Phone Number:</span>
+                  <span className="font-medium" data-testid="text-confirm-phone">{phoneNumber}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Date:</span>
                 <span className="font-medium" data-testid="text-confirm-date">
-                  {date ? format(date, "dd/MM/yyyy") : ""}
+                  {effectiveDate ? format(effectiveDate, "dd/MM/yyyy") : ""}
                 </span>
               </div>
               <div className="flex justify-between gap-4">
@@ -228,10 +298,12 @@ export default function NewReservationPage() {
               )}
             </div>
             <div className="mt-6 space-y-3">
-              <Button variant="outline" className="w-full gap-2" data-testid="button-send-confirmation">
-                <Send className="h-4 w-4" />
-                Send Confirmation
-              </Button>
+              {mode === "reservation" && (
+                <Button variant="outline" className="w-full gap-2" data-testid="button-send-confirmation">
+                  <Send className="h-4 w-4" />
+                  Send Confirmation
+                </Button>
+              )}
               <Button
                 className="w-full bg-[#1C1C1C] text-white"
                 onClick={() => navigate("/")}
@@ -269,83 +341,136 @@ export default function NewReservationPage() {
         </h1>
 
         <Card className="bg-white/95 shadow-lg w-full max-w-3xl p-8">
-          <h2 className="text-xl font-semibold text-foreground mb-6" data-testid="text-form-title">
-            New Reservation
+          <h2 className="text-xl font-semibold text-foreground mb-4" data-testid="text-form-title">
+            New Customer
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-            <div className="space-y-2">
-              <Label className="text-muted-foreground text-sm">Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-between text-left font-normal"
-                    data-testid="button-date-picker"
-                  >
-                    {date ? format(date, "dd/MM/yyyy") : "Select date"}
-                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={handleDateChange}
-                    initialFocus
-                    disabled={(d) => isMonday(d)}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+          {modePills}
 
-            <div className="space-y-2">
-              <Label className="text-muted-foreground text-sm">Time</Label>
-              <div className="flex items-center gap-2">
-                <Select value={time} onValueChange={handleTimeChange}>
-                  <SelectTrigger className="w-full" data-testid="select-time">
-                    <SelectValue placeholder="Select time slot" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {timeSlots.length === 0 ? (
-                      <div className="px-2 py-1.5 text-sm text-muted-foreground">Closed on Mondays</div>
-                    ) : (
-                      periodOrder.filter(p => groupedSlots[p]).map((period) => (
-                        <div key={period}>
-                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{getPeriodLabel(period)}</div>
-                          {groupedSlots[period].map((slot) => (
-                            <SelectItem key={slot.label} value={slot.label}>
-                              {slot.label}
-                            </SelectItem>
-                          ))}
-                        </div>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-                <Clock className="h-5 w-5 text-muted-foreground shrink-0" />
+          {mode === "reservation" ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+              <div className="space-y-2">
+                <Label className="text-muted-foreground text-sm">Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between text-left font-normal"
+                      data-testid="button-date-picker"
+                    >
+                      {date ? format(date, "dd/MM/yyyy") : "Select date"}
+                      <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={date}
+                      onSelect={handleDateChange}
+                      initialFocus
+                      disabled={(d) => isMonday(d)}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-muted-foreground text-sm">Time</Label>
+                <div className="flex items-center gap-2">
+                  <Select value={time} onValueChange={handleTimeChange}>
+                    <SelectTrigger className="w-full" data-testid="select-time">
+                      <SelectValue placeholder="Select time slot" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timeSlots.length === 0 ? (
+                        <div className="px-2 py-1.5 text-sm text-muted-foreground">Closed on Mondays</div>
+                      ) : (
+                        periodOrder.filter(p => groupedSlots[p]).map((period) => (
+                          <div key={period}>
+                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{getPeriodLabel(period)}</div>
+                            {groupedSlots[period].map((slot) => (
+                              <SelectItem key={slot.label} value={slot.label}>
+                                {slot.label}
+                              </SelectItem>
+                            ))}
+                          </div>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <Clock className="h-5 w-5 text-muted-foreground shrink-0" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-muted-foreground text-sm">Party Size</Label>
+                <div className="flex items-center gap-2">
+                  <Select value={partySize} onValueChange={handlePartySizeChange}>
+                    <SelectTrigger className="w-full" data-testid="select-party-size">
+                      <SelectValue placeholder="Party size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((size) => (
+                        <SelectItem key={size} value={size.toString()}>
+                          {size} {size === 1 ? "person" : "people"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Users className="h-5 w-5 text-muted-foreground shrink-0" />
+                </div>
               </div>
             </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+              <div className="space-y-2">
+                <Label className="text-muted-foreground text-sm">Time</Label>
+                <div className="flex items-center gap-2">
+                  <Select value={time} onValueChange={handleTimeChange}>
+                    <SelectTrigger className="w-full" data-testid="select-time">
+                      <SelectValue placeholder="Select time slot" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timeSlots.length === 0 ? (
+                        <div className="px-2 py-1.5 text-sm text-muted-foreground">Closed on Mondays</div>
+                      ) : (
+                        periodOrder.filter(p => groupedSlots[p]).map((period) => (
+                          <div key={period}>
+                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{getPeriodLabel(period)}</div>
+                            {groupedSlots[period].map((slot) => (
+                              <SelectItem key={slot.label} value={slot.label}>
+                                {slot.label}
+                              </SelectItem>
+                            ))}
+                          </div>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <Clock className="h-5 w-5 text-muted-foreground shrink-0" />
+                </div>
+              </div>
 
-            <div className="space-y-2">
-              <Label className="text-muted-foreground text-sm">Party Size</Label>
-              <div className="flex items-center gap-2">
-                <Select value={partySize} onValueChange={handlePartySizeChange}>
-                  <SelectTrigger className="w-full" data-testid="select-party-size">
-                    <SelectValue placeholder="Party size" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((size) => (
-                      <SelectItem key={size} value={size.toString()}>
-                        {size} {size === 1 ? "person" : "people"}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Users className="h-5 w-5 text-muted-foreground shrink-0" />
+              <div className="space-y-2">
+                <Label className="text-muted-foreground text-sm">Party Size</Label>
+                <div className="flex items-center gap-2">
+                  <Select value={partySize} onValueChange={handlePartySizeChange}>
+                    <SelectTrigger className="w-full" data-testid="select-party-size">
+                      <SelectValue placeholder="Party size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((size) => (
+                        <SelectItem key={size} value={size.toString()}>
+                          {size} {size === 1 ? "person" : "people"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Users className="h-5 w-5 text-muted-foreground shrink-0" />
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           <div className="mb-6">
             <Label className="text-muted-foreground text-sm mb-2 block">Select Table(s)</Label>
@@ -355,7 +480,7 @@ export default function NewReservationPage() {
                 type="button"
                 variant={selectionMode === "single" ? "default" : "outline"}
                 size="sm"
-                onClick={() => switchMode("single")}
+                onClick={() => switchTableMode("single")}
                 className={selectionMode === "single" ? "bg-[#0D7377]" : ""}
                 data-testid="button-mode-single"
               >
@@ -365,7 +490,7 @@ export default function NewReservationPage() {
                 type="button"
                 variant={selectionMode === "join" ? "default" : "outline"}
                 size="sm"
-                onClick={() => switchMode("join")}
+                onClick={() => switchTableMode("join")}
                 className={selectionMode === "join" ? "bg-[#0D7377]" : ""}
                 data-testid="button-mode-join"
               >
@@ -433,7 +558,9 @@ export default function NewReservationPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             <div className="space-y-2">
-              <Label className="text-muted-foreground text-sm">Guest Name</Label>
+              <Label className="text-muted-foreground text-sm">
+                Guest Name {mode === "walkin" && <span className="text-xs">(optional)</span>}
+              </Label>
               <Input
                 placeholder="Full name"
                 value={customerName}
@@ -442,7 +569,9 @@ export default function NewReservationPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-muted-foreground text-sm">Phone Number</Label>
+              <Label className="text-muted-foreground text-sm">
+                Phone Number {mode === "walkin" && <span className="text-xs">(optional)</span>}
+              </Label>
               <Input
                 placeholder="Phone number"
                 value={phoneNumber}
@@ -453,9 +582,11 @@ export default function NewReservationPage() {
           </div>
 
           <div className="space-y-2 mb-6">
-            <Label className="text-muted-foreground text-sm">Comments</Label>
+            <Label className="text-muted-foreground text-sm">
+              Comments {mode === "walkin" && <span className="text-xs">(optional)</span>}
+            </Label>
             <Textarea
-              placeholder="Any special requests, allergies, or notes..."
+              placeholder={mode === "walkin" ? "Any special requests or notes..." : "Any special requests, allergies, or notes..."}
               value={comments}
               onChange={(e) => setComments(e.target.value)}
               className="resize-none"
@@ -467,10 +598,12 @@ export default function NewReservationPage() {
           <Button
             className="w-full bg-[#0D7377] text-white"
             onClick={handleSubmit}
-            disabled={!canSubmit || createReservationMutation.isPending}
+            disabled={!canSubmit || createMutation.isPending}
             data-testid="button-create-reservation"
           >
-            {createReservationMutation.isPending ? "Creating..." : "Create Reservation"}
+            {createMutation.isPending
+              ? (mode === "walkin" ? "Seating..." : "Creating...")
+              : (mode === "walkin" ? "Seat Walk-in" : "Create Reservation")}
           </Button>
         </Card>
       </div>

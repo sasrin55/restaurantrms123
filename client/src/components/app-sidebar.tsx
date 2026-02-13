@@ -13,7 +13,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   PlusCircle,
-  Footprints,
   Table2,
   Users,
   Bell,
@@ -27,14 +26,9 @@ import paolasLogo from "@/assets/images/paolas-logo.png";
 
 const restaurantItems = [
   {
-    title: "New Reservation",
+    title: "New Customer",
     url: "/new-reservation",
     icon: PlusCircle,
-  },
-  {
-    title: "Walk In",
-    url: "/walk-in",
-    icon: Footprints,
   },
   {
     title: "Reservations",
