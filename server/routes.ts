@@ -106,8 +106,9 @@ export async function registerRoutes(
   });
 
   async function applySyncFromSheets(): Promise<{ updated: number; deleted: number; errors: string[] }> {
-    const result = await syncFromSheet() as any;
+    const result = await syncFromSheet();
     const sheetUpdates: SheetReservationUpdate[] = result.updates || [];
+    const sheetDates: string[] = result.sheetDates || [];
     let updatedCount = 0;
     let deletedCount = 0;
 
@@ -142,9 +143,10 @@ export async function registerRoutes(
       }
     }
 
+    const sheetDateSet = new Set(sheetDates);
     const allReservations = await storage.getReservations();
     for (const r of allReservations) {
-      if (!sheetIds.has(r.id)) {
+      if (sheetDateSet.has(r.date) && !sheetIds.has(r.id)) {
         await storage.deleteReservation(r.id);
         deletedCount++;
       }

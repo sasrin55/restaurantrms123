@@ -169,11 +169,12 @@ export interface SheetReservationUpdate {
   status: string;
 }
 
-export async function syncFromSheet(): Promise<{ updated: number; errors: string[] }> {
+export async function syncFromSheet(): Promise<{ updated: number; errors: string[]; updates: SheetReservationUpdate[]; sheetDates: string[] }> {
   const sheets = await getUncachableGoogleSheetClient();
   const spreadsheetId = await getOrCreateSpreadsheet();
   const errors: string[] = [];
   const updates: SheetReservationUpdate[] = [];
+  const sheetDates: string[] = [];
 
   const spreadsheet = await sheets.spreadsheets.get({
     spreadsheetId,
@@ -184,6 +185,11 @@ export async function syncFromSheet(): Promise<{ updated: number; errors: string
   const dateTabs = allSheets
     .map((s: any) => s.properties?.title as string)
     .filter((title: string) => title && title !== 'Overview' && parseTabNameToDate(title));
+
+  for (const tabName of dateTabs) {
+    const dateStr = parseTabNameToDate(tabName);
+    if (dateStr) sheetDates.push(dateStr);
+  }
 
   for (const tabName of dateTabs) {
     const dateStr = parseTabNameToDate(tabName);
@@ -228,7 +234,7 @@ export async function syncFromSheet(): Promise<{ updated: number; errors: string
     }
   }
 
-  return { updated: updates.length, errors, updates } as any;
+  return { updated: updates.length, errors, updates, sheetDates };
 }
 
 type ReservationData = {
