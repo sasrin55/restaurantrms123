@@ -18,6 +18,8 @@ import {
   ClipboardList,
   Check,
   X,
+  Pencil,
+  DollarSign,
 } from "lucide-react";
 import type { Order, OrderItem } from "@shared/schema";
 import { restaurantTables, tepanyakiSeats } from "@/lib/tables";
@@ -311,16 +313,13 @@ export default function OrdersPage() {
           <Button
             className="w-full"
             onClick={() => {
-              updateOrderStatusMutation.mutate({
-                id: activeOrderId,
-                status: "closed",
-              });
               handleBackToList();
+              toast({ title: "Order confirmed" });
             }}
-            data-testid="button-close-order"
+            data-testid="button-confirm-order"
           >
             <Check className="h-4 w-4 mr-2" />
-            Complete Order
+            Confirm Order
           </Button>
         </div>
       </div>
@@ -584,8 +583,8 @@ export default function OrdersPage() {
                   <OrderCard
                     key={order.id}
                     order={order}
-                    onOpen={() => handleOpenOrder(order)}
-                    onClose={() =>
+                    onEdit={() => handleOpenOrder(order)}
+                    onMarkPaid={() =>
                       updateOrderStatusMutation.mutate({ id: order.id, status: "closed" })
                     }
                     onDelete={() => deleteOrderMutation.mutate(order.id)}
@@ -598,14 +597,14 @@ export default function OrdersPage() {
           {closedOrders.length > 0 && (
             <div>
               <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
-                Completed Orders
+                Paid Orders
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {closedOrders.map((order) => (
                   <OrderCard
                     key={order.id}
                     order={order}
-                    onOpen={() => handleOpenOrder(order)}
+                    onEdit={() => handleOpenOrder(order)}
                     onDelete={() => deleteOrderMutation.mutate(order.id)}
                   />
                 ))}
@@ -620,13 +619,13 @@ export default function OrdersPage() {
 
 function OrderCard({
   order,
-  onOpen,
-  onClose,
+  onEdit,
+  onMarkPaid,
   onDelete,
 }: {
   order: Order;
-  onOpen: () => void;
-  onClose?: () => void;
+  onEdit: () => void;
+  onMarkPaid?: () => void;
   onDelete: () => void;
 }) {
   const { data: items = [] } = useQuery<OrderItem[]>({
@@ -638,8 +637,7 @@ function OrderCard({
 
   return (
     <Card
-      className="p-4 hover-elevate cursor-pointer"
-      onClick={onOpen}
+      className="p-4"
       data-testid={`card-order-${order.id}`}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
@@ -658,7 +656,7 @@ function OrderCard({
           </p>
         </div>
         <Badge variant={isOpen ? "default" : "secondary"}>
-          {isOpen ? "Open" : "Closed"}
+          {isOpen ? "Open" : "Paid"}
         </Badge>
       </div>
 
@@ -673,12 +671,25 @@ function OrderCard({
         )}
       </p>
 
-      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-        {isOpen && onClose && (
-          <Button size="sm" variant="outline" onClick={onClose} data-testid={`button-close-order-${order.id}`}>
-            <Check className="h-3.5 w-3.5 mr-1" />
-            Complete
-          </Button>
+      <div className="flex items-center gap-2 flex-wrap">
+        {isOpen && (
+          <>
+            <Button size="sm" variant="outline" onClick={onEdit} data-testid={`button-edit-order-${order.id}`}>
+              <Pencil className="h-3.5 w-3.5 mr-1" />
+              Edit
+            </Button>
+            {onMarkPaid && (
+              <Button
+                size="sm"
+                className="bg-green-600 text-white border-green-600 dark:bg-green-700 dark:border-green-700"
+                onClick={onMarkPaid}
+                data-testid={`button-paid-order-${order.id}`}
+              >
+                <DollarSign className="h-3.5 w-3.5 mr-1" />
+                Paid
+              </Button>
+            )}
+          </>
         )}
         <Button
           size="sm"

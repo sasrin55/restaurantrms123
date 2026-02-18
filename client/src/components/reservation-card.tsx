@@ -197,7 +197,7 @@ export function ReservationCard({
               data-testid={`button-order-confirmed-${id}`}
             >
               <Check className="h-3.5 w-3.5 mr-1.5" />
-              Order Confirmed
+              Paid
             </Button>
           ) : (
             <Button
@@ -282,7 +282,7 @@ export function ReservationRow({
                 data-testid={`button-order-confirmed-row-${id}`}
               >
                 <Check className="h-3.5 w-3.5 mr-1.5" />
-                Order Confirmed
+                Paid
               </Button>
             ) : (
               <Button
