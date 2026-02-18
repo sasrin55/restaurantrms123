@@ -85,6 +85,14 @@ The `shared/` directory contains code used by both frontend and backend:
 - Manual export available via "Export to Sheets" button on reservations page
 - Uses Replit connector for OAuth token management (no manual API keys needed)
 
+### Order System
+- **Order tab**: Separate section in sidebar after General, accessible at `/orders`
+- **Flow**: Select table → browse menu by category → add items with quantities → complete order
+- **Database tables**: `orders` (id, tableId, tableName, status, createdAt) and `order_items` (id, orderId, category, itemName, quantity)
+- **Menu data**: Defined in `shared/menuData.ts` with 25+ categories and 200+ items
+- **API routes**: CRUD for orders (`/api/orders`) and order items (`/api/orders/:id/items`, `/api/order-items/:id`)
+- **Features**: Category sidebar navigation, search across all menu items, quantity +/- controls, order summary panel, open/closed order management
+
 ### Replit-Specific
 - **@replit/vite-plugin-runtime-error-modal**: Error overlay in development
 - **@replit/vite-plugin-cartographer**: Development tooling

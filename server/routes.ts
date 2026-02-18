@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertReservationSchema } from "@shared/schema";
+import { insertReservationSchema, insertOrderSchema, insertOrderItemSchema } from "@shared/schema";
 import { appendReservationToSheet, updateReservationInSheet, exportAllReservationsToSheet, syncFromSheet, type SheetReservationUpdate } from "./googleSheets";
 
 export async function registerRoutes(
@@ -191,6 +191,63 @@ export async function registerRoutes(
       return res.status(404).json({ error: "Guest not found" });
     }
     res.json({ success: true });
+  });
+
+  app.get("/api/orders", async (req, res) => {
+    const allOrders = await storage.getOrders();
+    res.json(allOrders);
+  });
+
+  app.get("/api/orders/:id", async (req, res) => {
+    const order = await storage.getOrder(req.params.id);
+    if (!order) return res.status(404).json({ error: "Order not found" });
+    res.json(order);
+  });
+
+  app.post("/api/orders", async (req, res) => {
+    const parsed = insertOrderSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.errors });
+    const order = await storage.createOrder(parsed.data);
+    res.status(201).json(order);
+  });
+
+  app.patch("/api/orders/:id/status", async (req, res) => {
+    const { status } = req.body;
+    if (!status) return res.status(400).json({ error: "Status is required" });
+    const order = await storage.updateOrderStatus(req.params.id, status);
+    if (!order) return res.status(404).json({ error: "Order not found" });
+    res.json(order);
+  });
+
+  app.delete("/api/orders/:id", async (req, res) => {
+    const deleted = await storage.deleteOrder(req.params.id);
+    if (!deleted) return res.status(404).json({ error: "Order not found" });
+    res.status(204).send();
+  });
+
+  app.get("/api/orders/:id/items", async (req, res) => {
+    const items = await storage.getOrderItems(req.params.id);
+    res.json(items);
+  });
+
+  app.post("/api/orders/:id/items", async (req, res) => {
+    const parsed = insertOrderItemSchema.safeParse({ ...req.body, orderId: req.params.id });
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.errors });
+    const item = await storage.addOrderItem(parsed.data);
+    res.status(201).json(item);
+  });
+
+  app.patch("/api/order-items/:id", async (req, res) => {
+    const { quantity } = req.body;
+    if (typeof quantity !== "number") return res.status(400).json({ error: "Quantity is required" });
+    const item = await storage.updateOrderItemQuantity(req.params.id, quantity);
+    res.json(item || { deleted: true });
+  });
+
+  app.delete("/api/order-items/:id", async (req, res) => {
+    const deleted = await storage.deleteOrderItem(req.params.id);
+    if (!deleted) return res.status(404).json({ error: "Item not found" });
+    res.status(204).send();
   });
 
   return httpServer;

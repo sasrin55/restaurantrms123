@@ -1,6 +1,6 @@
-import { type User, type InsertUser, type Reservation, type InsertReservation, type Guest, type InsertGuest, users, reservations, guests } from "@shared/schema";
+import { type User, type InsertUser, type Reservation, type InsertReservation, type Guest, type InsertGuest, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, users, reservations, guests, orders, orderItems } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, and } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -19,6 +19,16 @@ export interface IStorage {
   upsertGuest(name: string, phone: string, date: string, partySize: number): Promise<Guest>;
   deleteGuest(id: string): Promise<boolean>;
   rebuildGuestData(): Promise<void>;
+
+  getOrders(): Promise<Order[]>;
+  getOrder(id: string): Promise<Order | undefined>;
+  createOrder(order: InsertOrder): Promise<Order>;
+  updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
+  deleteOrder(id: string): Promise<boolean>;
+  getOrderItems(orderId: string): Promise<OrderItem[]>;
+  addOrderItem(item: InsertOrderItem): Promise<OrderItem>;
+  updateOrderItemQuantity(id: string, quantity: number): Promise<OrderItem | undefined>;
+  deleteOrderItem(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -174,6 +184,66 @@ export class DatabaseStorage implements IStorage {
         });
       }
     }
+  }
+
+  async getOrders(): Promise<Order[]> {
+    return db.select().from(orders).orderBy(desc(orders.createdAt));
+  }
+
+  async getOrder(id: string): Promise<Order | undefined> {
+    const [order] = await db.select().from(orders).where(eq(orders.id, id));
+    return order;
+  }
+
+  async createOrder(insertOrder: InsertOrder): Promise<Order> {
+    const [order] = await db.insert(orders).values({
+      ...insertOrder,
+      status: insertOrder.status || "open",
+    }).returning();
+    return order;
+  }
+
+  async updateOrderStatus(id: string, status: string): Promise<Order | undefined> {
+    const [updated] = await db.update(orders).set({ status }).where(eq(orders.id, id)).returning();
+    return updated;
+  }
+
+  async deleteOrder(id: string): Promise<boolean> {
+    await db.delete(orderItems).where(eq(orderItems.orderId, id));
+    const result = await db.delete(orders).where(eq(orders.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async getOrderItems(orderId: string): Promise<OrderItem[]> {
+    return db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+  }
+
+  async addOrderItem(item: InsertOrderItem): Promise<OrderItem> {
+    const [existing] = await db.select().from(orderItems).where(
+      and(eq(orderItems.orderId, item.orderId), eq(orderItems.itemName, item.itemName))
+    );
+    if (existing) {
+      const [updated] = await db.update(orderItems).set({
+        quantity: existing.quantity + (item.quantity || 1),
+      }).where(eq(orderItems.id, existing.id)).returning();
+      return updated;
+    }
+    const [orderItem] = await db.insert(orderItems).values(item).returning();
+    return orderItem;
+  }
+
+  async updateOrderItemQuantity(id: string, quantity: number): Promise<OrderItem | undefined> {
+    if (quantity <= 0) {
+      await db.delete(orderItems).where(eq(orderItems.id, id));
+      return undefined;
+    }
+    const [updated] = await db.update(orderItems).set({ quantity }).where(eq(orderItems.id, id)).returning();
+    return updated;
+  }
+
+  async deleteOrderItem(id: string): Promise<boolean> {
+    const result = await db.delete(orderItems).where(eq(orderItems.id, id)).returning();
+    return result.length > 0;
   }
 }
 
