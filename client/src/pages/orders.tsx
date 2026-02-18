@@ -22,7 +22,7 @@ import type { Order, OrderItem } from "@shared/schema";
 import { restaurantTables, tepanyakiSeats } from "@/lib/tables";
 import { menuCategories } from "@shared/menuData";
 
-type ViewMode = "table-select" | "menu" | "order-list";
+type ViewMode = "table-select" | "menu" | "order-review" | "order-list";
 
 export default function OrdersPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("order-list");
@@ -209,6 +209,80 @@ export default function OrdersPage() {
     );
   }
 
+
+  if (viewMode === "order-review" && activeOrderId) {
+    const totalItems = activeOrderItems.reduce((s, i) => s + i.quantity, 0);
+    return (
+      <div className="flex flex-col h-full">
+        <div className="flex items-center gap-3 p-4 border-b">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => setViewMode("menu")}
+            data-testid="button-back-to-menu"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold text-foreground" data-testid="text-review-title">
+              Order Summary
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              {selectedTableName} &middot; {totalItems} item{totalItems !== 1 ? "s" : ""}
+            </p>
+          </div>
+        </div>
+
+        <ScrollArea className="flex-1">
+          <div className="p-4 space-y-2">
+            {activeOrderItems.map((item, idx) => (
+              <Card
+                key={item.id}
+                className="flex items-center justify-between px-4 py-3 gap-3"
+                data-testid={`review-item-${idx}`}
+              >
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <Badge variant="secondary" data-testid={`review-qty-${idx}`}>
+                    x{item.quantity}
+                  </Badge>
+                  <span className="text-sm font-medium text-foreground truncate" data-testid={`review-name-${idx}`}>
+                    {item.itemName}
+                  </span>
+                </div>
+                <span className="text-xs text-muted-foreground flex-shrink-0">{item.category}</span>
+              </Card>
+            ))}
+          </div>
+        </ScrollArea>
+
+        <div className="border-t p-4 space-y-2">
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => setViewMode("menu")}
+            data-testid="button-edit-order"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Edit Order
+          </Button>
+          <Button
+            className="w-full"
+            onClick={() => {
+              updateOrderStatusMutation.mutate({
+                id: activeOrderId,
+                status: "closed",
+              });
+              handleBackToList();
+            }}
+            data-testid="button-close-order"
+          >
+            <Check className="h-4 w-4 mr-2" />
+            Complete Order
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (viewMode === "menu" && activeOrderId) {
     return (
@@ -415,17 +489,11 @@ export default function OrdersPage() {
                 </div>
                 <Button
                   className="w-full"
-                  onClick={() => {
-                    updateOrderStatusMutation.mutate({
-                      id: activeOrderId,
-                      status: "closed",
-                    });
-                    handleBackToList();
-                  }}
-                  data-testid="button-close-order"
+                  onClick={() => setViewMode("order-review")}
+                  data-testid="button-review-order"
                 >
-                  <Check className="h-4 w-4 mr-2" />
-                  Complete Order
+                  <ClipboardList className="h-4 w-4 mr-2" />
+                  Review Order
                 </Button>
               </div>
             )}
