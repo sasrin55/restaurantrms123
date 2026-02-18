@@ -207,7 +207,28 @@ export async function registerRoutes(
   app.post("/api/orders", async (req, res) => {
     const parsed = insertOrderSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.errors });
-    const order = await storage.createOrder(parsed.data);
+
+    const orderData = { ...parsed.data };
+
+    if (!orderData.guestId && orderData.tableId) {
+      const reservations = await storage.getReservations();
+      const today = new Date().toISOString().split("T")[0];
+      const match = reservations.find(
+        (r) => r.tableId === orderData.tableId && r.date === today && (r.status === "confirmed" || r.status === "seated")
+      );
+      if (match) {
+        const guests = await storage.getGuests();
+        const guest = guests.find((g) => g.phone === match.phoneNumber);
+        if (guest) {
+          orderData.guestId = guest.id;
+          orderData.guestName = guest.name;
+        } else {
+          orderData.guestName = match.customerName;
+        }
+      }
+    }
+
+    const order = await storage.createOrder(orderData);
     res.status(201).json(order);
   });
 
