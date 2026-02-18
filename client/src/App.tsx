@@ -12,6 +12,7 @@ import TablesPage from "@/pages/tables";
 import OrdersPage from "@/pages/orders";
 import AnalyticsPage from "@/pages/analytics";
 import MenuManagementPage from "@/pages/menu-management";
+import PastOrdersPage from "@/pages/past-orders";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/orders" component={OrdersPage} />
       <Route path="/analytics" component={AnalyticsPage} />
       <Route path="/menu" component={MenuManagementPage} />
+      <Route path="/past-orders" component={PastOrdersPage} />
       <Route component={NotFound} />
     </Switch>
   );

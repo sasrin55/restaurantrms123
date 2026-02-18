@@ -194,7 +194,6 @@ export default function OrdersPage() {
       })) || [];
 
   const openOrders = orders.filter((o) => o.status === "open");
-  const closedOrders = orders.filter((o) => o.status === "closed");
 
   if (viewMode === "table-select") {
     return (
@@ -594,23 +593,6 @@ export default function OrdersPage() {
             </div>
           )}
 
-          {closedOrders.length > 0 && (
-            <div>
-              <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
-                Paid Orders
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {closedOrders.map((order) => (
-                  <OrderCard
-                    key={order.id}
-                    order={order}
-                    onEdit={() => handleOpenOrder(order)}
-                    onDelete={() => deleteOrderMutation.mutate(order.id)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>

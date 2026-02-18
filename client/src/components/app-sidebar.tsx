@@ -24,6 +24,7 @@ import {
   ClipboardList,
   BarChart3,
   UtensilsCrossed,
+  History,
 } from "lucide-react";
 import paolasLogo from "@/assets/images/paolas-logo.png";
 
@@ -143,6 +144,18 @@ export function AppSidebar() {
                   <Link href="/orders" data-testid="nav-order">
                     <ClipboardList className="h-4 w-4" />
                     <span>Order</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  data-active={location === "/past-orders"}
+                  className={location === "/past-orders" ? "bg-sidebar-accent" : ""}
+                >
+                  <Link href="/past-orders" data-testid="nav-past-orders">
+                    <History className="h-4 w-4" />
+                    <span>Past Orders</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
