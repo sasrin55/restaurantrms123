@@ -250,5 +250,66 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  app.get("/api/analytics/menu", async (_req, res) => {
+    const allOrders = await storage.getOrders();
+    const allItems = await storage.getAllOrderItems();
+
+    const itemCounts = new Map<string, { category: string; totalQty: number; orderCount: number }>();
+    const categoryCounts = new Map<string, number>();
+    const orderIdSet = new Set(allOrders.map(o => o.id));
+
+    for (const item of allItems) {
+      if (!orderIdSet.has(item.orderId)) continue;
+      const existing = itemCounts.get(item.itemName);
+      if (existing) {
+        existing.totalQty += item.quantity;
+        existing.orderCount += 1;
+      } else {
+        itemCounts.set(item.itemName, { category: item.category, totalQty: item.quantity, orderCount: 1 });
+      }
+      categoryCounts.set(item.category, (categoryCounts.get(item.category) || 0) + item.quantity);
+    }
+
+    const topItems = Array.from(itemCounts.entries())
+      .map(([name, data]) => ({ name, category: data.category, totalQty: data.totalQty, orderCount: data.orderCount }))
+      .sort((a, b) => b.totalQty - a.totalQty)
+      .slice(0, 20);
+
+    const categoryBreakdown = Array.from(categoryCounts.entries())
+      .map(([category, totalQty]) => ({ category, totalQty }))
+      .sort((a, b) => b.totalQty - a.totalQty);
+
+    const totalOrders = allOrders.length;
+    const totalItemsOrdered = allItems.reduce((s, i) => s + i.quantity, 0);
+
+    res.json({ topItems, categoryBreakdown, totalOrders, totalItemsOrdered });
+  });
+
+  app.get("/api/analytics/guests/:guestId", async (req, res) => {
+    const guestOrders = await storage.getOrdersByGuestId(req.params.guestId);
+    const allItemsForGuest: { category: string; itemName: string; quantity: number }[] = [];
+
+    for (const order of guestOrders) {
+      const items = await storage.getOrderItems(order.id);
+      allItemsForGuest.push(...items.map(i => ({ category: i.category, itemName: i.itemName, quantity: i.quantity })));
+    }
+
+    const itemCounts = new Map<string, number>();
+    for (const item of allItemsForGuest) {
+      itemCounts.set(item.itemName, (itemCounts.get(item.itemName) || 0) + item.quantity);
+    }
+
+    const favouriteItems = Array.from(itemCounts.entries())
+      .map(([name, qty]) => ({ name, quantity: qty }))
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 5);
+
+    const totalOrders = guestOrders.length;
+    const totalItemsOrdered = allItemsForGuest.reduce((s, i) => s + i.quantity, 0);
+    const avgItemsPerOrder = totalOrders > 0 ? Math.round(totalItemsOrdered / totalOrders) : 0;
+
+    res.json({ favouriteItems, totalOrders, totalItemsOrdered, avgItemsPerOrder });
+  });
+
   return httpServer;
 }

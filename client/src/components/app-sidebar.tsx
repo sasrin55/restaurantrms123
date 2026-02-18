@@ -22,6 +22,7 @@ import {
   ArrowRight,
   LayoutGrid,
   ClipboardList,
+  BarChart3,
 } from "lucide-react";
 import paolasLogo from "@/assets/images/paolas-logo.png";
 
@@ -55,6 +56,11 @@ const restaurantItems = [
     title: "Inventory Management",
     url: "/inventory",
     icon: Carrot,
+  },
+  {
+    title: "Analytics",
+    url: "/analytics",
+    icon: BarChart3,
   },
 ];
 

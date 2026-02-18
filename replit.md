@@ -87,11 +87,19 @@ The `shared/` directory contains code used by both frontend and backend:
 
 ### Order System
 - **Order tab**: Separate section in sidebar after General, accessible at `/orders`
-- **Flow**: Select table → browse menu by category → add items with quantities → complete order
-- **Database tables**: `orders` (id, tableId, tableName, status, createdAt) and `order_items` (id, orderId, category, itemName, quantity)
+- **Flow**: Select table → link guest (optional) → browse menu by category → add items with quantities → complete order
+- **Database tables**: `orders` (id, tableId, tableName, guestId, guestName, status, createdAt) and `order_items` (id, orderId, category, itemName, quantity)
 - **Menu data**: Defined in `shared/menuData.ts` with 25+ categories and 200+ items
 - **API routes**: CRUD for orders (`/api/orders`) and order items (`/api/orders/:id/items`, `/api/order-items/:id`)
 - **Features**: Category sidebar navigation, search across all menu items, quantity +/- controls, order summary panel, open/closed order management
+- **Guest linking**: Orders can optionally be linked to a guest from the guest directory for analytics tracking
+
+### Analytics System
+- **Analytics tab**: In Restaurant sidebar section, accessible at `/analytics`
+- **Menu analytics page**: Shows top menu items (bar chart), category breakdown (pie chart), summary cards (total orders, items ordered, avg items/order)
+- **Guest analytics**: Each guest card on `/guests` shows favourite items (top 3 badges), total orders, avg items per order
+- **API routes**: `GET /api/analytics/menu` (aggregated menu data), `GET /api/analytics/guests/:guestId` (per-guest order stats)
+- **Cache strategy**: Analytics queries use `staleTime: 0` and `refetchOnMount: "always"` for fresh data; order mutations invalidate analytics cache
 
 ### Replit-Specific
 - **@replit/vite-plugin-runtime-error-modal**: Error overlay in development

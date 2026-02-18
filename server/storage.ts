@@ -26,9 +26,11 @@ export interface IStorage {
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
   deleteOrder(id: string): Promise<boolean>;
   getOrderItems(orderId: string): Promise<OrderItem[]>;
+  getAllOrderItems(): Promise<OrderItem[]>;
   addOrderItem(item: InsertOrderItem): Promise<OrderItem>;
   updateOrderItemQuantity(id: string, quantity: number): Promise<OrderItem | undefined>;
   deleteOrderItem(id: string): Promise<boolean>;
+  getOrdersByGuestId(guestId: string): Promise<Order[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -241,9 +243,17 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async getAllOrderItems(): Promise<OrderItem[]> {
+    return db.select().from(orderItems);
+  }
+
   async deleteOrderItem(id: string): Promise<boolean> {
     const result = await db.delete(orderItems).where(eq(orderItems.id, id)).returning();
     return result.length > 0;
+  }
+
+  async getOrdersByGuestId(guestId: string): Promise<Order[]> {
+    return db.select().from(orders).where(eq(orders.guestId, guestId)).orderBy(desc(orders.createdAt));
   }
 }
 

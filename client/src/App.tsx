@@ -10,6 +10,7 @@ import NewCustomerPage from "@/pages/new-reservation";
 import GuestListPage from "@/pages/guest-list";
 import TablesPage from "@/pages/tables";
 import OrdersPage from "@/pages/orders";
+import AnalyticsPage from "@/pages/analytics";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -20,6 +21,7 @@ function Router() {
       <Route path="/guests" component={GuestListPage} />
       <Route path="/tables" component={TablesPage} />
       <Route path="/orders" component={OrdersPage} />
+      <Route path="/analytics" component={AnalyticsPage} />
       <Route component={NotFound} />
     </Switch>
   );

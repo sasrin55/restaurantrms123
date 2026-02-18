@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, Users, Phone, Calendar, Loader2, Trash2 } from "lucide-react";
+import { Search, Users, Phone, Calendar, Loader2, Trash2, Star, ShoppingCart } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -16,6 +16,49 @@ interface Guest {
   visitCount: number;
   lastVisit: string;
   totalPartySize: number;
+}
+
+interface GuestAnalytics {
+  favouriteItems: { name: string; quantity: number }[];
+  totalOrders: number;
+  totalItemsOrdered: number;
+  avgItemsPerOrder: number;
+}
+
+function GuestOrderStats({ guestId }: { guestId: string }) {
+  const { data } = useQuery<GuestAnalytics>({
+    queryKey: ["/api/analytics/guests", guestId],
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+
+  if (!data || data.totalOrders === 0) return null;
+
+  return (
+    <div className="mt-3 pt-3 border-t space-y-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <ShoppingCart className="h-3 w-3" />
+          <span data-testid={`text-guest-orders-${guestId}`}>{data.totalOrders} order{data.totalOrders !== 1 ? "s" : ""}</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span data-testid={`text-guest-avg-items-${guestId}`}>~{data.avgItemsPerOrder} items/order</span>
+        </div>
+      </div>
+      {data.favouriteItems.length > 0 && (
+        <div className="flex items-start gap-1.5">
+          <Star className="h-3 w-3 text-muted-foreground mt-0.5 flex-shrink-0" />
+          <div className="flex flex-wrap gap-1" data-testid={`text-guest-favourites-${guestId}`}>
+            {data.favouriteItems.slice(0, 3).map((item) => (
+              <Badge key={item.name} variant="secondary" className="text-xs">
+                {item.name} ({item.quantity})
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function GuestListPage() {
@@ -140,7 +183,7 @@ export default function GuestListPage() {
                       </Button>
                     </div>
                   </div>
-                  <div className="mt-4 pt-4 border-t flex items-center justify-between text-sm">
+                  <div className="mt-4 pt-4 border-t flex items-center justify-between gap-2 text-sm flex-wrap">
                     <div className="flex items-center gap-1.5 text-muted-foreground">
                       <Calendar className="h-3.5 w-3.5" />
                       <span>Last visit: {formatLastVisit(guest.lastVisit)}</span>
@@ -150,6 +193,7 @@ export default function GuestListPage() {
                       <span>Avg party: {Math.round(guest.totalPartySize / guest.visitCount)}</span>
                     </div>
                   </div>
+                  <GuestOrderStats guestId={guest.id} />
                 </CardContent>
               </Card>
             ))}

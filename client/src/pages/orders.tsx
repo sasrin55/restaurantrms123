@@ -17,12 +17,13 @@ import {
   ClipboardList,
   Check,
   X,
+  User,
 } from "lucide-react";
-import type { Order, OrderItem } from "@shared/schema";
+import type { Order, OrderItem, Guest } from "@shared/schema";
 import { restaurantTables, tepanyakiSeats } from "@/lib/tables";
 import { menuCategories } from "@shared/menuData";
 
-type ViewMode = "table-select" | "menu" | "order-list";
+type ViewMode = "table-select" | "guest-select" | "menu" | "order-list";
 
 export default function OrdersPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("order-list");
@@ -31,6 +32,7 @@ export default function OrdersPage() {
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
   const [activeCategoryId, setActiveCategoryId] = useState(menuCategories[0]?.id || "");
   const [searchQuery, setSearchQuery] = useState("");
+  const [guestSearchQuery, setGuestSearchQuery] = useState("");
   const { toast } = useToast();
 
   const { data: orders = [], isLoading: ordersLoading } = useQuery<Order[]>({
@@ -42,8 +44,12 @@ export default function OrdersPage() {
     enabled: !!activeOrderId,
   });
 
+  const { data: guestList = [] } = useQuery<Guest[]>({
+    queryKey: ["/api/guests"],
+  });
+
   const createOrderMutation = useMutation({
-    mutationFn: async (data: { tableId: number; tableName: string }) => {
+    mutationFn: async (data: { tableId: number; tableName: string; guestId?: string; guestName?: string }) => {
       const res = await apiRequest("POST", "/api/orders", data);
       return res.json();
     },
@@ -51,7 +57,7 @@ export default function OrdersPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       setActiveOrderId(order.id);
       setViewMode("menu");
-      toast({ title: `Order started for ${order.tableName}` });
+      toast({ title: `Order started for ${order.tableName}${order.guestName ? ` (${order.guestName})` : ""}` });
     },
   });
 
@@ -62,6 +68,7 @@ export default function OrdersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders", activeOrderId, "items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/menu"] });
     },
   });
 
@@ -91,6 +98,7 @@ export default function OrdersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/menu"] });
       toast({ title: "Order updated" });
     },
   });
@@ -101,6 +109,7 @@ export default function OrdersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/menu"] });
       toast({ title: "Order deleted" });
     },
   });
@@ -114,7 +123,18 @@ export default function OrdersPage() {
   const handleSelectTable = (tableId: number, tableName: string) => {
     setSelectedTableId(tableId);
     setSelectedTableName(tableName);
-    createOrderMutation.mutate({ tableId, tableName });
+    setGuestSearchQuery("");
+    setViewMode("guest-select");
+  };
+
+  const handleSelectGuest = (guest?: Guest) => {
+    if (!selectedTableId) return;
+    createOrderMutation.mutate({
+      tableId: selectedTableId,
+      tableName: selectedTableName,
+      guestId: guest?.id,
+      guestName: guest?.name,
+    });
   };
 
   const handleOpenOrder = (order: Order) => {
@@ -201,6 +221,82 @@ export default function OrdersPage() {
               </Button>
             ))}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (viewMode === "guest-select") {
+    const filteredGuests = guestList.filter((g) =>
+      g.name.toLowerCase().includes(guestSearchQuery.toLowerCase()) ||
+      g.phone.includes(guestSearchQuery)
+    );
+
+    return (
+      <div className="p-6 max-w-4xl mx-auto">
+        <div className="flex items-center gap-3 mb-6">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => setViewMode("table-select")}
+            data-testid="button-back-to-tables"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground" data-testid="text-link-guest-title">
+              Link Guest (Optional)
+            </h1>
+            <p className="text-sm text-muted-foreground">{selectedTableName}</p>
+          </div>
+        </div>
+
+        <Button
+          variant="outline"
+          size="lg"
+          className="w-full mb-4"
+          onClick={() => handleSelectGuest()}
+          data-testid="button-skip-guest"
+        >
+          Skip - No Guest
+        </Button>
+
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search guests..."
+            value={guestSearchQuery}
+            onChange={(e) => setGuestSearchQuery(e.target.value)}
+            className="pl-10"
+            data-testid="input-guest-search"
+          />
+        </div>
+
+        <div className="space-y-2">
+          {filteredGuests.map((guest) => (
+            <Card
+              key={guest.id}
+              className="p-3 hover-elevate cursor-pointer"
+              onClick={() => handleSelectGuest(guest)}
+              data-testid={`card-guest-select-${guest.id}`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-foreground truncate">{guest.name}</p>
+                  <p className="text-xs text-muted-foreground">{guest.phone}</p>
+                </div>
+                <Badge variant="secondary">{guest.visitCount} visits</Badge>
+              </div>
+            </Card>
+          ))}
+          {filteredGuests.length === 0 && (
+            <p className="text-center text-muted-foreground py-8" data-testid="text-no-guests">
+              No guests found
+            </p>
+          )}
         </div>
       </div>
     );
@@ -530,6 +626,9 @@ function OrderCard({
       <div className="flex items-start justify-between gap-2 mb-2">
         <div>
           <h3 className="font-semibold text-foreground">{order.tableName}</h3>
+          {order.guestName && (
+            <p className="text-xs text-foreground/70" data-testid={`text-order-guest-${order.id}`}>{order.guestName}</p>
+          )}
           <p className="text-xs text-muted-foreground">
             {order.createdAt
               ? new Date(order.createdAt).toLocaleTimeString([], {

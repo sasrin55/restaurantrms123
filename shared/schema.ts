@@ -59,6 +59,8 @@ export const orders = pgTable("orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tableId: integer("table_id").notNull(),
   tableName: text("table_name").notNull(),
+  guestId: varchar("guest_id"),
+  guestName: text("guest_name"),
   status: text("status").notNull().default("open"),
   createdAt: timestamp("created_at").defaultNow(),
 });
