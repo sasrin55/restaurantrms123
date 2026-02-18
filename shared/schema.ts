@@ -61,6 +61,7 @@ export const orders = pgTable("orders", {
   tableName: text("table_name").notNull(),
   guestId: varchar("guest_id"),
   guestName: text("guest_name"),
+  reservationId: varchar("reservation_id"),
   status: text("status").notNull().default("open"),
   createdAt: timestamp("created_at").defaultNow(),
 });

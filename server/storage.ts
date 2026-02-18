@@ -31,6 +31,7 @@ export interface IStorage {
   updateOrderItemQuantity(id: string, quantity: number): Promise<OrderItem | undefined>;
   deleteOrderItem(id: string): Promise<boolean>;
   getOrdersByGuestId(guestId: string): Promise<Order[]>;
+  getOrderByReservationId(reservationId: string): Promise<Order | undefined>;
 
   getMenuItems(): Promise<DbMenuItem[]>;
   addMenuItem(item: InsertMenuItem): Promise<DbMenuItem>;
@@ -259,6 +260,11 @@ export class DatabaseStorage implements IStorage {
 
   async getOrdersByGuestId(guestId: string): Promise<Order[]> {
     return db.select().from(orders).where(eq(orders.guestId, guestId)).orderBy(desc(orders.createdAt));
+  }
+
+  async getOrderByReservationId(reservationId: string): Promise<Order | undefined> {
+    const [order] = await db.select().from(orders).where(eq(orders.reservationId, reservationId));
+    return order;
   }
 
   async getMenuItems(): Promise<DbMenuItem[]> {

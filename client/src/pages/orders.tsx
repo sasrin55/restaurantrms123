@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useSearch, useLocation } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,9 @@ export default function OrdersPage() {
   const [activeCategoryIdx, setActiveCategoryIdx] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
+  const searchString = useSearch();
+  const [, navigate] = useLocation();
+  const reservationHandled = useRef(false);
 
   const { data: orders = [], isLoading: ordersLoading } = useQuery<Order[]>({
     queryKey: ["/api/orders"],
@@ -51,7 +55,7 @@ export default function OrdersPage() {
   });
 
   const createOrderMutation = useMutation({
-    mutationFn: async (data: { tableId: number; tableName: string; guestId?: string; guestName?: string }) => {
+    mutationFn: async (data: { tableId: number; tableName: string; guestId?: string; guestName?: string; reservationId?: string }) => {
       const res = await apiRequest("POST", "/api/orders", data);
       return res.json();
     },
@@ -62,6 +66,37 @@ export default function OrdersPage() {
       toast({ title: `Order started for ${order.tableName}${order.guestName ? ` (${order.guestName})` : ""}` });
     },
   });
+
+  useEffect(() => {
+    if (reservationHandled.current) return;
+    const params = new URLSearchParams(searchString);
+    const reservationId = params.get("reservationId");
+    const tableId = params.get("tableId");
+    const tableName = params.get("tableName");
+    const guestName = params.get("guestName");
+    if (reservationId && tableId && tableName) {
+      reservationHandled.current = true;
+      setSelectedTableId(Number(tableId));
+      setSelectedTableName(tableName);
+      createOrderMutation.mutate(
+        {
+          tableId: Number(tableId),
+          tableName,
+          reservationId,
+          ...(guestName ? { guestName } : {}),
+        },
+        {
+          onSuccess: () => {
+            navigate("/orders", { replace: true });
+          },
+          onError: () => {
+            reservationHandled.current = false;
+            toast({ title: "Failed to create order", variant: "destructive" });
+          },
+        }
+      );
+    }
+  }, [searchString]);
 
   const addItemMutation = useMutation({
     mutationFn: async (data: { category: string; itemName: string }) => {

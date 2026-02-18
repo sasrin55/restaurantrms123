@@ -205,13 +205,33 @@ export async function registerRoutes(
     res.json(order);
   });
 
+  app.get("/api/orders/by-reservation/:reservationId", async (req, res) => {
+    const order = await storage.getOrderByReservationId(req.params.reservationId);
+    if (!order) return res.status(404).json({ error: "No order found for this reservation" });
+    res.json(order);
+  });
+
   app.post("/api/orders", async (req, res) => {
     const parsed = insertOrderSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.errors });
 
     const orderData = { ...parsed.data };
 
-    if (!orderData.guestId && orderData.tableId) {
+    if (orderData.reservationId) {
+      const reservation = await storage.getReservation(orderData.reservationId);
+      if (reservation) {
+        orderData.tableId = reservation.tableId;
+        orderData.tableName = reservation.tableName;
+        const guests = await storage.getGuests();
+        const guest = guests.find((g) => g.phone === reservation.phoneNumber);
+        if (guest) {
+          orderData.guestId = guest.id;
+          orderData.guestName = guest.name;
+        } else {
+          orderData.guestName = reservation.customerName;
+        }
+      }
+    } else if (!orderData.guestId && orderData.tableId) {
       const reservations = await storage.getReservations();
       const today = new Date().toISOString().split("T")[0];
       const match = reservations.find(

@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Clock, Users, Phone, MessageSquare } from "lucide-react";
+import { Clock, Users, Phone, MessageSquare, ShoppingCart, Check } from "lucide-react";
 
 export type ReservationStatus = "seated" | "confirmed" | "pending" | "complete" | "cancelled";
 
@@ -13,10 +13,12 @@ interface ReservationCardProps {
   tableNumber: string;
   phone: string;
   comments?: string;
+  orderConfirmed?: boolean;
   onEdit?: () => void;
   onPrimaryAction?: () => void;
   onSecondaryAction?: () => void;
   onTertiaryAction?: () => void;
+  onTakeOrder?: () => void;
 }
 
 const statusConfig: Record<ReservationStatus, { label: string; className: string }> = {
@@ -88,10 +90,12 @@ export function ReservationCard({
   tableNumber,
   phone,
   comments,
+  orderConfirmed,
   onEdit,
   onPrimaryAction,
   onSecondaryAction,
   onTertiaryAction,
+  onTakeOrder,
 }: ReservationCardProps) {
   const statusStyle = statusConfig[status];
   const actions = getActionButtons(status);
@@ -140,7 +144,34 @@ export function ReservationCard({
         )}
       </div>
 
-      <div className="flex items-center gap-2">
+      {onTakeOrder && (
+        <div className="mb-3">
+          {orderConfirmed ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 pointer-events-none"
+              data-testid={`button-order-confirmed-${id}`}
+            >
+              <Check className="h-3.5 w-3.5 mr-1.5" />
+              Order Confirmed
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full"
+              onClick={onTakeOrder}
+              data-testid={`button-take-order-${id}`}
+            >
+              <ShoppingCart className="h-3.5 w-3.5 mr-1.5" />
+              Take Order
+            </Button>
+          )}
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 flex-wrap">
         <Button
           variant="outline"
           size="sm"
@@ -195,10 +226,12 @@ interface ReservationRowProps {
   tableNumber: string;
   phone: string;
   comments?: string;
+  orderConfirmed?: boolean;
   onEdit?: () => void;
   onPrimaryAction?: () => void;
   onSecondaryAction?: () => void;
   onTertiaryAction?: () => void;
+  onTakeOrder?: () => void;
 }
 
 export function ReservationRow({
@@ -210,10 +243,12 @@ export function ReservationRow({
   tableNumber,
   phone,
   comments,
+  orderConfirmed,
   onEdit,
   onPrimaryAction,
   onSecondaryAction,
   onTertiaryAction,
+  onTakeOrder,
 }: ReservationRowProps) {
   const statusStyle = statusConfig[status];
   const actions = getActionButtons(status);
@@ -238,7 +273,30 @@ export function ReservationRow({
         </span>
       </td>
       <td className="py-3 px-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {onTakeOrder && (
+            orderConfirmed ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 pointer-events-none"
+                data-testid={`button-order-confirmed-row-${id}`}
+              >
+                <Check className="h-3.5 w-3.5 mr-1.5" />
+                Order Confirmed
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onTakeOrder}
+                data-testid={`button-take-order-row-${id}`}
+              >
+                <ShoppingCart className="h-3.5 w-3.5 mr-1.5" />
+                Take Order
+              </Button>
+            )
+          )}
           <Button
             variant="ghost"
             size="sm"

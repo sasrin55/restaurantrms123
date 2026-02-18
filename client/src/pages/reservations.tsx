@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,7 @@ import { EditReservationDialog } from "@/components/edit-reservation-dialog";
 import { Plus, Search, Calendar, LayoutGrid, List, Loader2, RefreshCw } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format, addDays, startOfWeek, endOfWeek, isWithinInterval, parseISO, isToday, isTomorrow } from "date-fns";
-import type { Reservation } from "@shared/schema";
+import type { Reservation, Order } from "@shared/schema";
 import { getTimeSlotsForDate, type MealPeriod } from "@/lib/timeSlots";
 
 type DateFilter = "today" | "tomorrow" | "this-week" | "custom";
@@ -99,10 +99,37 @@ export default function ReservationsPage() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [periodFilter, setPeriodFilter] = useState<"all" | MealPeriod>("all");
+  const [, navigate] = useLocation();
 
   const { data: reservations = [], isLoading } = useQuery<Reservation[]>({
     queryKey: ["/api/reservations"],
   });
+
+  const { data: allOrders = [] } = useQuery<Order[]>({
+    queryKey: ["/api/orders"],
+  });
+
+  const reservationOrderMap = new Map<string, Order>();
+  for (const order of allOrders) {
+    if (order.reservationId) {
+      const existing = reservationOrderMap.get(order.reservationId);
+      if (!existing || order.status === "closed") {
+        reservationOrderMap.set(order.reservationId, order);
+      }
+    }
+  }
+
+  const isOrderConfirmedForGroup = (group: GroupedReservation) => {
+    return group.ids.some((id) => {
+      const order = reservationOrderMap.get(id);
+      return order && order.status === "closed";
+    });
+  };
+
+  const handleTakeOrder = (group: GroupedReservation) => {
+    const primaryReservation = group.reservations[0];
+    navigate(`/orders?reservationId=${primaryReservation.id}&tableId=${primaryReservation.tableId}&tableName=${encodeURIComponent(primaryReservation.tableName)}&guestName=${encodeURIComponent(primaryReservation.customerName)}`);
+  };
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
@@ -473,10 +500,12 @@ export default function ReservationsPage() {
                         tableNumber={group.tableNames.join(" + ")}
                         phone={group.phoneNumber}
                         comments={group.comments}
+                        orderConfirmed={isOrderConfirmedForGroup(group)}
                         onEdit={() => handleEdit(group.reservations[0])}
                         onPrimaryAction={() => handleGroupPrimaryAction(group)}
                         onSecondaryAction={() => handleGroupSecondaryAction(group)}
                         onTertiaryAction={() => handleGroupTertiaryAction(group)}
+                        onTakeOrder={() => handleTakeOrder(group)}
                       />
                     ))}
                   </div>
@@ -524,10 +553,12 @@ export default function ReservationsPage() {
                             tableNumber={group.tableNames.join(" + ")}
                             phone={group.phoneNumber}
                             comments={group.comments}
+                            orderConfirmed={isOrderConfirmedForGroup(group)}
                             onEdit={() => handleEdit(group.reservations[0])}
                             onPrimaryAction={() => handleGroupPrimaryAction(group)}
                             onSecondaryAction={() => handleGroupSecondaryAction(group)}
                             onTertiaryAction={() => handleGroupTertiaryAction(group)}
+                            onTakeOrder={() => handleTakeOrder(group)}
                           />
                         ))}
                       </tbody>
