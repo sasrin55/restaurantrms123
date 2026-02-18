@@ -89,8 +89,8 @@ The `shared/` directory contains code used by both frontend and backend:
 - **Order tab**: Separate section in sidebar after General, accessible at `/orders`
 - **Flow**: Select table → browse menu by category → add items with quantities → complete order
 - **Database tables**: `orders` (id, tableId, tableName, guestId, guestName, status, createdAt) and `order_items` (id, orderId, category, itemName, quantity)
-- **Menu data**: Defined in `shared/menuData.ts` with 25+ categories and 200+ items
-- **API routes**: CRUD for orders (`/api/orders`) and order items (`/api/orders/:id/items`, `/api/order-items/:id`)
+- **Menu data**: Stored in `menu_items` database table, seeded from `shared/menuData.ts` on first run; managed via Menu page at `/menu`
+- **API routes**: CRUD for orders (`/api/orders`), order items (`/api/orders/:id/items`, `/api/order-items/:id`), and menu (`/api/menu`)
 - **Features**: Category sidebar navigation, search across all menu items, quantity +/- controls, order summary panel, open/closed order management
 - **Guest linking**: Orders are automatically linked to a guest based on today's reservation at the selected table (matched by phone number to guest directory)
 

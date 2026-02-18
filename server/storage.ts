@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Reservation, type InsertReservation, type Guest, type InsertGuest, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, users, reservations, guests, orders, orderItems } from "@shared/schema";
+import { type User, type InsertUser, type Reservation, type InsertReservation, type Guest, type InsertGuest, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type DbMenuItem, type InsertMenuItem, users, reservations, guests, orders, orderItems, menuItems } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and } from "drizzle-orm";
 
@@ -31,6 +31,11 @@ export interface IStorage {
   updateOrderItemQuantity(id: string, quantity: number): Promise<OrderItem | undefined>;
   deleteOrderItem(id: string): Promise<boolean>;
   getOrdersByGuestId(guestId: string): Promise<Order[]>;
+
+  getMenuItems(): Promise<DbMenuItem[]>;
+  addMenuItem(item: InsertMenuItem): Promise<DbMenuItem>;
+  deleteMenuItem(id: string): Promise<boolean>;
+  getMenuItemCount(): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -254,6 +259,25 @@ export class DatabaseStorage implements IStorage {
 
   async getOrdersByGuestId(guestId: string): Promise<Order[]> {
     return db.select().from(orders).where(eq(orders.guestId, guestId)).orderBy(desc(orders.createdAt));
+  }
+
+  async getMenuItems(): Promise<DbMenuItem[]> {
+    return db.select().from(menuItems).orderBy(menuItems.category, menuItems.itemName);
+  }
+
+  async addMenuItem(item: InsertMenuItem): Promise<DbMenuItem> {
+    const [menuItem] = await db.insert(menuItems).values(item).returning();
+    return menuItem;
+  }
+
+  async deleteMenuItem(id: string): Promise<boolean> {
+    const result = await db.delete(menuItems).where(eq(menuItems.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async getMenuItemCount(): Promise<number> {
+    const [result] = await db.select({ count: sql<number>`count(*)` }).from(menuItems);
+    return Number(result.count);
   }
 }
 

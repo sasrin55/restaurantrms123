@@ -1,7 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertReservationSchema, insertOrderSchema, insertOrderItemSchema } from "@shared/schema";
+import { insertReservationSchema, insertOrderSchema, insertOrderItemSchema, insertMenuItemSchema } from "@shared/schema";
+import { menuCategories } from "@shared/menuData";
 import { appendReservationToSheet, updateReservationInSheet, exportAllReservationsToSheet, syncFromSheet, type SheetReservationUpdate } from "./googleSheets";
 
 export async function registerRoutes(
@@ -268,6 +269,46 @@ export async function registerRoutes(
   app.delete("/api/order-items/:id", async (req, res) => {
     const deleted = await storage.deleteOrderItem(req.params.id);
     if (!deleted) return res.status(404).json({ error: "Item not found" });
+    res.status(204).send();
+  });
+
+  // Seed menu items from static data if database is empty
+  storage.getMenuItemCount().then(async (count) => {
+    if (count === 0) {
+      for (const cat of menuCategories) {
+        for (const item of cat.items) {
+          await storage.addMenuItem({ category: cat.label, itemName: item.name });
+        }
+      }
+      console.log("Seeded menu items from static data");
+    }
+  }).catch(err => console.error("Failed to seed menu items:", err));
+
+  app.get("/api/menu", async (_req, res) => {
+    const items = await storage.getMenuItems();
+    const grouped = new Map<string, { id: string; itemName: string }[]>();
+    for (const item of items) {
+      const list = grouped.get(item.category) || [];
+      list.push({ id: item.id, itemName: item.itemName });
+      grouped.set(item.category, list);
+    }
+    const categories = Array.from(grouped.entries()).map(([category, items]) => ({
+      category,
+      items,
+    }));
+    res.json(categories);
+  });
+
+  app.post("/api/menu", async (req, res) => {
+    const parsed = insertMenuItemSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.errors });
+    const item = await storage.addMenuItem(parsed.data);
+    res.status(201).json(item);
+  });
+
+  app.delete("/api/menu/:id", async (req, res) => {
+    const deleted = await storage.deleteMenuItem(req.params.id);
+    if (!deleted) return res.status(404).json({ error: "Menu item not found" });
     res.status(204).send();
   });
 

@@ -73,6 +73,19 @@ export const orderItems = pgTable("order_items", {
   quantity: integer("quantity").notNull().default(1),
 });
 
+export const menuItems = pgTable("menu_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  category: text("category").notNull(),
+  itemName: text("item_name").notNull(),
+});
+
+export const insertMenuItemSchema = createInsertSchema(menuItems).omit({
+  id: true,
+});
+
+export type InsertMenuItem = z.infer<typeof insertMenuItemSchema>;
+export type DbMenuItem = typeof menuItems.$inferSelect;
+
 export const insertOrderSchema = createInsertSchema(orders).omit({
   id: true,
   createdAt: true,

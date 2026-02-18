@@ -23,6 +23,7 @@ import {
   LayoutGrid,
   ClipboardList,
   BarChart3,
+  UtensilsCrossed,
 } from "lucide-react";
 import paolasLogo from "@/assets/images/paolas-logo.png";
 
@@ -127,6 +128,42 @@ export function AppSidebar() {
         <SidebarGroup>
           <div className="flex items-center gap-2 px-4 mb-3 mt-4">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+              Order
+            </span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  data-active={location === "/orders"}
+                  className={location === "/orders" ? "bg-sidebar-accent" : ""}
+                >
+                  <Link href="/orders" data-testid="nav-order">
+                    <ClipboardList className="h-4 w-4" />
+                    <span>Order</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  data-active={location === "/menu"}
+                  className={location === "/menu" ? "bg-sidebar-accent" : ""}
+                >
+                  <Link href="/menu" data-testid="nav-menu">
+                    <UtensilsCrossed className="h-4 w-4" />
+                    <span>Menu</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <div className="flex items-center gap-2 px-4 mb-3 mt-4">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">
               General
             </span>
             <div className="flex-1 h-px bg-border" />
@@ -150,30 +187,6 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 );
               })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        <SidebarGroup>
-          <div className="flex items-center gap-2 px-4 mb-3 mt-4">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">
-              Order
-            </span>
-            <div className="flex-1 h-px bg-border" />
-          </div>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  data-active={location === "/orders"}
-                  className={location === "/orders" ? "bg-sidebar-accent" : ""}
-                >
-                  <Link href="/orders" data-testid="nav-order">
-                    <ClipboardList className="h-4 w-4" />
-                    <span>Order</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

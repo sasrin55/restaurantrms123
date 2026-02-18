@@ -20,7 +20,11 @@ import {
 } from "lucide-react";
 import type { Order, OrderItem } from "@shared/schema";
 import { restaurantTables, tepanyakiSeats } from "@/lib/tables";
-import { menuCategories } from "@shared/menuData";
+
+interface MenuCategoryData {
+  category: string;
+  items: { id: string; itemName: string }[];
+}
 
 type ViewMode = "table-select" | "menu" | "order-review" | "order-list";
 
@@ -29,7 +33,7 @@ export default function OrdersPage() {
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
   const [selectedTableName, setSelectedTableName] = useState("");
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
-  const [activeCategoryId, setActiveCategoryId] = useState(menuCategories[0]?.id || "");
+  const [activeCategoryIdx, setActiveCategoryIdx] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
 
@@ -40,6 +44,10 @@ export default function OrdersPage() {
   const { data: activeOrderItems = [], isLoading: itemsLoading } = useQuery<OrderItem[]>({
     queryKey: ["/api/orders", activeOrderId, "items"],
     enabled: !!activeOrderId,
+  });
+
+  const { data: menuCategories = [] } = useQuery<MenuCategoryData[]>({
+    queryKey: ["/api/menu"],
   });
 
   const createOrderMutation = useMutation({
@@ -133,19 +141,19 @@ export default function OrdersPage() {
     setSearchQuery("");
   };
 
-  const activeCategory = menuCategories.find((c) => c.id === activeCategoryId);
+  const activeCategory = menuCategories[activeCategoryIdx] || menuCategories[0];
 
   const filteredItems = searchQuery.trim()
     ? menuCategories.flatMap((cat) =>
         cat.items
           .filter((item) =>
-            item.name.toLowerCase().includes(searchQuery.toLowerCase())
+            item.itemName.toLowerCase().includes(searchQuery.toLowerCase())
           )
-          .map((item) => ({ ...item, category: cat.label }))
+          .map((item) => ({ ...item, category: cat.category }))
       )
     : activeCategory?.items.map((item) => ({
         ...item,
-        category: activeCategory.label,
+        category: activeCategory.category,
       })) || [];
 
   const openOrders = orders.filter((o) => o.status === "open");
@@ -320,18 +328,18 @@ export default function OrdersPage() {
           {!searchQuery.trim() && (
             <ScrollArea className="w-48 border-r flex-shrink-0">
               <div className="p-2 space-y-0.5">
-                {menuCategories.map((cat) => (
+                {menuCategories.map((cat, idx) => (
                   <button
-                    key={cat.id}
-                    onClick={() => setActiveCategoryId(cat.id)}
+                    key={cat.category}
+                    onClick={() => setActiveCategoryIdx(idx)}
                     className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                      activeCategoryId === cat.id
+                      activeCategoryIdx === idx
                         ? "bg-sidebar-accent font-medium text-foreground"
                         : "text-muted-foreground hover-elevate"
                     }`}
-                    data-testid={`button-category-${cat.id}`}
+                    data-testid={`button-category-${idx}`}
                   >
-                    {cat.label}
+                    {cat.category}
                   </button>
                 ))}
               </div>
@@ -346,7 +354,7 @@ export default function OrdersPage() {
                     className="text-lg font-semibold text-foreground mb-3"
                     data-testid="text-active-category"
                   >
-                    {activeCategory?.label}
+                    {activeCategory?.category}
                   </h2>
                 )}
                 {searchQuery.trim() && (
@@ -357,17 +365,17 @@ export default function OrdersPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {filteredItems.map((item, idx) => {
                     const existingItem = activeOrderItems.find(
-                      (oi) => oi.itemName === item.name
+                      (oi) => oi.itemName === item.itemName
                     );
                     return (
                       <Card
-                        key={`${item.name}-${idx}`}
+                        key={`${item.itemName}-${idx}`}
                         className="flex items-center justify-between px-3 py-2.5 gap-2"
                         data-testid={`card-menu-item-${idx}`}
                       >
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-foreground truncate">
-                            {item.name}
+                            {item.itemName}
                           </p>
                           {searchQuery.trim() && (
                             <p className="text-xs text-muted-foreground">{item.category}</p>
@@ -412,7 +420,7 @@ export default function OrdersPage() {
                             onClick={() =>
                               addItemMutation.mutate({
                                 category: item.category,
-                                itemName: item.name,
+                                itemName: item.itemName,
                               })
                             }
                             data-testid={`button-add-item-${idx}`}
