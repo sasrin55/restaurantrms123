@@ -144,33 +144,6 @@ export function ReservationCard({
         )}
       </div>
 
-      {onTakeOrder && (
-        <div className="mb-3">
-          {orderConfirmed ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 pointer-events-none"
-              data-testid={`button-order-confirmed-${id}`}
-            >
-              <Check className="h-3.5 w-3.5 mr-1.5" />
-              Order Confirmed
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full"
-              onClick={onTakeOrder}
-              data-testid={`button-take-order-${id}`}
-            >
-              <ShoppingCart className="h-3.5 w-3.5 mr-1.5" />
-              Take Order
-            </Button>
-          )}
-        </div>
-      )}
-
       <div className="flex items-center gap-2 flex-wrap">
         <Button
           variant="outline"
@@ -213,6 +186,32 @@ export function ReservationCard({
           </Button>
         )}
       </div>
+
+      {onTakeOrder && (
+        <div className="mt-3">
+          {orderConfirmed ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 pointer-events-none"
+              data-testid={`button-order-confirmed-${id}`}
+            >
+              <Check className="h-3.5 w-3.5 mr-1.5" />
+              Order Confirmed
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              className="w-full bg-orange-500 text-white border-orange-500 dark:bg-orange-600 dark:border-orange-600"
+              onClick={onTakeOrder}
+              data-testid={`button-take-order-${id}`}
+            >
+              <ShoppingCart className="h-3.5 w-3.5 mr-1.5" />
+              Take Order
+            </Button>
+          )}
+        </div>
+      )}
     </Card>
   );
 }
@@ -288,7 +287,7 @@ export function ReservationRow({
             ) : (
               <Button
                 size="sm"
-                variant="outline"
+                className="bg-orange-500 text-white border-orange-500 dark:bg-orange-600 dark:border-orange-600"
                 onClick={onTakeOrder}
                 data-testid={`button-take-order-row-${id}`}
               >
