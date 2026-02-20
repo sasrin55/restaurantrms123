@@ -137,7 +137,7 @@ export default function NewCustomerPage() {
     acc[slot.period].push(slot);
     return acc;
   }, {} as Record<MealPeriod, typeof timeSlots>);
-  const periodOrder: MealPeriod[] = ["breakfast", "lunch", "dinner"];
+  const periodOrder: MealPeriod[] = ["breakfast", "lunch", "iftar", "dinner", "sehri"];
 
   const toggleTable = (table: { id: number; number: string }) => {
     if (bookedTableIds.includes(table.id)) return;
