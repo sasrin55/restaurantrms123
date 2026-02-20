@@ -202,7 +202,7 @@ export function ReservationCard({
           ) : (
             <Button
               size="sm"
-              className="w-full bg-orange-500 text-white border-orange-500 dark:bg-orange-600 dark:border-orange-600"
+              className="w-full bg-[#0D7377] text-white border-[#0D7377] dark:bg-[#0D7377] dark:border-[#0D7377]"
               onClick={onTakeOrder}
               data-testid={`button-take-order-${id}`}
             >
@@ -287,7 +287,7 @@ export function ReservationRow({
             ) : (
               <Button
                 size="sm"
-                className="bg-orange-500 text-white border-orange-500 dark:bg-orange-600 dark:border-orange-600"
+                className="bg-[#0D7377] text-white border-[#0D7377] dark:bg-[#0D7377] dark:border-[#0D7377]"
                 onClick={onTakeOrder}
                 data-testid={`button-take-order-row-${id}`}
               >
