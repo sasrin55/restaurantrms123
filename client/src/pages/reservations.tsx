@@ -281,13 +281,13 @@ export default function ReservationsPage() {
 
   return (
     <div className="flex-1 overflow-auto">
-      <div className="p-6 max-w-7xl mx-auto">
-        <div className="flex items-center justify-between gap-4 mb-6 border-b pb-6">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground mb-1" data-testid="text-page-title">Reservations</h1>
-            <p className="text-sm text-muted-foreground" data-testid="text-page-subtitle">Manage and view all of your reservations.</p>
+      <div className="p-3 sm:p-6 max-w-7xl mx-auto">
+        <div className="flex items-center justify-between gap-2 sm:gap-4 mb-4 sm:mb-6 border-b pb-4 sm:pb-6">
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-2xl font-semibold text-foreground mb-0.5 sm:mb-1" data-testid="text-page-title">Reservations</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block" data-testid="text-page-subtitle">Manage and view all of your reservations.</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <Button
               variant="outline"
               size="icon"
@@ -300,18 +300,19 @@ export default function ReservationsPage() {
             </Button>
             <Link href="/new-reservation">
               <Button 
-                className="bg-[#0D7377] hover:bg-[#0a5c5f] text-white gap-2 rounded-full px-5"
+                className="bg-[#0D7377] hover:bg-[#0a5c5f] text-white gap-2 rounded-full px-3 sm:px-5"
                 data-testid="button-new-reservation"
               >
                 <Plus className="h-4 w-4" />
-                New Reservation
+                <span className="hidden sm:inline">New Reservation</span>
+                <span className="sm:hidden">New</span>
               </Button>
             </Link>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 mb-6 flex-wrap">
-          <div className="relative flex-1 min-w-[200px] max-w-xs">
+        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6 flex-wrap">
+          <div className="relative w-full sm:flex-1 sm:min-w-[200px] sm:max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by name, phone, or table"
@@ -379,7 +380,7 @@ export default function ReservationsPage() {
             </Popover>
 
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px]" data-testid="select-status">
+            <SelectTrigger className="w-[120px] sm:w-[140px]" data-testid="select-status">
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent>
@@ -393,7 +394,7 @@ export default function ReservationsPage() {
           </Select>
 
           <Select value={partySizeFilter} onValueChange={setPartySizeFilter}>
-            <SelectTrigger className="w-[150px]" data-testid="select-party-size">
+            <SelectTrigger className="w-[120px] sm:w-[150px]" data-testid="select-party-size">
               <SelectValue placeholder="All Party Sizes" />
             </SelectTrigger>
             <SelectContent>
@@ -427,7 +428,7 @@ export default function ReservationsPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 mb-6" data-testid="period-tabs">
+        <div className="flex items-center gap-2 mb-4 sm:mb-6 overflow-x-auto pb-1" data-testid="period-tabs">
           {(["all", ...PERIOD_ORDER] as const).map((p) => {
             const label = p === "all" ? "All" : PERIOD_LABELS[p];
             const count = p === "all"
@@ -490,7 +491,7 @@ export default function ReservationsPage() {
                       {PERIOD_LABELS[period]}
                     </h2>
                   )}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     {periodGroups.map((group) => (
                       <ReservationCard
                         key={group.ids.join("-")}

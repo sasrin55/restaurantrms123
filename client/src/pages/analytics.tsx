@@ -54,17 +54,17 @@ export default function AnalyticsPage() {
 
   return (
     <div className="flex-1 overflow-auto">
-      <div className="p-6 max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-semibold text-foreground mb-1" data-testid="text-analytics-title">
+      <div className="p-3 sm:p-6 max-w-7xl mx-auto">
+        <div className="mb-4 sm:mb-8">
+          <h1 className="text-lg sm:text-3xl font-semibold text-foreground mb-0.5 sm:mb-1" data-testid="text-analytics-title">
             Menu Analytics
           </h1>
-          <p className="text-muted-foreground" data-testid="text-analytics-subtitle">
+          <p className="text-xs sm:text-base text-muted-foreground" data-testid="text-analytics-subtitle">
             Insights into menu item popularity and ordering patterns.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
           <Card data-testid="card-total-orders">
             <CardContent className="p-4 flex items-center gap-4">
               <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center flex-shrink-0">

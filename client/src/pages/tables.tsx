@@ -39,21 +39,21 @@ export default function TablesPage() {
   return (
     <div className="flex-1 overflow-auto">
       <div className="p-6 max-w-7xl mx-auto">
-        <div className="flex items-center justify-between gap-4 mb-4 border-b pb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 mb-4 border-b pb-4 sm:pb-6">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground mb-1" data-testid="text-page-title">Tables</h1>
-            <p className="text-sm text-muted-foreground" data-testid="text-page-subtitle">
+            <h1 className="text-lg sm:text-2xl font-semibold text-foreground mb-0.5 sm:mb-1" data-testid="text-page-title">Tables</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground" data-testid="text-page-subtitle">
               View all tables and their availability.
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-green-500" />
-              <span className="text-sm text-muted-foreground" data-testid="text-available-count">{availableCount} Available</span>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-green-500" />
+              <span className="text-xs sm:text-sm text-muted-foreground" data-testid="text-available-count">{availableCount} Available</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#0D7377]" />
-              <span className="text-sm text-muted-foreground" data-testid="text-occupied-count">{occupiedCount} Occupied</span>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-[#0D7377]" />
+              <span className="text-xs sm:text-sm text-muted-foreground" data-testid="text-occupied-count">{occupiedCount} Occupied</span>
             </div>
           </div>
         </div>

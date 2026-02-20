@@ -345,13 +345,13 @@ export default function OrdersPage() {
               {itemsLoading ? "Loading..." : `${activeOrderItems.length} item${activeOrderItems.length !== 1 ? "s" : ""} in order`}
             </p>
           </div>
-          <div className="relative">
+          <div className="relative flex-shrink-0">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               placeholder="Search menu..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 w-48"
+              className="pl-8 w-36 sm:w-48"
               data-testid="input-menu-search"
             />
           </div>
@@ -359,13 +359,13 @@ export default function OrdersPage() {
 
         <div className="flex flex-1 overflow-hidden">
           {!searchQuery.trim() && (
-            <ScrollArea className="w-48 border-r flex-shrink-0">
-              <div className="p-2 space-y-0.5">
+            <ScrollArea className="w-28 sm:w-48 border-r flex-shrink-0 min-w-[7rem] max-w-[7rem] sm:min-w-[12rem] sm:max-w-[12rem]">
+              <div className="p-1.5 sm:p-2 space-y-0.5">
                 {menuCategories.map((cat, idx) => (
                   <button
                     key={cat.category}
                     onClick={() => setActiveCategoryIdx(idx)}
-                    className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                    className={`w-full text-left px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm transition-colors overflow-hidden ${
                       activeCategoryIdx === idx
                         ? "bg-sidebar-accent font-medium text-foreground"
                         : "text-muted-foreground hover-elevate"

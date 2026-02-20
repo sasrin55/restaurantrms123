@@ -333,8 +333,8 @@ export default function NewCustomerPage() {
           seated
         </h1>
 
-        <Card className="bg-white/95 shadow-lg w-full max-w-3xl p-8">
-          <h2 className="text-xl font-semibold text-foreground mb-4" data-testid="text-form-title">
+        <Card className="bg-white/95 shadow-lg w-full max-w-3xl p-4 sm:p-8">
+          <h2 className="text-lg sm:text-xl font-semibold text-foreground mb-3 sm:mb-4" data-testid="text-form-title">
             New Customer
           </h2>
 

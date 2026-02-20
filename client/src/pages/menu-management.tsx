@@ -99,13 +99,13 @@ export default function MenuManagementPage() {
           {categories.reduce((s, c) => s + c.items.length, 0)} items
         </Badge>
         <div className="flex-1" />
-        <div className="relative">
+        <div className="relative flex-shrink-0">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            placeholder="Search menu..."
+            placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 w-48"
+            className="pl-8 w-32 sm:w-48"
             data-testid="input-menu-search"
           />
         </div>
@@ -144,8 +144,8 @@ export default function MenuManagementPage() {
         </ScrollArea>
       ) : (
         <div className="flex flex-1 overflow-hidden">
-          <ScrollArea className="w-48 border-r flex-shrink-0">
-            <div className="p-2 space-y-0.5">
+          <ScrollArea className="w-28 sm:w-48 border-r flex-shrink-0 min-w-[7rem] max-w-[7rem] sm:min-w-[12rem] sm:max-w-[12rem]">
+            <div className="p-1.5 sm:p-2 space-y-0.5">
               {categories.map((cat) => (
                 <button
                   key={cat.category}
@@ -153,7 +153,7 @@ export default function MenuManagementPage() {
                     setActiveCategory(cat.category);
                     setShowNewCategory(false);
                   }}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                  className={`w-full text-left px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm transition-colors overflow-hidden ${
                     selectedCategory === cat.category && !showNewCategory
                       ? "bg-sidebar-accent font-medium text-foreground"
                       : "text-muted-foreground hover-elevate"
@@ -166,7 +166,7 @@ export default function MenuManagementPage() {
               ))}
               <button
                 onClick={() => setShowNewCategory(true)}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center gap-1.5 ${
+                className={`w-full text-left px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm transition-colors flex items-center gap-1.5 ${
                   showNewCategory
                     ? "bg-sidebar-accent font-medium text-foreground"
                     : "text-muted-foreground hover-elevate"

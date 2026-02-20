@@ -111,29 +111,29 @@ export function ReservationCard({
         </span>
       </div>
 
-      <div className="space-y-2 mb-4 text-sm text-muted-foreground">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4" />
-            <span>{time}</span>
+      <div className="space-y-1.5 sm:space-y-2 mb-3 sm:mb-4 text-sm text-muted-foreground">
+        <div className="flex items-center gap-4 sm:gap-6 flex-wrap">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="text-xs sm:text-sm">{time}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            <span>{partySize} people</span>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="text-xs sm:text-sm">{partySize} people</span>
           </div>
         </div>
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <div className="flex items-center gap-4 sm:gap-6 flex-wrap">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
               <rect x="3" y="6" width="10" height="2" rx="0.5" />
               <rect x="4" y="8" width="1" height="4" />
               <rect x="11" y="8" width="1" height="4" />
             </svg>
-            <span>{tableNumber.includes("+") ? "Tables" : "Table"} {tableNumber}</span>
+            <span className="text-xs sm:text-sm">{tableNumber.includes("+") ? "Tables" : "Table"} {tableNumber}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Phone className="h-4 w-4" />
-            <span>{phone}</span>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Phone className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="text-xs sm:text-sm">{phone}</span>
           </div>
         </div>
         {comments && (

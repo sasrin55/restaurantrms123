@@ -101,28 +101,28 @@ export default function GuestListPage() {
 
   return (
     <div className="flex-1 overflow-auto">
-      <div className="p-6 max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-semibold text-foreground mb-1" data-testid="text-page-title">
+      <div className="p-3 sm:p-6 max-w-7xl mx-auto">
+        <div className="mb-4 sm:mb-8">
+          <h1 className="text-lg sm:text-3xl font-semibold text-foreground mb-0.5 sm:mb-1" data-testid="text-page-title">
             Guest List
           </h1>
-          <p className="text-muted-foreground" data-testid="text-page-subtitle">
+          <p className="text-xs sm:text-base text-muted-foreground" data-testid="text-page-subtitle">
             Directory of all customers who have dined at your restaurant.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by name or phone number"
+              placeholder="Search by name or phone"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 bg-background"
               data-testid="input-search-guests"
             />
           </div>
-          <div className="text-sm text-muted-foreground" data-testid="text-guest-count">
+          <div className="text-xs sm:text-sm text-muted-foreground flex-shrink-0" data-testid="text-guest-count">
             {filteredGuests.length} {filteredGuests.length === 1 ? "guest" : "guests"}
           </div>
         </div>

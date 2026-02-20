@@ -67,12 +67,12 @@ export default function PastOrdersPage() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold text-foreground mb-6" data-testid="text-past-orders-title">
+    <div className="p-3 sm:p-6 max-w-4xl mx-auto">
+      <h1 className="text-lg sm:text-2xl font-bold text-foreground mb-4 sm:mb-6" data-testid="text-past-orders-title">
         Past Orders
       </h1>
 
-      <div className="flex items-center justify-between gap-4 mb-6">
+      <div className="flex items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
         <Button
           size="icon"
           variant="outline"
