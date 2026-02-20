@@ -51,11 +51,13 @@ function getTimePeriod(time: string, date: Date): MealPeriod {
   return "dinner";
 }
 
-const PERIOD_ORDER: MealPeriod[] = ["breakfast", "lunch", "dinner"];
+const PERIOD_ORDER: MealPeriod[] = ["breakfast", "lunch", "iftar", "dinner", "sehri"];
 const PERIOD_LABELS: Record<MealPeriod, string> = {
   breakfast: "Breakfast",
   lunch: "Lunch",
+  iftar: "Iftar",
   dinner: "Dinner",
+  sehri: "Sehri",
 };
 
 function groupReservations(reservations: Reservation[]): GroupedReservation[] {
