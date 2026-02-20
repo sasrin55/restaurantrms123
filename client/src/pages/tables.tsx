@@ -38,7 +38,7 @@ export default function TablesPage() {
 
   return (
     <div className="flex-1 overflow-auto">
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="p-3 sm:p-6 max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 mb-4 border-b pb-4 sm:pb-6">
           <div>
             <h1 className="text-lg sm:text-2xl font-semibold text-foreground mb-0.5 sm:mb-1" data-testid="text-page-title">Tables</h1>

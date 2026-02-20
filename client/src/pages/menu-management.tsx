@@ -90,12 +90,12 @@ export default function MenuManagementPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-3 p-4 border-b">
-        <UtensilsCrossed className="h-5 w-5 text-muted-foreground" />
-        <h1 className="text-lg font-bold text-foreground" data-testid="text-menu-title">
-          Menu Management
+      <div className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 border-b flex-wrap">
+        <UtensilsCrossed className="h-5 w-5 text-muted-foreground hidden sm:block" />
+        <h1 className="text-base sm:text-lg font-bold text-foreground" data-testid="text-menu-title">
+          Menu
         </h1>
-        <Badge variant="secondary" data-testid="badge-menu-count">
+        <Badge variant="secondary" className="text-xs" data-testid="badge-menu-count">
           {categories.reduce((s, c) => s + c.items.length, 0)} items
         </Badge>
         <div className="flex-1" />
@@ -105,7 +105,7 @@ export default function MenuManagementPage() {
             placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 w-32 sm:w-48"
+            className="pl-8 w-28 sm:w-48 text-sm"
             data-testid="input-menu-search"
           />
         </div>
@@ -113,7 +113,7 @@ export default function MenuManagementPage() {
 
       {searchQuery.trim() ? (
         <ScrollArea className="flex-1">
-          <div className="p-4">
+          <div className="p-3 sm:p-4">
             <p className="text-sm text-muted-foreground mb-3">
               {allFilteredItems.length} result{allFilteredItems.length !== 1 ? "s" : ""} for "{searchQuery}"
             </p>
@@ -143,9 +143,9 @@ export default function MenuManagementPage() {
           </div>
         </ScrollArea>
       ) : (
-        <div className="flex flex-1 overflow-hidden">
-          <ScrollArea className="w-28 sm:w-48 border-r flex-shrink-0 min-w-[7rem] max-w-[7rem] sm:min-w-[12rem] sm:max-w-[12rem]">
-            <div className="p-1.5 sm:p-2 space-y-0.5">
+        <>
+          <div className="border-b overflow-x-auto md:hidden">
+            <div className="flex items-center gap-1 px-3 py-2 min-w-max">
               {categories.map((cat) => (
                 <button
                   key={cat.category}
@@ -153,100 +153,137 @@ export default function MenuManagementPage() {
                     setActiveCategory(cat.category);
                     setShowNewCategory(false);
                   }}
-                  className={`w-full text-left px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm transition-colors overflow-hidden ${
+                  className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
                     selectedCategory === cat.category && !showNewCategory
-                      ? "bg-sidebar-accent font-medium text-foreground"
-                      : "text-muted-foreground hover-elevate"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
                   }`}
                   data-testid={`button-category-${cat.category}`}
                 >
-                  <span className="truncate block">{cat.category}</span>
-                  <span className="text-xs text-muted-foreground">{cat.items.length} items</span>
+                  {cat.category} ({cat.items.length})
                 </button>
               ))}
               <button
                 onClick={() => setShowNewCategory(true)}
-                className={`w-full text-left px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm transition-colors flex items-center gap-1.5 ${
+                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-1 ${
                   showNewCategory
-                    ? "bg-sidebar-accent font-medium text-foreground"
-                    : "text-muted-foreground hover-elevate"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground"
                 }`}
                 data-testid="button-new-category"
               >
-                <Plus className="h-3.5 w-3.5" />
-                New Category
+                <Plus className="h-3 w-3" />
+                New
               </button>
             </div>
-          </ScrollArea>
+          </div>
 
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="p-4 border-b">
-              {showNewCategory ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    placeholder="Category name..."
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    className="flex-1"
-                    data-testid="input-new-category"
-                  />
-                </div>
-              ) : (
-                <h2 className="text-lg font-semibold text-foreground" data-testid="text-active-category">
-                  {selectedCategory}
-                </h2>
-              )}
-              <div className="flex items-center gap-2 mt-3">
-                <Input
-                  placeholder="Add new item..."
-                  value={newItemName}
-                  onChange={(e) => setNewItemName(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleAddItem()}
-                  className="flex-1"
-                  data-testid="input-new-item"
-                />
-                <Button
-                  onClick={handleAddItem}
-                  disabled={!newItemName.trim() || addItemMutation.isPending || (showNewCategory && !newCategoryName.trim())}
-                  data-testid="button-add-item"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add
-                </Button>
-              </div>
-            </div>
-
-            <ScrollArea className="flex-1">
-              <div className="p-4 space-y-1.5">
-                {(showNewCategory ? [] : currentCategoryData?.items || []).map((item) => (
-                  <Card
-                    key={item.id}
-                    className="flex items-center justify-between px-3 py-2.5 gap-2"
-                    data-testid={`card-menu-item-${item.id}`}
+          <div className="flex flex-1 overflow-hidden">
+            <ScrollArea className="w-48 border-r flex-shrink-0 hidden md:block">
+              <div className="p-2 space-y-0.5">
+                {categories.map((cat) => (
+                  <button
+                    key={cat.category}
+                    onClick={() => {
+                      setActiveCategory(cat.category);
+                      setShowNewCategory(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                      selectedCategory === cat.category && !showNewCategory
+                        ? "bg-sidebar-accent font-medium text-foreground"
+                        : "text-muted-foreground hover-elevate"
+                    }`}
+                    data-testid={`button-category-desktop-${cat.category}`}
                   >
-                    <p className="text-sm font-medium text-foreground truncate min-w-0 flex-1">
-                      {item.itemName}
-                    </p>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="text-destructive flex-shrink-0"
-                      onClick={() => deleteItemMutation.mutate(item.id)}
-                      data-testid={`button-delete-${item.id}`}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </Card>
+                    <span className="truncate block">{cat.category}</span>
+                    <span className="text-xs text-muted-foreground">{cat.items.length} items</span>
+                  </button>
                 ))}
-                {!showNewCategory && currentCategoryData?.items.length === 0 && (
-                  <p className="text-center text-muted-foreground py-8" data-testid="text-no-items">
-                    No items in this category
-                  </p>
-                )}
+                <button
+                  onClick={() => setShowNewCategory(true)}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center gap-1.5 ${
+                    showNewCategory
+                      ? "bg-sidebar-accent font-medium text-foreground"
+                      : "text-muted-foreground hover-elevate"
+                  }`}
+                  data-testid="button-new-category-desktop"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  New Category
+                </button>
               </div>
             </ScrollArea>
+
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="p-3 sm:p-4 border-b">
+                {showNewCategory ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="Category name..."
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      className="flex-1 text-sm"
+                      data-testid="input-new-category"
+                    />
+                  </div>
+                ) : (
+                  <h2 className="text-base sm:text-lg font-semibold text-foreground" data-testid="text-active-category">
+                    {selectedCategory}
+                  </h2>
+                )}
+                <div className="flex items-center gap-2 mt-2 sm:mt-3">
+                  <Input
+                    placeholder="Add new item..."
+                    value={newItemName}
+                    onChange={(e) => setNewItemName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleAddItem()}
+                    className="flex-1 text-sm"
+                    data-testid="input-new-item"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleAddItem}
+                    disabled={!newItemName.trim() || addItemMutation.isPending || (showNewCategory && !newCategoryName.trim())}
+                    data-testid="button-add-item"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add
+                  </Button>
+                </div>
+              </div>
+
+              <ScrollArea className="flex-1">
+                <div className="p-3 sm:p-4 space-y-1.5">
+                  {(showNewCategory ? [] : currentCategoryData?.items || []).map((item) => (
+                    <Card
+                      key={item.id}
+                      className="flex items-center justify-between px-3 py-2 gap-2"
+                      data-testid={`card-menu-item-${item.id}`}
+                    >
+                      <p className="text-sm font-medium text-foreground truncate min-w-0 flex-1">
+                        {item.itemName}
+                      </p>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="text-destructive flex-shrink-0 h-7 w-7"
+                        onClick={() => deleteItemMutation.mutate(item.id)}
+                        data-testid={`button-delete-${item.id}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </Card>
+                  ))}
+                  {!showNewCategory && currentCategoryData?.items.length === 0 && (
+                    <p className="text-center text-muted-foreground py-8" data-testid="text-no-items">
+                      No items in this category
+                    </p>
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

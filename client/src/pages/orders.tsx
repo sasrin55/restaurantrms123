@@ -197,26 +197,27 @@ export default function OrdersPage() {
 
   if (viewMode === "table-select") {
     return (
-      <div className="p-6 max-w-4xl mx-auto">
-        <div className="flex items-center gap-3 mb-6">
+      <div className="p-3 sm:p-6 max-w-4xl mx-auto">
+        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
           <Button
             size="icon"
             variant="ghost"
+            className="h-8 w-8"
             onClick={() => setViewMode("order-list")}
             data-testid="button-back-to-orders"
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-2xl font-bold text-foreground" data-testid="text-select-table-title">
+          <h1 className="text-lg sm:text-2xl font-bold text-foreground" data-testid="text-select-table-title">
             Select Table
           </h1>
         </div>
 
-        <div className="mb-6">
-          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
+        <div className="mb-4 sm:mb-6">
+          <h2 className="text-xs sm:text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2 sm:mb-3">
             Tables
           </h2>
-          <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
             {restaurantTables.map((table) => (
               <Button
                 key={table.id}
@@ -328,7 +329,7 @@ export default function OrdersPage() {
   if (viewMode === "menu" && activeOrderId) {
     return (
       <div className="flex flex-col h-full">
-        <div className="flex items-center gap-3 p-4 border-b">
+        <div className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 border-b">
           <Button
             size="icon"
             variant="ghost"
@@ -338,7 +339,7 @@ export default function OrdersPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold text-foreground" data-testid="text-order-table-name">
+            <h1 className="text-base sm:text-lg font-bold text-foreground" data-testid="text-order-table-name">
               {selectedTableName}
             </h1>
             <p className="text-xs text-muted-foreground">
@@ -348,29 +349,50 @@ export default function OrdersPage() {
           <div className="relative flex-shrink-0">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
-              placeholder="Search menu..."
+              placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 w-36 sm:w-48"
+              className="pl-8 w-28 sm:w-48 text-sm"
               data-testid="input-menu-search"
             />
           </div>
         </div>
 
+        {!searchQuery.trim() && (
+          <div className="border-b overflow-x-auto md:hidden">
+            <div className="flex items-center gap-1 px-3 py-2 min-w-max">
+              {menuCategories.map((cat, idx) => (
+                <button
+                  key={cat.category}
+                  onClick={() => setActiveCategoryIdx(idx)}
+                  className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
+                    activeCategoryIdx === idx
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                  data-testid={`button-category-${idx}`}
+                >
+                  {cat.category}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-1 overflow-hidden">
           {!searchQuery.trim() && (
-            <ScrollArea className="w-28 sm:w-48 border-r flex-shrink-0 min-w-[7rem] max-w-[7rem] sm:min-w-[12rem] sm:max-w-[12rem]">
-              <div className="p-1.5 sm:p-2 space-y-0.5">
+            <ScrollArea className="w-48 border-r flex-shrink-0 hidden md:block">
+              <div className="p-2 space-y-0.5">
                 {menuCategories.map((cat, idx) => (
                   <button
                     key={cat.category}
                     onClick={() => setActiveCategoryIdx(idx)}
-                    className={`w-full text-left px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm transition-colors overflow-hidden ${
+                    className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
                       activeCategoryIdx === idx
                         ? "bg-sidebar-accent font-medium text-foreground"
                         : "text-muted-foreground hover-elevate"
                     }`}
-                    data-testid={`button-category-${idx}`}
+                    data-testid={`button-category-desktop-${idx}`}
                   >
                     {cat.category}
                   </button>
@@ -381,10 +403,10 @@ export default function OrdersPage() {
 
           <div className="flex-1 flex flex-col overflow-hidden">
             <ScrollArea className="flex-1">
-              <div className="p-4">
+              <div className="p-3 sm:p-4">
                 {!searchQuery.trim() && (
                   <h2
-                    className="text-lg font-semibold text-foreground mb-3"
+                    className="text-base sm:text-lg font-semibold text-foreground mb-2 sm:mb-3"
                     data-testid="text-active-category"
                   >
                     {activeCategory?.category}
@@ -395,7 +417,7 @@ export default function OrdersPage() {
                     {filteredItems.length} result{filteredItems.length !== 1 ? "s" : ""} for "{searchQuery}"
                   </p>
                 )}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
                   {filteredItems.map((item, idx) => {
                     const existingItem = activeOrderItems.find(
                       (oi) => oi.itemName === item.itemName
@@ -403,7 +425,7 @@ export default function OrdersPage() {
                     return (
                       <Card
                         key={`${item.itemName}-${idx}`}
-                        className="flex items-center justify-between px-3 py-2.5 gap-2"
+                        className="flex items-center justify-between px-2.5 sm:px-3 py-2 gap-2"
                         data-testid={`card-menu-item-${idx}`}
                       >
                         <div className="min-w-0 flex-1">
@@ -470,11 +492,11 @@ export default function OrdersPage() {
             </ScrollArea>
 
             {activeOrderItems.length > 0 && (
-              <div className="border-t p-4 bg-muted/30">
+              <div className="border-t p-3 sm:p-4 bg-muted/30">
                 <div className="flex items-center justify-between gap-2 mb-3">
                   <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
                     <ShoppingCart className="h-4 w-4" />
-                    Current Order ({activeOrderItems.reduce((s, i) => s + i.quantity, 0)} items)
+                    Order ({activeOrderItems.reduce((s, i) => s + i.quantity, 0)} items)
                   </h3>
                 </div>
                 <div className="space-y-1.5 max-h-40 overflow-y-auto mb-3">
@@ -545,9 +567,9 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between gap-2 mb-6 flex-wrap">
-        <h1 className="text-2xl font-bold text-foreground" data-testid="text-orders-title">
+    <div className="p-3 sm:p-6 max-w-4xl mx-auto">
+      <div className="flex items-center justify-between gap-2 mb-4 sm:mb-6 flex-wrap">
+        <h1 className="text-lg sm:text-2xl font-bold text-foreground" data-testid="text-orders-title">
           Orders
         </h1>
         <Button onClick={handleStartNewOrder} data-testid="button-new-order">
