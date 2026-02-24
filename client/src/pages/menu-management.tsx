@@ -12,7 +12,9 @@ import {
   Trash2,
   Search,
   UtensilsCrossed,
+  Printer,
 } from "lucide-react";
+import { printMenu } from "@/lib/printReceipt";
 
 interface MenuCategoryData {
   category: string;
@@ -99,6 +101,17 @@ export default function MenuManagementPage() {
           {categories.reduce((s, c) => s + c.items.length, 0)} items
         </Badge>
         <div className="flex-1" />
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => printMenu(categories)}
+          disabled={categories.length === 0}
+          data-testid="button-print-menu"
+        >
+          <Printer className="h-3.5 w-3.5 mr-1" />
+          <span className="hidden sm:inline">Print Menu</span>
+          <span className="sm:hidden">Print</span>
+        </Button>
         <div className="relative flex-shrink-0">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input

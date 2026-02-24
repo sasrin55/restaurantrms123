@@ -20,7 +20,9 @@ import {
   X,
   Pencil,
   DollarSign,
+  Printer,
 } from "lucide-react";
+import { printOrder } from "@/lib/printReceipt";
 import type { Order, OrderItem } from "@shared/schema";
 import { restaurantTables, tepanyakiSeats } from "@/lib/tables";
 
@@ -313,13 +315,22 @@ export default function OrdersPage() {
           <Button
             className="w-full"
             onClick={() => {
+              const currentOrder = orders.find((o) => o.id === activeOrderId);
+              printOrder(
+                selectedTableName,
+                currentOrder?.guestName || undefined,
+                activeOrderItems,
+                currentOrder?.createdAt
+                  ? new Date(currentOrder.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                  : undefined
+              );
               handleBackToList();
-              toast({ title: "Order confirmed" });
+              toast({ title: "Order confirmed & sent to printer" });
             }}
             data-testid="button-confirm-order"
           >
-            <Check className="h-4 w-4 mr-2" />
-            Confirm Order
+            <Printer className="h-4 w-4 mr-2" />
+            Confirm & Print Order
           </Button>
         </div>
       </div>
