@@ -41,8 +41,6 @@ export default function NewCustomerPage() {
   });
   const [time, setTime] = useState("");
   const [partySize, setPartySize] = useState("2");
-  const [customPartySize, setCustomPartySize] = useState("");
-  const [isCustomPartySize, setIsCustomPartySize] = useState(false);
   const [selectedTables, setSelectedTables] = useState<{ id: number; number: string }[]>([]);
   const [selectionMode, setSelectionMode] = useState<"tables" | "tepanyaki">("tables");
   const [customerName, setCustomerName] = useState("");
@@ -53,7 +51,7 @@ export default function NewCustomerPage() {
     queryKey: ["/api/reservations"],
   });
 
-  const parsedSize = isCustomPartySize ? (parseInt(customPartySize) || 0) : parseInt(partySize);
+  const parsedSize = parseInt(partySize) || 0;
 
   const effectiveDate = mode === "walkin"
     ? (isMonday(new Date()) ? undefined : new Date())
@@ -109,16 +107,8 @@ export default function NewCustomerPage() {
   };
 
   const handlePartySizeChange = (val: string) => {
-    if (val === "custom") {
-      setIsCustomPartySize(true);
-      setCustomPartySize("");
-      setPartySize("13");
-      clearSelections();
-    } else {
-      setIsCustomPartySize(false);
-      setPartySize(val);
-      clearSelections();
-    }
+    setPartySize(val);
+    clearSelections();
   };
 
   const handleTimeChange = (val: string) => {
@@ -408,49 +398,15 @@ export default function NewCustomerPage() {
               <div className="space-y-2">
                 <Label className="text-muted-foreground text-sm">Party Size</Label>
                 <div className="flex items-center gap-2">
-                  {isCustomPartySize ? (
-                    <div className="flex items-center gap-2 w-full">
-                      <Input
-                        type="number"
-                        min="13"
-                        placeholder="Enter number..."
-                        value={customPartySize}
-                        onChange={(e) => {
-                          setCustomPartySize(e.target.value);
-                          clearSelections();
-                        }}
-                        className="w-full"
-                        autoFocus
-                        data-testid="input-custom-party-size"
-                      />
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setIsCustomPartySize(false);
-                          setPartySize("2");
-                          clearSelections();
-                        }}
-                        data-testid="button-cancel-custom-size"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <Select value={partySize} onValueChange={handlePartySizeChange}>
-                      <SelectTrigger className="w-full" data-testid="select-party-size">
-                        <SelectValue placeholder="Party size" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((size) => (
-                          <SelectItem key={size} value={size.toString()}>
-                            {size} {size === 1 ? "person" : "people"}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value="custom">Custom...</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
+                  <Input
+                    type="number"
+                    min="1"
+                    placeholder="Number of guests"
+                    value={partySize}
+                    onChange={(e) => handlePartySizeChange(e.target.value)}
+                    className="w-full"
+                    data-testid="input-party-size"
+                  />
                   <Users className="h-5 w-5 text-muted-foreground shrink-0" />
                 </div>
               </div>
@@ -488,49 +444,15 @@ export default function NewCustomerPage() {
               <div className="space-y-2">
                 <Label className="text-muted-foreground text-sm">Party Size</Label>
                 <div className="flex items-center gap-2">
-                  {isCustomPartySize ? (
-                    <div className="flex items-center gap-2 w-full">
-                      <Input
-                        type="number"
-                        min="13"
-                        placeholder="Enter number..."
-                        value={customPartySize}
-                        onChange={(e) => {
-                          setCustomPartySize(e.target.value);
-                          clearSelections();
-                        }}
-                        className="w-full"
-                        autoFocus
-                        data-testid="input-custom-party-size"
-                      />
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setIsCustomPartySize(false);
-                          setPartySize("2");
-                          clearSelections();
-                        }}
-                        data-testid="button-cancel-custom-size"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <Select value={partySize} onValueChange={handlePartySizeChange}>
-                      <SelectTrigger className="w-full" data-testid="select-party-size">
-                        <SelectValue placeholder="Party size" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((size) => (
-                          <SelectItem key={size} value={size.toString()}>
-                            {size} {size === 1 ? "person" : "people"}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value="custom">Custom...</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
+                  <Input
+                    type="number"
+                    min="1"
+                    placeholder="Number of guests"
+                    value={partySize}
+                    onChange={(e) => handlePartySizeChange(e.target.value)}
+                    className="w-full"
+                    data-testid="input-party-size"
+                  />
                   <Users className="h-5 w-5 text-muted-foreground shrink-0" />
                 </div>
               </div>
