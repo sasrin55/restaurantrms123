@@ -111,15 +111,6 @@ export function ReservationCard({
             {statusStyle.label}
           </span>
         </div>
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-7 w-7 shrink-0"
-          onClick={onEdit}
-          data-testid={`button-edit-${id}`}
-        >
-          <Pencil className="h-3.5 w-3.5" />
-        </Button>
       </div>
 
       <div className="space-y-1.5 sm:space-y-2 mb-3 sm:mb-4 text-sm text-muted-foreground">
@@ -156,6 +147,16 @@ export function ReservationCard({
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
+        {actions.primary && (
+          <Button
+            size="sm"
+            onClick={onPrimaryAction}
+            className={actions.primary.className}
+            data-testid={`button-primary-${id}`}
+          >
+            {actions.primary.label}
+          </Button>
+        )}
         {onTakeOrder && (
           orderConfirmed ? (
             <Button
@@ -179,14 +180,24 @@ export function ReservationCard({
             </Button>
           )
         )}
-        {actions.primary && (
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-7 w-7 shrink-0"
+          onClick={onEdit}
+          data-testid={`button-edit-${id}`}
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+        {actions.tertiary && (
           <Button
             size="sm"
-            onClick={onPrimaryAction}
-            className={actions.primary.className}
-            data-testid={`button-primary-${id}`}
+            variant="outline"
+            onClick={onTertiaryAction}
+            className={actions.tertiary.className}
+            data-testid={`button-tertiary-${id}`}
           >
-            {actions.primary.label}
+            {actions.tertiary.label}
           </Button>
         )}
         {actions.secondary && (
@@ -198,17 +209,6 @@ export function ReservationCard({
             data-testid={`button-secondary-${id}`}
           >
             {actions.secondary.label}
-          </Button>
-        )}
-        {actions.tertiary && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onTertiaryAction}
-            className={actions.tertiary.className}
-            data-testid={`button-tertiary-${id}`}
-          >
-            {actions.tertiary.label}
           </Button>
         )}
       </div>
