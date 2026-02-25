@@ -254,62 +254,56 @@ export function ReservationRow({
 
   return (
     <tr className="border-b border-border" data-testid={`reservation-row-${id}`}>
-      <td className="py-3 px-4 text-foreground font-medium">{guestName}</td>
-      <td className="py-3 px-4 text-muted-foreground">{time}</td>
-      <td className="py-3 px-4 text-muted-foreground">{partySize} people</td>
-      <td className="py-3 px-4 text-muted-foreground">{tableNumber.includes("+") ? "Tables" : "Table"} {tableNumber}</td>
-      <td className="py-3 px-4 text-muted-foreground">{phone}</td>
-      <td className="py-3 px-4 text-muted-foreground max-w-[200px]">
-        {comments ? (
-          <span className="italic truncate block" title={comments} data-testid={`text-comments-row-${id}`}>{comments}</span>
-        ) : (
-          <span className="text-muted-foreground/50">-</span>
-        )}
-      </td>
-      <td className="py-3 px-4">
-        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyle.className}`}>
+      <td className="py-3 px-3 text-foreground font-medium whitespace-nowrap">{guestName}</td>
+      <td className="py-3 px-3 text-muted-foreground whitespace-nowrap">{time}</td>
+      <td className="py-3 px-3 text-muted-foreground whitespace-nowrap">{partySize}</td>
+      <td className="py-3 px-3 text-muted-foreground whitespace-nowrap">{tableNumber}</td>
+      <td className="py-3 px-3 text-muted-foreground whitespace-nowrap">{phone}</td>
+      <td className="py-3 px-3">
+        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${statusStyle.className}`}>
           {statusStyle.label}
         </span>
       </td>
-      <td className="py-3 px-4">
-        <div className="flex items-center gap-2 flex-wrap">
+      <td className="py-3 px-3">
+        <div className="flex items-center gap-1.5 flex-nowrap">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-7 w-7 shrink-0"
+            onClick={onEdit}
+            data-testid={`button-edit-row-${id}`}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
           {onTakeOrder && (
             orderConfirmed ? (
               <Button
                 size="sm"
                 variant="outline"
-                className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 pointer-events-none"
+                className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 pointer-events-none whitespace-nowrap"
                 data-testid={`button-order-confirmed-row-${id}`}
               >
-                <Check className="h-3.5 w-3.5 mr-1.5" />
+                <Check className="h-3.5 w-3.5 mr-1" />
                 Paid
               </Button>
             ) : (
               <Button
                 size="sm"
-                className="bg-[#0D7377] text-white border-[#0D7377] dark:bg-[#0D7377] dark:border-[#0D7377]"
+                variant="outline"
                 onClick={onTakeOrder}
+                className="whitespace-nowrap"
                 data-testid={`button-take-order-row-${id}`}
               >
-                <ShoppingCart className="h-3.5 w-3.5 mr-1.5" />
+                <ShoppingCart className="h-3.5 w-3.5 mr-1" />
                 Take Order
               </Button>
             )
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onEdit}
-            className="text-muted-foreground"
-            data-testid={`button-edit-row-${id}`}
-          >
-            Edit
-          </Button>
           {actions.primary && (
             <Button
               size="sm"
               onClick={onPrimaryAction}
-              className={actions.primary.className}
+              className={`${actions.primary.className} whitespace-nowrap`}
               data-testid={`button-primary-row-${id}`}
             >
               {actions.primary.label}
@@ -320,7 +314,7 @@ export function ReservationRow({
               size="sm"
               variant="outline"
               onClick={onSecondaryAction}
-              className={actions.secondary.className}
+              className={`${actions.secondary.className} whitespace-nowrap`}
               data-testid={`button-secondary-row-${id}`}
             >
               {actions.secondary.label}
@@ -331,7 +325,7 @@ export function ReservationRow({
               size="sm"
               variant="outline"
               onClick={onTertiaryAction}
-              className={actions.tertiary.className}
+              className={`${actions.tertiary.className} whitespace-nowrap`}
               data-testid={`button-tertiary-row-${id}`}
             >
               {actions.tertiary.label}

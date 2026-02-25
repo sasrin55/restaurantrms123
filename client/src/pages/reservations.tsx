@@ -562,14 +562,13 @@ export default function ReservationsPage() {
                     <table className="w-full">
                       <thead className="bg-muted/50">
                         <tr className="border-b">
-                          <th className="text-left py-3 px-4 font-medium text-muted-foreground">Guest Name</th>
-                          <th className="text-left py-3 px-4 font-medium text-muted-foreground">Time</th>
-                          <th className="text-left py-3 px-4 font-medium text-muted-foreground">Party Size</th>
-                          <th className="text-left py-3 px-4 font-medium text-muted-foreground">Table</th>
-                          <th className="text-left py-3 px-4 font-medium text-muted-foreground">Phone Number</th>
-                          <th className="text-left py-3 px-4 font-medium text-muted-foreground">Comments</th>
-                          <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
-                          <th className="text-left py-3 px-4 font-medium text-muted-foreground">Actions</th>
+                          <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Name</th>
+                          <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Time</th>
+                          <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Pax</th>
+                          <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Table</th>
+                          <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Phone</th>
+                          <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Status</th>
+                          <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
