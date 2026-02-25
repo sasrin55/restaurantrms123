@@ -108,6 +108,13 @@ The `shared/` directory contains code used by both frontend and backend:
 - **API routes**: `GET /api/analytics/menu` (aggregated menu data), `GET /api/analytics/guests/:guestId` (per-guest order stats)
 - **Cache strategy**: Analytics queries use `staleTime: 0` and `refetchOnMount: "always"` for fresh data; order mutations invalidate analytics cache
 
+### Call Tracking System
+- **Call Log tab**: In its own sidebar section after General, accessible at `/calls`
+- **Database table**: `calls` (id, phone, customer_id, is_new_customer, created_at)
+- **POST /api/incoming-call**: Accepts `{ phone }`, matches against guest directory, creates guest if new, returns call record + guest info + last reservation
+- **GET /api/calls**: Returns all calls enriched with guest name, visit count, and last reservation
+- **UI**: Live feed (5s polling) showing phone, time, new/returning badge, guest name, visit count, and last booking details
+
 ### Replit-Specific
 - **@replit/vite-plugin-runtime-error-modal**: Error overlay in development
 - **@replit/vite-plugin-cartographer**: Development tooling

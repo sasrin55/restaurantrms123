@@ -25,6 +25,7 @@ import {
   BarChart3,
   UtensilsCrossed,
   History,
+  Phone,
 } from "lucide-react";
 import paolasLogo from "@/assets/images/paolas-logo.png";
 
@@ -200,6 +201,30 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 );
               })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <div className="flex items-center gap-2 px-4 mb-3 mt-4">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+              Call Log
+            </span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  data-active={location === "/calls"}
+                  className={location === "/calls" ? "bg-sidebar-accent" : ""}
+                >
+                  <Link href="/calls" data-testid="nav-calls">
+                    <Phone className="h-4 w-4" />
+                    <span>Incoming Calls</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

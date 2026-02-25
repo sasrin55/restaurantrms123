@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertReservationSchema, insertOrderSchema, insertOrderItemSchema, insertMenuItemSchema } from "@shared/schema";
+import { insertReservationSchema, insertOrderSchema, insertOrderItemSchema, insertMenuItemSchema, guests } from "@shared/schema";
 import { menuCategories } from "@shared/menuData";
 import { appendReservationToSheet, updateReservationInSheet, exportAllReservationsToSheet, syncFromSheet, type SheetReservationUpdate } from "./googleSheets";
 
@@ -391,6 +391,71 @@ export async function registerRoutes(
     const avgItemsPerOrder = totalOrders > 0 ? Math.round(totalItemsOrdered / totalOrders) : 0;
 
     res.json({ favouriteItems, totalOrders, totalItemsOrdered, avgItemsPerOrder });
+  });
+
+  app.post("/api/incoming-call", async (req, res) => {
+    const { phone } = req.body;
+    if (!phone) {
+      return res.status(400).json({ error: "phone is required" });
+    }
+
+    const allGuests = await storage.getGuests();
+    const normalizedPhone = phone.replace(/\s+/g, "").replace(/^0+/, "");
+    let guest = allGuests.find(g => {
+      const gPhone = g.phone.replace(/\s+/g, "").replace(/^0+/, "");
+      return gPhone === normalizedPhone || gPhone.includes(normalizedPhone) || normalizedPhone.includes(gPhone);
+    });
+
+    let isNew = 0;
+    if (!guest) {
+      isNew = 1;
+      guest = await storage.upsertGuest("Unknown Caller", phone, new Date().toISOString().split("T")[0], 0);
+    }
+
+    const allReservations = await storage.getReservations();
+    const guestReservations = allReservations.filter(r => {
+      const rPhone = r.phoneNumber.replace(/\s+/g, "").replace(/^0+/, "");
+      return rPhone === normalizedPhone || rPhone.includes(normalizedPhone) || normalizedPhone.includes(rPhone);
+    });
+    const lastReservation = guestReservations.length > 0 ? guestReservations[0] : null;
+
+    const call = await storage.createCall({
+      phone,
+      customerId: guest.id,
+      isNewCustomer: isNew,
+    });
+
+    res.json({
+      call,
+      guest,
+      isNewCustomer: isNew === 1,
+      lastReservation,
+    });
+  });
+
+  app.get("/api/calls", async (_req, res) => {
+    const allCalls = await storage.getCalls();
+    const allGuests = await storage.getGuests();
+    const allReservations = await storage.getReservations();
+
+    const enriched = allCalls.map(call => {
+      const guest = allGuests.find(g => g.id === call.customerId);
+      const normalizedPhone = call.phone.replace(/\s+/g, "").replace(/^0+/, "");
+      const guestReservations = allReservations.filter(r => {
+        const rPhone = r.phoneNumber.replace(/\s+/g, "").replace(/^0+/, "");
+        return rPhone === normalizedPhone || rPhone.includes(normalizedPhone) || normalizedPhone.includes(rPhone);
+      });
+      const lastReservation = guestReservations.length > 0 ? guestReservations[0] : null;
+
+      return {
+        ...call,
+        guestName: guest?.name || "Unknown",
+        visitCount: guest?.visitCount || 0,
+        lastReservation,
+      };
+    });
+
+    res.json(enriched);
   });
 
   return httpServer;

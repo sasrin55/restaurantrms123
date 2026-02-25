@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Reservation, type InsertReservation, type Guest, type InsertGuest, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type DbMenuItem, type InsertMenuItem, users, reservations, guests, orders, orderItems, menuItems } from "@shared/schema";
+import { type User, type InsertUser, type Reservation, type InsertReservation, type Guest, type InsertGuest, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type DbMenuItem, type InsertMenuItem, type Call, type InsertCall, users, reservations, guests, orders, orderItems, menuItems, calls } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and } from "drizzle-orm";
 
@@ -37,6 +37,9 @@ export interface IStorage {
   addMenuItem(item: InsertMenuItem): Promise<DbMenuItem>;
   deleteMenuItem(id: string): Promise<boolean>;
   getMenuItemCount(): Promise<number>;
+
+  getCalls(): Promise<Call[]>;
+  createCall(call: InsertCall): Promise<Call>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -284,6 +287,15 @@ export class DatabaseStorage implements IStorage {
   async getMenuItemCount(): Promise<number> {
     const [result] = await db.select({ count: sql<number>`count(*)` }).from(menuItems);
     return Number(result.count);
+  }
+
+  async getCalls(): Promise<Call[]> {
+    return db.select().from(calls).orderBy(desc(calls.createdAt));
+  }
+
+  async createCall(call: InsertCall): Promise<Call> {
+    const [newCall] = await db.insert(calls).values(call).returning();
+    return newCall;
   }
 }
 

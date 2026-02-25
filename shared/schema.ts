@@ -87,6 +87,22 @@ export const insertMenuItemSchema = createInsertSchema(menuItems).omit({
 export type InsertMenuItem = z.infer<typeof insertMenuItemSchema>;
 export type DbMenuItem = typeof menuItems.$inferSelect;
 
+export const calls = pgTable("calls", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  phone: text("phone").notNull(),
+  customerId: varchar("customer_id"),
+  isNewCustomer: integer("is_new_customer").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCallSchema = createInsertSchema(calls).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCall = z.infer<typeof insertCallSchema>;
+export type Call = typeof calls.$inferSelect;
+
 export const insertOrderSchema = createInsertSchema(orders).omit({
   id: true,
   createdAt: true,
