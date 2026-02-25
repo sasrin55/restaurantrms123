@@ -1,5 +1,29 @@
-// Google Sheets integration via Replit connector
 import { google } from 'googleapis';
+
+const SPREADSHEET_ID = '1HgLRHFG7E80H5W0P-S5Qo--kOXxGRttbvanLKnMC4sQ';
+
+const RESTAURANT_TABLES = [
+  { number: "1", seating: "5" },
+  { number: "2", seating: "5" },
+  { number: "25", seating: "2 to 3" },
+  { number: "3", seating: "2" },
+  { number: "4", seating: "2" },
+  { number: "5", seating: "5 to 6" },
+  { number: "20", seating: "5 to 6" },
+  { number: "6", seating: "3 to 4" },
+  { number: "7", seating: "4" },
+  { number: "8", seating: "2 to 3" },
+  { number: "9", seating: "2" },
+  { number: "10", seating: "2" },
+  { number: "11", seating: "6 to 8" },
+  { number: "12", seating: "3" },
+  { number: "13", seating: "3 to 4" },
+  { number: "14", seating: "6" },
+  { number: "15", seating: "2 to 3" },
+  { number: "15a", seating: "2 to 3" },
+];
+
+const HEADERS = ['No.', 'Name', 'Pax', 'Time', 'Table', 'Seating', 'Number', 'Details'];
 
 let connectionSettings: any;
 
@@ -39,121 +63,214 @@ async function getAccessToken() {
 
 async function getUncachableGoogleSheetClient() {
   const accessToken = await getAccessToken();
-
   const oauth2Client = new google.auth.OAuth2();
-  oauth2Client.setCredentials({
-    access_token: accessToken
-  });
-
+  oauth2Client.setCredentials({ access_token: accessToken });
   return google.sheets({ version: 'v4', auth: oauth2Client });
 }
 
-let cachedSpreadsheetId: string | null = null;
-
-const HEADERS = ['#', 'Name', 'Phone', 'Time', 'Party Size', 'Table', 'Comments', 'Status', 'Created At', 'ID'];
+function ordinalSuffix(d: number): string {
+  if (d >= 11 && d <= 13) return 'th';
+  switch (d % 10) {
+    case 1: return 'st';
+    case 2: return 'nd';
+    case 3: return 'rd';
+    default: return 'th';
+  }
+}
 
 function formatDateForTab(dateStr: string): string {
-  const parts = dateStr.split('-');
-  if (parts.length === 3) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const month = months[parseInt(parts[1]) - 1] || parts[1];
-    const day = parseInt(parts[2]);
-    const year = parts[0];
-    return `${month} ${day}, ${year}`;
-  }
-  return dateStr;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${days[date.getDay()]} ${d}${ordinalSuffix(d)} ${months[m - 1]}`;
 }
 
-async function getOrCreateSpreadsheet(): Promise<string> {
-  if (cachedSpreadsheetId) {
-    return cachedSpreadsheetId;
-  }
-
-  const accessToken = await getAccessToken();
-  const oauth2Client = new google.auth.OAuth2();
-  oauth2Client.setCredentials({ access_token: accessToken });
-
-  const drive = google.drive({ version: 'v3', auth: oauth2Client });
-
-  const searchResult = await drive.files.list({
-    q: "name = 'PAOLA\\'s Reservations' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false",
-    fields: 'files(id, name)',
-    spaces: 'drive',
-  });
-
-  if (searchResult.data.files && searchResult.data.files.length > 0) {
-    cachedSpreadsheetId = searchResult.data.files[0].id!;
-    return cachedSpreadsheetId;
-  }
-
-  const sheets = await getUncachableGoogleSheetClient();
-  const spreadsheet = await sheets.spreadsheets.create({
-    requestBody: {
-      properties: { title: "PAOLA's Reservations" },
-      sheets: [{
-        properties: { title: 'Overview' },
-      }],
-    },
-  });
-
-  cachedSpreadsheetId = spreadsheet.data.spreadsheetId!;
-  return cachedSpreadsheetId;
+function isRamadanDate(dateStr: string): boolean {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setHours(0, 0, 0, 0);
+  const start = new Date(y, 1, 18);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(y, 2, 20);
+  end.setHours(23, 59, 59, 999);
+  return date >= start && date <= end;
 }
 
-async function ensureDateTab(sheets: any, spreadsheetId: string, dateStr: string): Promise<string> {
-  const tabName = formatDateForTab(dateStr);
+interface TimeSlotSection {
+  label: string;
+  timeKey: string;
+}
 
+function getSectionsForDate(dateStr: string): TimeSlotSection[] {
+  if (isRamadanDate(dateStr)) {
+    return [
+      { label: "Iftar — 5:00 PM", timeKey: "5:00 PM" },
+      { label: "Dinner — 8:00 PM", timeKey: "8:00 PM" },
+      { label: "Dinner — 10:00 PM", timeKey: "10:00 PM" },
+      { label: "Sehri — 12:00 AM", timeKey: "12:00 AM" },
+      { label: "Sehri — 2:00 AM", timeKey: "2:00 AM" },
+    ];
+  }
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dow = new Date(y, m - 1, d).getDay();
+  if (dow === 0 || dow === 6) {
+    return [
+      { label: "Breakfast — 10:00 AM to 12:00 PM", timeKey: "10:00 AM - 12:00 PM" },
+      { label: "Breakfast — 12:00 PM to 2:00 PM", timeKey: "12:00 PM - 2:00 PM" },
+      { label: "Lunch — 2:30 PM to 4:30 PM", timeKey: "2:30 PM - 4:30 PM" },
+      { label: "Lunch — 5:00 PM to 7:00 PM", timeKey: "5:00 PM - 7:00 PM" },
+      { label: "Dinner — 7:30 PM to 9:30 PM", timeKey: "7:30 PM - 9:30 PM" },
+      { label: "Dinner — 9:30 PM to 11:30 PM", timeKey: "9:30 PM - 11:30 PM" },
+    ];
+  }
+  return [
+    { label: "Lunch — 2:00 PM to 4:00 PM", timeKey: "2:00 PM - 4:00 PM" },
+    { label: "Lunch — 4:30 PM to 6:30 PM", timeKey: "4:30 PM - 6:30 PM" },
+    { label: "Dinner — 7:00 PM to 9:00 PM", timeKey: "7:00 PM - 9:00 PM" },
+    { label: "Dinner — 9:15 PM to 11:15 PM", timeKey: "9:15 PM - 11:15 PM" },
+  ];
+}
+
+function getSectionLabelForTime(time: string, dateStr: string): string | null {
+  const sections = getSectionsForDate(dateStr);
+  const match = sections.find(s => s.timeKey === time);
+  return match?.label || null;
+}
+
+function generateSectionRows(section: TimeSlotSection): any[][] {
+  const rows: any[][] = [];
+  rows.push([]);
+  rows.push([section.label, '', '', '', '', '', '', '']);
+  rows.push([...HEADERS]);
+  RESTAURANT_TABLES.forEach((t, i) => {
+    rows.push([i + 1, '', '', '', t.number, t.seating, '', '']);
+  });
+  rows.push(['', 'Total:', '', '', '', '', '', '']);
+  rows.push([]);
+  rows.push(['Teppanyaki Bar', '', '', '', '', '', '', '']);
+  rows.push([...HEADERS]);
+  for (let i = 1; i <= 8; i++) {
+    rows.push([i, '', '', '', String(i), '1', '', '']);
+  }
+  return rows;
+}
+
+function generateTabTemplate(dateStr: string): any[][] {
+  const sections = getSectionsForDate(dateStr);
+  const allRows: any[][] = [];
+  for (const section of sections) {
+    allRows.push(...generateSectionRows(section));
+  }
+  allRows.push([]);
+  return allRows;
+}
+
+async function getExistingTabs(sheets: any): Promise<string[]> {
   const spreadsheet = await sheets.spreadsheets.get({
-    spreadsheetId,
+    spreadsheetId: SPREADSHEET_ID,
     fields: 'sheets.properties.title',
   });
+  return (spreadsheet.data.sheets || []).map((s: any) => s.properties?.title as string);
+}
 
-  const existingSheets = spreadsheet.data.sheets || [];
-  const tabExists = existingSheets.some((s: any) => s.properties?.title === tabName);
+async function ensureAndGetTab(sheets: any, dateStr: string): Promise<string> {
+  const tabName = formatDateForTab(dateStr);
+  const existingTabs = await getExistingTabs(sheets);
 
-  if (!tabExists) {
+  if (!existingTabs.includes(tabName)) {
     await sheets.spreadsheets.batchUpdate({
-      spreadsheetId,
+      spreadsheetId: SPREADSHEET_ID,
       requestBody: {
-        requests: [{
-          addSheet: {
-            properties: { title: tabName },
-          },
-        }],
+        requests: [{ addSheet: { properties: { title: tabName } } }],
       },
     });
-
+    const template = generateTabTemplate(dateStr);
     await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: `'${tabName}'!A1:J1`,
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'${tabName}'!A1`,
       valueInputOption: 'RAW',
-      requestBody: {
-        values: [HEADERS],
-      },
+      requestBody: { values: template },
     });
   }
 
   return tabName;
 }
 
-function parseTabNameToDate(tabName: string): string | null {
-  const months: Record<string, string> = {
-    'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04', 'May': '05', 'Jun': '06',
-    'Jul': '07', 'Aug': '08', 'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12',
-  };
-  const match = tabName.match(/^(\w+)\s+(\d+),\s+(\d+)$/);
-  if (!match) return null;
-  const month = months[match[1]];
-  if (!month) return null;
-  const day = match[2].padStart(2, '0');
-  return `${match[3]}-${month}-${day}`;
+function findTableRow(
+  rows: any[][],
+  sectionLabel: string,
+  tableNumber: string,
+  isTeppanyaki: boolean
+): number {
+  let sectionRow = -1;
+  for (let i = 0; i < rows.length; i++) {
+    if (String(rows[i]?.[0] || '').trim() === sectionLabel) {
+      sectionRow = i;
+      break;
+    }
+  }
+  if (sectionRow === -1) return -1;
+
+  let nextSectionRow = rows.length;
+  for (let i = sectionRow + 1; i < rows.length; i++) {
+    const cell = String(rows[i]?.[0] || '').trim();
+    if (cell.includes(' — ') && cell !== sectionLabel) {
+      nextSectionRow = i;
+      break;
+    }
+  }
+
+  if (isTeppanyaki) {
+    let tepRow = -1;
+    for (let i = sectionRow + 1; i < nextSectionRow; i++) {
+      if (String(rows[i]?.[0] || '').trim() === 'Teppanyaki Bar') {
+        tepRow = i;
+        break;
+      }
+    }
+    if (tepRow === -1) return -1;
+    for (let i = tepRow + 2; i < nextSectionRow; i++) {
+      if (String(rows[i]?.[4] || '').trim() === tableNumber) {
+        return i;
+      }
+    }
+  } else {
+    let endSearch = nextSectionRow;
+    for (let i = sectionRow + 1; i < nextSectionRow; i++) {
+      if (String(rows[i]?.[0] || '').trim() === 'Teppanyaki Bar') {
+        endSearch = i;
+        break;
+      }
+    }
+    for (let i = sectionRow + 2; i < endSearch; i++) {
+      if (String(rows[i]?.[4] || '').trim() === tableNumber) {
+        return i;
+      }
+    }
+  }
+  return -1;
 }
 
-const TABLE_NAME_TO_ID: Record<string, number> = {
-  'Table 1': 1, 'Table 2': 2, 'Table 25': 25, 'Table 3': 3, 'Table 4': 4,
-  'Table 5': 5, 'Table 20': 20, 'Table 6': 6, 'Table 7': 7, 'Table 8': 8,
-  'Table 9': 9, 'Table 10': 10, 'Table 11': 11, 'Table 12': 12, 'Table 13': 13,
-  'Table 14': 14, 'Table 15': 15, 'Table 15a': 150,
+function parseTableInfo(tableName: string): { number: string; isTeppanyaki: boolean } {
+  if (tableName.startsWith('Tepanyaki Seat ')) {
+    return { number: tableName.replace('Tepanyaki Seat ', ''), isTeppanyaki: true };
+  }
+  return { number: tableName.replace('Table ', ''), isTeppanyaki: false };
+}
+
+type ReservationData = {
+  id: string;
+  customerName: string;
+  phoneNumber: string;
+  date: string;
+  time: string;
+  partySize: number;
+  tableId: number;
+  tableName: string;
+  comments?: string | null;
+  status: string;
+  createdAt: Date | null;
 };
 
 export interface SheetReservationUpdate {
@@ -169,419 +286,207 @@ export interface SheetReservationUpdate {
   status: string;
 }
 
-export async function syncFromSheet(): Promise<{ updated: number; errors: string[]; updates: SheetReservationUpdate[]; sheetDates: string[] }> {
-  const sheets = await getUncachableGoogleSheetClient();
-  const spreadsheetId = await getOrCreateSpreadsheet();
-  const errors: string[] = [];
-  const updates: SheetReservationUpdate[] = [];
-  const sheetDates: string[] = [];
-
-  const spreadsheet = await sheets.spreadsheets.get({
-    spreadsheetId,
-    fields: 'sheets.properties.title',
-  });
-
-  const allSheets = spreadsheet.data.sheets || [];
-  const dateTabs = allSheets
-    .map((s: any) => s.properties?.title as string)
-    .filter((title: string) => title && title !== 'Overview' && parseTabNameToDate(title));
-
-  for (const tabName of dateTabs) {
-    const dateStr = parseTabNameToDate(tabName);
-    if (dateStr) sheetDates.push(dateStr);
-  }
-
-  for (const tabName of dateTabs) {
-    const dateStr = parseTabNameToDate(tabName);
-    if (!dateStr) continue;
-
-    try {
-      const result = await sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: `'${tabName}'!A:J`,
-      });
-
-      const rows = result.data.values || [];
-      for (let i = 1; i < rows.length; i++) {
-        const row = rows[i];
-        if (!row || row.length < 10) continue;
-
-        const idCell = (row[9] || '').toString().trim();
-        if (!idCell) continue;
-
-        const ids = idCell.split(',').map((s: string) => s.trim()).filter(Boolean);
-        const tableCell = (row[5] || '').toString().trim();
-        const tableNames = tableCell.split(',').map((s: string) => s.trim()).filter(Boolean);
-
-        const customerName = (row[1] || '').toString().trim();
-        const phoneNumber = (row[2] || '').toString().trim();
-        const time = (row[3] || '').toString().trim();
-        const partySize = parseInt(row[4]) || 0;
-        const comments = (row[6] || '').toString().trim();
-        const status = (row[7] || '').toString().trim();
-
-        for (let j = 0; j < ids.length; j++) {
-          const tName = tableNames[j] || tableNames[0] || tableCell;
-          const tId = TABLE_NAME_TO_ID[tName];
-          if (!tId) {
-            errors.push(`Row ${i + 1} in "${tabName}": unknown table "${tName}"`);
-            continue;
-          }
-          updates.push({
-            id: ids[j],
-            customerName,
-            phoneNumber,
-            date: dateStr!,
-            time,
-            partySize,
-            tableName: tName,
-            tableId: tId,
-            comments,
-            status,
-          });
-        }
-      }
-    } catch (err: any) {
-      errors.push(`Failed to read tab "${tabName}": ${err.message}`);
-    }
-  }
-
-  return { updated: updates.length, errors, updates, sheetDates };
-}
-
-type ReservationData = {
-  id: string;
-  customerName: string;
-  phoneNumber: string;
-  date: string;
-  time: string;
-  partySize: number;
-  tableName: string;
-  comments?: string | null;
-  status: string;
-  createdAt: Date | null;
-};
-
-interface GroupedReservationData {
-  ids: string[];
-  customerName: string;
-  phoneNumber: string;
-  date: string;
-  time: string;
-  partySize: number;
-  tableNames: string[];
-  comments: string;
-  status: string;
-  createdAt: Date | null;
-}
-
-function groupReservationsForSheet(reservations: ReservationData[]): GroupedReservationData[] {
-  const groups = new Map<string, ReservationData[]>();
-  for (const r of reservations) {
-    const key = `${r.customerName}|${r.date}|${r.time}|${r.partySize}|${r.phoneNumber}`;
-    const existing = groups.get(key);
-    if (existing) {
-      existing.push(r);
-    } else {
-      groups.set(key, [r]);
-    }
-  }
-  return Array.from(groups.values()).map((group) => {
-    const first = group[0];
-    return {
-      ids: group.map((r) => r.id),
-      customerName: first.customerName,
-      phoneNumber: first.phoneNumber,
-      date: first.date,
-      time: first.time,
-      partySize: first.partySize,
-      tableNames: group.map((r) => r.tableName),
-      comments: first.comments || "",
-      status: first.status,
-      createdAt: first.createdAt,
-    };
-  });
-}
-
-function reservationToRow(reservation: ReservationData, rowNumber?: number) {
-  return [
-    rowNumber ?? "",
-    reservation.customerName,
-    reservation.phoneNumber,
-    reservation.time,
-    reservation.partySize,
-    reservation.tableName,
-    reservation.comments || "",
-    reservation.status,
-    reservation.createdAt ? reservation.createdAt.toISOString() : new Date().toISOString(),
-    reservation.id,
-  ];
-}
-
-function groupedToRow(group: GroupedReservationData, rowNumber?: number) {
-  return [
-    rowNumber ?? "",
-    group.customerName,
-    group.phoneNumber,
-    group.time,
-    group.partySize,
-    group.tableNames.join(", "),
-    group.comments,
-    group.status,
-    group.createdAt ? group.createdAt.toISOString() : new Date().toISOString(),
-    group.ids.join(","),
-  ];
-}
-
-function getMealPeriodFromTime(time: string, dateStr: string): string {
-  const hour = parseInt(time.match(/(\d+):/)?.[1] || "12");
-  const isPM = time.toLowerCase().includes("pm");
-  const h24 = isPM && hour !== 12 ? hour + 12 : (!isPM && hour === 12 ? 0 : hour);
-
-  const parts = dateStr.split('-');
-  const date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-  const day = date.getDay();
-  const isWeekend = day === 0 || day === 6;
-
-  if (isWeekend) {
-    if (h24 < 14) return "Breakfast";
-    if (h24 < 19) return "Lunch";
-    return "Dinner";
-  }
-  if (h24 < 19) return "Lunch";
-  return "Dinner";
-}
-
-function makePeriodDividerRow(label: string): string[] {
-  return [`── ${label} ──`, "", "", "", "", "", "", "", "", ""];
-}
-
-async function findRowByReservationId(sheets: any, spreadsheetId: string, tabName: string, reservationId: string): Promise<number> {
-  try {
-    const result = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: `'${tabName}'!J:J`,
-    });
-
-    const rows = result.data.values || [];
-    for (let i = 1; i < rows.length; i++) {
-      const cellValue = (rows[i]?.[0] || '').toString();
-      const ids = cellValue.split(',').map((s: string) => s.trim());
-      if (ids.includes(reservationId)) {
-        return i + 1;
-      }
-    }
-  } catch {
-  }
-  return -1;
-}
-
 export async function appendReservationToSheet(reservation: ReservationData) {
   try {
     const sheets = await getUncachableGoogleSheetClient();
-    const spreadsheetId = await getOrCreateSpreadsheet();
-    const tabName = await ensureDateTab(sheets, spreadsheetId, reservation.date);
+    const tabName = await ensureAndGetTab(sheets, reservation.date);
 
     const result = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: `'${tabName}'!A:J`,
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'${tabName}'!A:H`,
     });
     const rows = result.data.values || [];
-    let mergedRowIndex = -1;
-    for (let i = 1; i < rows.length; i++) {
-      const row = rows[i];
-      if (!row || row.length < 10) continue;
-      const name = (row[1] || '').toString().trim();
-      const phone = (row[2] || '').toString().trim();
-      const time = (row[3] || '').toString().trim();
-      const pSize = parseInt(row[4]) || 0;
-      if (name === reservation.customerName && phone === reservation.phoneNumber && time === reservation.time && pSize === reservation.partySize) {
-        mergedRowIndex = i + 1;
-        const existingTables = (row[5] || '').toString().trim();
-        const existingIds = (row[9] || '').toString().trim();
-        const newTables = existingTables ? `${existingTables}, ${reservation.tableName}` : reservation.tableName;
-        const newIds = existingIds ? `${existingIds},${reservation.id}` : reservation.id;
-        await sheets.spreadsheets.values.update({
-          spreadsheetId,
-          range: `'${tabName}'!F${mergedRowIndex}:F${mergedRowIndex}`,
-          valueInputOption: 'RAW',
-          requestBody: { values: [[newTables]] },
-        });
-        await sheets.spreadsheets.values.update({
-          spreadsheetId,
-          range: `'${tabName}'!J${mergedRowIndex}:J${mergedRowIndex}`,
-          valueInputOption: 'RAW',
-          requestBody: { values: [[newIds]] },
-        });
-        break;
-      }
+
+    const sectionLabel = getSectionLabelForTime(reservation.time, reservation.date);
+    if (!sectionLabel) {
+      console.error(`No section found for time "${reservation.time}" on ${reservation.date}`);
+      return;
     }
 
-    if (mergedRowIndex === -1) {
-      await sheets.spreadsheets.values.append({
-        spreadsheetId,
-        range: `'${tabName}'!A:J`,
-        valueInputOption: 'RAW',
-        requestBody: {
-          values: [reservationToRow(reservation)],
-        },
-      });
+    const { number: tableNum, isTeppanyaki } = parseTableInfo(reservation.tableName);
+    const rowIndex = findTableRow(rows, sectionLabel, tableNum, isTeppanyaki);
+
+    if (rowIndex === -1) {
+      console.error(`Table row not found for ${reservation.tableName} in section "${sectionLabel}"`);
+      return;
     }
+
+    const sheetRow = rowIndex + 1;
+    const existingSeating = rows[rowIndex]?.[5] || '';
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'${tabName}'!B${sheetRow}:H${sheetRow}`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [[
+          reservation.customerName,
+          reservation.partySize,
+          reservation.time,
+          tableNum,
+          existingSeating,
+          reservation.phoneNumber,
+          reservation.comments || '',
+        ]],
+      },
+    });
+
+    console.log(`Synced reservation to sheet: ${tabName}, row ${sheetRow}, table ${reservation.tableName}`);
   } catch (error) {
-    console.error('Failed to append reservation to Google Sheet:', error);
+    console.error('Failed to sync reservation to Google Sheet:', error);
   }
 }
 
 export async function updateReservationInSheet(reservation: ReservationData) {
   try {
-    const sheets = await getUncachableGoogleSheetClient();
-    const spreadsheetId = await getOrCreateSpreadsheet();
-    const tabName = await ensureDateTab(sheets, spreadsheetId, reservation.date);
-
-    const rowIndex = await findRowByReservationId(sheets, spreadsheetId, tabName, reservation.id);
-
-    if (rowIndex > 0) {
-      const existingResult = await sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: `'${tabName}'!A${rowIndex}:J${rowIndex}`,
-      });
-      const existingRow = existingResult.data.values?.[0];
-      const existingIds = existingRow ? (existingRow[9] || '').toString().trim() : '';
-      const existingTables = existingRow ? (existingRow[5] || '').toString().trim() : '';
-      const isGroupedRow = existingIds.includes(',');
-
-      if (isGroupedRow) {
-        await sheets.spreadsheets.values.update({
-          spreadsheetId,
-          range: `'${tabName}'!B${rowIndex}:I${rowIndex}`,
-          valueInputOption: 'RAW',
-          requestBody: {
-            values: [[
-              reservation.customerName,
-              reservation.phoneNumber,
-              reservation.time,
-              reservation.partySize,
-              existingTables,
-              reservation.comments || "",
-              reservation.status,
-              reservation.createdAt ? reservation.createdAt.toISOString() : new Date().toISOString(),
-            ]],
-          },
-        });
-      } else {
-        await sheets.spreadsheets.values.update({
-          spreadsheetId,
-          range: `'${tabName}'!A${rowIndex}:J${rowIndex}`,
-          valueInputOption: 'RAW',
-          requestBody: {
-            values: [reservationToRow(reservation, rowIndex - 1)],
-          },
-        });
-      }
-    } else {
-      await sheets.spreadsheets.values.append({
-        spreadsheetId,
-        range: `'${tabName}'!A:J`,
-        valueInputOption: 'RAW',
-        requestBody: {
-          values: [reservationToRow(reservation)],
-        },
-      });
+    if (reservation.status === 'cancelled' || reservation.status === 'no-show') {
+      await clearReservationFromSheet(reservation);
+      return;
     }
+    await appendReservationToSheet(reservation);
   } catch (error) {
     console.error('Failed to update reservation in Google Sheet:', error);
   }
 }
 
+async function clearReservationFromSheet(reservation: ReservationData) {
+  try {
+    const sheets = await getUncachableGoogleSheetClient();
+    const tabName = formatDateForTab(reservation.date);
+    const existingTabs = await getExistingTabs(sheets);
+    if (!existingTabs.includes(tabName)) return;
+
+    const result = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'${tabName}'!A:H`,
+    });
+    const rows = result.data.values || [];
+
+    const sectionLabel = getSectionLabelForTime(reservation.time, reservation.date);
+    if (!sectionLabel) return;
+
+    const { number: tableNum, isTeppanyaki } = parseTableInfo(reservation.tableName);
+    const rowIndex = findTableRow(rows, sectionLabel, tableNum, isTeppanyaki);
+    if (rowIndex === -1) return;
+
+    const sheetRow = rowIndex + 1;
+    const existingSeating = rows[rowIndex]?.[5] || '';
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'${tabName}'!B${sheetRow}:H${sheetRow}`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [['', '', '', tableNum, existingSeating, '', '']],
+      },
+    });
+  } catch (error) {
+    console.error('Failed to clear reservation from Google Sheet:', error);
+  }
+}
+
 export async function exportAllReservationsToSheet(reservations: ReservationData[]) {
   const sheets = await getUncachableGoogleSheetClient();
-  const spreadsheetId = await getOrCreateSpreadsheet();
 
   const byDate = new Map<string, ReservationData[]>();
   for (const r of reservations) {
     const existing = byDate.get(r.date);
-    if (existing) {
-      existing.push(r);
-    } else {
-      byDate.set(r.date, [r]);
-    }
+    if (existing) existing.push(r);
+    else byDate.set(r.date, [r]);
   }
 
-  const spreadsheet = await sheets.spreadsheets.get({
-    spreadsheetId,
-    fields: 'sheets.properties.title,sheets.properties.sheetId',
-  });
+  const existingTabs = await getExistingTabs(sheets);
 
-  const existingSheets = spreadsheet.data.sheets || [];
-  const deleteRequests: any[] = [];
-  for (const s of existingSheets) {
-    const title = s.properties?.title;
-    if (title && title !== 'Overview') {
-      deleteRequests.push({
-        deleteSheet: { sheetId: s.properties?.sheetId },
+  const allDates = new Set<string>();
+  for (const dateStr of byDate.keys()) allDates.add(dateStr);
+
+  for (const dateStr of allDates) {
+    const tabName = formatDateForTab(dateStr);
+
+    if (existingTabs.includes(tabName)) {
+      const spreadsheet = await sheets.spreadsheets.get({
+        spreadsheetId: SPREADSHEET_ID,
+        fields: 'sheets.properties.title,sheets.properties.sheetId',
       });
-    }
-  }
-
-  if (deleteRequests.length > 0) {
-    const hasOverview = existingSheets.some((s: any) => s.properties?.title === 'Overview');
-    if (!hasOverview) {
+      const sheetInfo = (spreadsheet.data.sheets || []).find(
+        (s: any) => s.properties?.title === tabName
+      );
+      if (sheetInfo) {
+        await sheets.spreadsheets.values.clear({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `'${tabName}'!A:H`,
+        });
+      }
+    } else {
       await sheets.spreadsheets.batchUpdate({
-        spreadsheetId,
+        spreadsheetId: SPREADSHEET_ID,
         requestBody: {
-          requests: [{
-            addSheet: { properties: { title: 'Overview' } },
-          }],
+          requests: [{ addSheet: { properties: { title: tabName } } }],
         },
       });
     }
 
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId,
-      requestBody: { requests: deleteRequests },
-    });
-  }
-
-  const sortedDates = Array.from(byDate.keys()).sort();
-
-  for (const dateStr of sortedDates) {
-    const dateReservations = byDate.get(dateStr)!;
-    const tabName = await ensureDateTab(sheets, spreadsheetId, dateStr);
-    const grouped = groupReservationsForSheet(dateReservations);
-
-    const periodOrder = ["Breakfast", "Lunch", "Dinner"];
-    const byPeriod = new Map<string, typeof grouped>();
-    for (const g of grouped) {
-      const period = getMealPeriodFromTime(g.time, dateStr);
-      const existing = byPeriod.get(period);
-      if (existing) {
-        existing.push(g);
-      } else {
-        byPeriod.set(period, [g]);
-      }
-    }
-
-    const allRows: any[][] = [HEADERS];
-    let counter = 1;
-    for (const period of periodOrder) {
-      const periodGroups = byPeriod.get(period);
-      if (!periodGroups || periodGroups.length === 0) continue;
-      allRows.push(makePeriodDividerRow(period));
-      for (const g of periodGroups) {
-        allRows.push(groupedToRow(g, counter));
-        counter++;
-      }
-    }
-
+    const template = generateTabTemplate(dateStr);
     await sheets.spreadsheets.values.update({
-      spreadsheetId,
+      spreadsheetId: SPREADSHEET_ID,
       range: `'${tabName}'!A1`,
       valueInputOption: 'RAW',
-      requestBody: {
-        values: allRows,
-      },
+      requestBody: { values: template },
     });
+
+    const dateReservations = byDate.get(dateStr) || [];
+    const result = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'${tabName}'!A:H`,
+    });
+    const rows = result.data.values || [];
+
+    for (const reservation of dateReservations) {
+      if (reservation.status === 'cancelled' || reservation.status === 'no-show') continue;
+
+      const sectionLabel = getSectionLabelForTime(reservation.time, reservation.date);
+      if (!sectionLabel) continue;
+
+      const { number: tableNum, isTeppanyaki } = parseTableInfo(reservation.tableName);
+      const rowIndex = findTableRow(rows, sectionLabel, tableNum, isTeppanyaki);
+      if (rowIndex === -1) continue;
+
+      const sheetRow = rowIndex + 1;
+      const existingSeating = rows[rowIndex]?.[5] || '';
+
+      rows[rowIndex] = [
+        rows[rowIndex]?.[0] || '',
+        reservation.customerName,
+        reservation.partySize,
+        reservation.time,
+        tableNum,
+        existingSeating,
+        reservation.phoneNumber,
+        reservation.comments || '',
+      ];
+
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `'${tabName}'!B${sheetRow}:H${sheetRow}`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [[
+            reservation.customerName,
+            reservation.partySize,
+            reservation.time,
+            tableNum,
+            existingSeating,
+            reservation.phoneNumber,
+            reservation.comments || '',
+          ]],
+        },
+      });
+    }
   }
 
-  return spreadsheetId;
+  return SPREADSHEET_ID;
+}
+
+export async function syncFromSheet(): Promise<{ updated: number; errors: string[]; updates: SheetReservationUpdate[]; sheetDates: string[] }> {
+  return { updated: 0, errors: [], updates: [], sheetDates: [] };
 }

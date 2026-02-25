@@ -77,11 +77,18 @@ The `shared/` directory contains code used by both frontend and backend:
 - **tsx**: TypeScript execution for development
 
 ### Google Sheets Integration
-- **googleapis**: Google Sheets API client for exporting reservation data
-- Each reservation date gets its own tab (e.g., "Jan 12, 2026") — no Date column in rows since the tab name is the date
-- Columns per tab: #, Name, Phone, Time, Party Size, Table, Comments, Status, Created At, ID
+- **googleapis**: Google Sheets API client for syncing reservation data
+- **Target sheet**: `1HgLRHFG7E80H5W0P-S5Qo--kOXxGRttbvanLKnMC4sQ` (hard-coded spreadsheet ID)
+- Each reservation date gets its own tab named like "Wednesday 25th Feb"
+- Each tab has sections per time slot:
+  - **Ramadan** (Feb 18–Mar 20): Iftar 5:00 PM, Dinner 8:00 PM, Dinner 10:00 PM, Sehri 12:00 AM, Sehri 2:00 AM
+  - **Weekday**: Lunch/Dinner time slots
+  - **Weekend**: Breakfast/Lunch/Dinner time slots
+- Each section has all 18 restaurant tables + 8 Teppanyaki seats pre-filled with seating capacities
+- Columns per section: No., Name, Pax, Time, Table, Seating, Number, Details
 - **server/googleSheets.ts**: Helper module for Replit Google Sheets connector authentication and spreadsheet operations
-- Auto-syncs new reservations to a "PAOLA's Reservations" Google Sheet on creation
+- Auto-syncs new reservations to the correct table row in the correct section on creation
+- Cancelled/no-show reservations clear their sheet row
 - Manual export available via "Export to Sheets" button on reservations page
 - Uses Replit connector for OAuth token management (no manual API keys needed)
 
