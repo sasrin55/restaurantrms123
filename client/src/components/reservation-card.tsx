@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Clock, Users, Phone, MessageSquare, ShoppingCart, Check } from "lucide-react";
+import { Clock, Users, Phone, MessageSquare, ShoppingCart, Check, Pencil } from "lucide-react";
 
 export type ReservationStatus = "seated" | "confirmed" | "pending" | "complete" | "cancelled";
 
@@ -103,12 +103,23 @@ export function ReservationCard({
   return (
     <Card className="p-4 bg-card border border-border" data-testid={`reservation-card-${id}`}>
       <div className="flex items-start justify-between mb-3">
-        <h3 className="font-semibold text-foreground text-base">{guestName}</h3>
-        <span
-          className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyle.className}`}
+        <div className="flex items-center gap-2 min-w-0">
+          <h3 className="font-semibold text-foreground text-base truncate">{guestName}</h3>
+          <span
+            className={`px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${statusStyle.className}`}
+          >
+            {statusStyle.label}
+          </span>
+        </div>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-7 w-7 shrink-0"
+          onClick={onEdit}
+          data-testid={`button-edit-${id}`}
         >
-          {statusStyle.label}
-        </span>
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
       </div>
 
       <div className="space-y-1.5 sm:space-y-2 mb-3 sm:mb-4 text-sm text-muted-foreground">
@@ -145,14 +156,29 @@ export function ReservationCard({
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onEdit}
-          data-testid={`button-edit-${id}`}
-        >
-          Edit
-        </Button>
+        {onTakeOrder && (
+          orderConfirmed ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 pointer-events-none"
+              data-testid={`button-order-confirmed-${id}`}
+            >
+              <Check className="h-3.5 w-3.5 mr-1.5" />
+              Paid
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onTakeOrder}
+              data-testid={`button-take-order-${id}`}
+            >
+              <ShoppingCart className="h-3.5 w-3.5 mr-1.5" />
+              Take Order
+            </Button>
+          )
+        )}
         {actions.primary && (
           <Button
             size="sm"
@@ -186,32 +212,6 @@ export function ReservationCard({
           </Button>
         )}
       </div>
-
-      {onTakeOrder && (
-        <div className="mt-3">
-          {orderConfirmed ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 pointer-events-none"
-              data-testid={`button-order-confirmed-${id}`}
-            >
-              <Check className="h-3.5 w-3.5 mr-1.5" />
-              Paid
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              className="w-full bg-[#0D7377] text-white border-[#0D7377] dark:bg-[#0D7377] dark:border-[#0D7377]"
-              onClick={onTakeOrder}
-              data-testid={`button-take-order-${id}`}
-            >
-              <ShoppingCart className="h-3.5 w-3.5 mr-1.5" />
-              Take Order
-            </Button>
-          )}
-        </div>
-      )}
     </Card>
   );
 }
