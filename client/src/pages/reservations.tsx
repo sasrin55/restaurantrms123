@@ -18,8 +18,9 @@ import {
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { ReservationCard, ReservationRow, type ReservationStatus } from "@/components/reservation-card";
 import { EditReservationDialog } from "@/components/edit-reservation-dialog";
-import { Plus, Search, Calendar, LayoutGrid, List, Loader2, RefreshCw } from "lucide-react";
+import { Plus, Search, Calendar, LayoutGrid, List, Loader2, RefreshCw, Upload } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { format, addDays, startOfWeek, endOfWeek, isWithinInterval, parseISO, isToday, isTomorrow } from "date-fns";
 import type { Reservation, Order } from "@shared/schema";
 import { getTimeSlotsForDate, type MealPeriod } from "@/lib/timeSlots";
@@ -91,6 +92,7 @@ function groupReservations(reservations: Reservation[]): GroupedReservation[] {
 }
 
 export default function ReservationsPage() {
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [partySizeFilter, setPartySizeFilter] = useState("all");
@@ -148,6 +150,18 @@ export default function ReservationsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
+    },
+  });
+
+  const exportToSheetsMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/reservations/export-sheets");
+    },
+    onSuccess: () => {
+      toast({ title: "Exported to Google Sheets", description: "All reservations have been pushed to the spreadsheet." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Export failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -288,6 +302,20 @@ export default function ReservationsPage() {
             <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block" data-testid="text-page-subtitle">Manage and view all of your reservations.</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => exportToSheetsMutation.mutate()}
+              disabled={exportToSheetsMutation.isPending}
+              title="Export to Google Sheets"
+              data-testid="button-export-sheets"
+            >
+              {exportToSheetsMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+            </Button>
             <Button
               variant="outline"
               size="icon"
