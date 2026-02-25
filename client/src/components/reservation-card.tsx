@@ -276,28 +276,6 @@ export function ReservationRow({
               {actions.primary.label}
             </Button>
           )}
-          {actions.secondary && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onSecondaryAction}
-              className={`${actions.secondary.className} whitespace-nowrap`}
-              data-testid={`button-secondary-row-${id}`}
-            >
-              {actions.secondary.label}
-            </Button>
-          )}
-          {actions.tertiary && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onTertiaryAction}
-              className={`${actions.tertiary.className} whitespace-nowrap`}
-              data-testid={`button-tertiary-row-${id}`}
-            >
-              {actions.tertiary.label}
-            </Button>
-          )}
           {onTakeOrder && (
             orderConfirmed ? (
               <Button
@@ -331,6 +309,28 @@ export function ReservationRow({
           >
             <Pencil className="h-3.5 w-3.5" />
           </Button>
+          {actions.tertiary && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onTertiaryAction}
+              className={`${actions.tertiary.className} whitespace-nowrap`}
+              data-testid={`button-tertiary-row-${id}`}
+            >
+              {actions.tertiary.label}
+            </Button>
+          )}
+          {actions.secondary && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onSecondaryAction}
+              className={`${actions.secondary.className} whitespace-nowrap`}
+              data-testid={`button-secondary-row-${id}`}
+            >
+              {actions.secondary.label}
+            </Button>
+          )}
         </div>
       </td>
     </tr>
