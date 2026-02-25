@@ -266,39 +266,6 @@ export function ReservationRow({
       </td>
       <td className="py-3 px-3">
         <div className="flex items-center gap-1.5 flex-nowrap">
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-7 w-7 shrink-0"
-            onClick={onEdit}
-            data-testid={`button-edit-row-${id}`}
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
-          {onTakeOrder && (
-            orderConfirmed ? (
-              <Button
-                size="sm"
-                variant="outline"
-                className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 pointer-events-none whitespace-nowrap"
-                data-testid={`button-order-confirmed-row-${id}`}
-              >
-                <Check className="h-3.5 w-3.5 mr-1" />
-                Paid
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={onTakeOrder}
-                className="whitespace-nowrap"
-                data-testid={`button-take-order-row-${id}`}
-              >
-                <ShoppingCart className="h-3.5 w-3.5 mr-1" />
-                Take Order
-              </Button>
-            )
-          )}
           {actions.primary && (
             <Button
               size="sm"
@@ -331,6 +298,39 @@ export function ReservationRow({
               {actions.tertiary.label}
             </Button>
           )}
+          {onTakeOrder && (
+            orderConfirmed ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 pointer-events-none whitespace-nowrap"
+                data-testid={`button-order-confirmed-row-${id}`}
+              >
+                <Check className="h-3.5 w-3.5 mr-1" />
+                Paid
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onTakeOrder}
+                className="whitespace-nowrap"
+                data-testid={`button-take-order-row-${id}`}
+              >
+                <ShoppingCart className="h-3.5 w-3.5 mr-1" />
+                Take Order
+              </Button>
+            )
+          )}
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-7 w-7 shrink-0"
+            onClick={onEdit}
+            data-testid={`button-edit-row-${id}`}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
         </div>
       </td>
     </tr>
