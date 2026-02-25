@@ -99,7 +99,7 @@ export function AppSidebar() {
       </div>
       <SidebarContent>
         <SidebarGroup>
-          <div className="flex items-center gap-2 px-4 mb-3">
+          <div className="flex items-center gap-2 px-4 mb-3 pl-[8px] pr-[8px]">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">
               Restaurant
             </span>
