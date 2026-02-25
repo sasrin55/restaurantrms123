@@ -458,5 +458,18 @@ export async function registerRoutes(
     res.json(enriched);
   });
 
+  app.post("/api/call-log", async (req, res) => {
+    try {
+      const { phone, time } = req.body;
+
+      console.log("Incoming call:", phone, time);
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed" });
+    }
+  });
+
   return httpServer;
 }
