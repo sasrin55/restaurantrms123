@@ -3,8 +3,8 @@ import { google } from 'googleapis';
 const SPREADSHEET_ID = '1HgLRHFG7E80H5W0P-S5Qo--kOXxGRttbvanLKnMC4sQ';
 
 const RESTAURANT_TABLES = [
-  { number: "1", seating: "5" },
-  { number: "2", seating: "5" },
+  { number: "1", seating: "4 to 6" },
+  { number: "2", seating: "4 to 6" },
   { number: "25", seating: "2 to 3" },
   { number: "3", seating: "2" },
   { number: "4", seating: "2" },
@@ -15,15 +15,18 @@ const RESTAURANT_TABLES = [
   { number: "8", seating: "2 to 3" },
   { number: "9", seating: "2" },
   { number: "10", seating: "2" },
-  { number: "11", seating: "6 to 8" },
-  { number: "12", seating: "3" },
+  { number: "11", seating: "8 to 10" },
+  { number: "12", seating: "3 to 4" },
   { number: "13", seating: "3 to 4" },
-  { number: "14", seating: "6" },
+  { number: "14", seating: "4 to 6" },
   { number: "15", seating: "2 to 3" },
   { number: "15a", seating: "2 to 3" },
 ];
 
+const TABLE_COUNT = RESTAURANT_TABLES.length;
+const TEP_COUNT = 8;
 const HEADERS = ['No.', 'Name', 'Pax', 'Time', 'Table', 'Seating', 'Number', 'Details'];
+const COL_COUNT = HEADERS.length;
 
 let connectionSettings: any;
 
@@ -138,7 +141,48 @@ function getSectionLabelForTime(time: string, dateStr: string): string | null {
   return match?.label || null;
 }
 
-function generateSectionRows(section: TimeSlotSection): any[][] {
+interface SectionLayout {
+  section: TimeSlotSection;
+  headerRow: number;
+  colHeaderRow: number;
+  firstDataRow: number;
+  lastDataRow: number;
+  totalRow: number;
+  tepHeaderRow: number;
+  tepColHeaderRow: number;
+  tepFirstRow: number;
+  tepLastRow: number;
+}
+
+function computeTabLayout(dateStr: string): SectionLayout[] {
+  const timeSections = getSectionsForDate(dateStr);
+  const layouts: SectionLayout[] = [];
+  let row = 0;
+
+  for (const section of timeSections) {
+    row++;
+    const headerRow = row; row++;
+    const colHeaderRow = row; row++;
+    const firstDataRow = row; row += TABLE_COUNT;
+    const lastDataRow = row - 1;
+    const totalRow = row; row++;
+    row++;
+    const tepHeaderRow = row; row++;
+    const tepColHeaderRow = row; row++;
+    const tepFirstRow = row; row += TEP_COUNT;
+    const tepLastRow = row - 1;
+
+    layouts.push({
+      section, headerRow, colHeaderRow,
+      firstDataRow, lastDataRow, totalRow,
+      tepHeaderRow, tepColHeaderRow, tepFirstRow, tepLastRow,
+    });
+  }
+
+  return layouts;
+}
+
+function generateSectionRows(section: TimeSlotSection, paxTotalRowNum: number): any[][] {
   const rows: any[][] = [];
   rows.push([]);
   rows.push([section.label, '', '', '', '', '', '', '']);
@@ -146,24 +190,194 @@ function generateSectionRows(section: TimeSlotSection): any[][] {
   RESTAURANT_TABLES.forEach((t, i) => {
     rows.push([i + 1, '', '', '', t.number, t.seating, '', '']);
   });
-  rows.push(['', 'Total:', '', '', '', '', '', '']);
+  const firstPaxRow = paxTotalRowNum - TABLE_COUNT + 1;
+  rows.push(['', 'Total:', `=SUM(C${firstPaxRow}:C${paxTotalRowNum})`, '', '', '', '', '']);
   rows.push([]);
   rows.push(['Teppanyaki Bar', '', '', '', '', '', '', '']);
   rows.push([...HEADERS]);
-  for (let i = 1; i <= 8; i++) {
+  for (let i = 1; i <= TEP_COUNT; i++) {
     rows.push([i, '', '', '', String(i), '1', '', '']);
   }
   return rows;
 }
 
 function generateTabTemplate(dateStr: string): any[][] {
-  const sections = getSectionsForDate(dateStr);
+  const layouts = computeTabLayout(dateStr);
   const allRows: any[][] = [];
-  for (const section of sections) {
-    allRows.push(...generateSectionRows(section));
+  for (const layout of layouts) {
+    const totalRow1Based = layout.totalRow + 1;
+    allRows.push(...generateSectionRows(layout.section, totalRow1Based - 1));
   }
   allRows.push([]);
   return allRows;
+}
+
+const SOLID_BORDER = { style: 'SOLID', width: 1, color: { red: 0, green: 0, blue: 0 } };
+const GRAY_BG = { red: 0.82, green: 0.82, blue: 0.82 };
+const LIGHT_GRAY_BG = { red: 0.93, green: 0.93, blue: 0.93 };
+
+async function formatTab(sheets: any, tabName: string, dateStr: string) {
+  const spreadsheet = await sheets.spreadsheets.get({
+    spreadsheetId: SPREADSHEET_ID,
+    fields: 'sheets.properties',
+  });
+  const sheetInfo = (spreadsheet.data.sheets || []).find(
+    (s: any) => s.properties?.title === tabName
+  );
+  if (!sheetInfo) return;
+  const sheetId = sheetInfo.properties.sheetId;
+
+  const layouts = computeTabLayout(dateStr);
+  const requests: any[] = [];
+
+  const columnWidths = [45, 160, 50, 80, 70, 80, 120, 160];
+  for (let i = 0; i < columnWidths.length; i++) {
+    requests.push({
+      updateDimensionProperties: {
+        range: { sheetId, dimension: 'COLUMNS', startIndex: i, endIndex: i + 1 },
+        properties: { pixelSize: columnWidths[i] },
+        fields: 'pixelSize',
+      },
+    });
+  }
+
+  for (const layout of layouts) {
+    requests.push({
+      mergeCells: {
+        range: { sheetId, startRowIndex: layout.headerRow, endRowIndex: layout.headerRow + 1, startColumnIndex: 0, endColumnIndex: COL_COUNT },
+        mergeType: 'MERGE_ALL',
+      },
+    });
+
+    requests.push({
+      repeatCell: {
+        range: { sheetId, startRowIndex: layout.headerRow, endRowIndex: layout.headerRow + 1, startColumnIndex: 0, endColumnIndex: COL_COUNT },
+        cell: {
+          userEnteredFormat: {
+            horizontalAlignment: 'CENTER',
+            verticalAlignment: 'MIDDLE',
+            textFormat: { bold: true, fontSize: 11 },
+            backgroundColor: GRAY_BG,
+          },
+        },
+        fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat,backgroundColor)',
+      },
+    });
+
+    requests.push({
+      repeatCell: {
+        range: { sheetId, startRowIndex: layout.colHeaderRow, endRowIndex: layout.colHeaderRow + 1, startColumnIndex: 0, endColumnIndex: COL_COUNT },
+        cell: {
+          userEnteredFormat: {
+            horizontalAlignment: 'CENTER',
+            textFormat: { bold: true },
+            backgroundColor: LIGHT_GRAY_BG,
+          },
+        },
+        fields: 'userEnteredFormat(horizontalAlignment,textFormat,backgroundColor)',
+      },
+    });
+
+    requests.push({
+      repeatCell: {
+        range: { sheetId, startRowIndex: layout.totalRow, endRowIndex: layout.totalRow + 1, startColumnIndex: 0, endColumnIndex: COL_COUNT },
+        cell: {
+          userEnteredFormat: {
+            textFormat: { bold: true },
+            backgroundColor: LIGHT_GRAY_BG,
+          },
+        },
+        fields: 'userEnteredFormat(textFormat,backgroundColor)',
+      },
+    });
+
+    requests.push({
+      updateBorders: {
+        range: { sheetId, startRowIndex: layout.headerRow, endRowIndex: layout.totalRow + 1, startColumnIndex: 0, endColumnIndex: COL_COUNT },
+        top: SOLID_BORDER,
+        bottom: SOLID_BORDER,
+        left: SOLID_BORDER,
+        right: SOLID_BORDER,
+        innerHorizontal: SOLID_BORDER,
+        innerVertical: SOLID_BORDER,
+      },
+    });
+
+    for (const col of [0, 2, 3, 4, 5]) {
+      requests.push({
+        repeatCell: {
+          range: { sheetId, startRowIndex: layout.firstDataRow, endRowIndex: layout.lastDataRow + 1, startColumnIndex: col, endColumnIndex: col + 1 },
+          cell: { userEnteredFormat: { horizontalAlignment: 'CENTER' } },
+          fields: 'userEnteredFormat(horizontalAlignment)',
+        },
+      });
+    }
+
+    requests.push({
+      mergeCells: {
+        range: { sheetId, startRowIndex: layout.tepHeaderRow, endRowIndex: layout.tepHeaderRow + 1, startColumnIndex: 0, endColumnIndex: COL_COUNT },
+        mergeType: 'MERGE_ALL',
+      },
+    });
+
+    requests.push({
+      repeatCell: {
+        range: { sheetId, startRowIndex: layout.tepHeaderRow, endRowIndex: layout.tepHeaderRow + 1, startColumnIndex: 0, endColumnIndex: COL_COUNT },
+        cell: {
+          userEnteredFormat: {
+            horizontalAlignment: 'CENTER',
+            verticalAlignment: 'MIDDLE',
+            textFormat: { bold: true, fontSize: 11 },
+            backgroundColor: GRAY_BG,
+          },
+        },
+        fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat,backgroundColor)',
+      },
+    });
+
+    requests.push({
+      repeatCell: {
+        range: { sheetId, startRowIndex: layout.tepColHeaderRow, endRowIndex: layout.tepColHeaderRow + 1, startColumnIndex: 0, endColumnIndex: COL_COUNT },
+        cell: {
+          userEnteredFormat: {
+            horizontalAlignment: 'CENTER',
+            textFormat: { bold: true },
+            backgroundColor: LIGHT_GRAY_BG,
+          },
+        },
+        fields: 'userEnteredFormat(horizontalAlignment,textFormat,backgroundColor)',
+      },
+    });
+
+    requests.push({
+      updateBorders: {
+        range: { sheetId, startRowIndex: layout.tepHeaderRow, endRowIndex: layout.tepLastRow + 1, startColumnIndex: 0, endColumnIndex: COL_COUNT },
+        top: SOLID_BORDER,
+        bottom: SOLID_BORDER,
+        left: SOLID_BORDER,
+        right: SOLID_BORDER,
+        innerHorizontal: SOLID_BORDER,
+        innerVertical: SOLID_BORDER,
+      },
+    });
+
+    for (const col of [0, 2, 3, 4, 5]) {
+      requests.push({
+        repeatCell: {
+          range: { sheetId, startRowIndex: layout.tepFirstRow, endRowIndex: layout.tepLastRow + 1, startColumnIndex: col, endColumnIndex: col + 1 },
+          cell: { userEnteredFormat: { horizontalAlignment: 'CENTER' } },
+          fields: 'userEnteredFormat(horizontalAlignment)',
+        },
+      });
+    }
+  }
+
+  if (requests.length > 0) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: { requests },
+    });
+  }
 }
 
 async function getExistingTabs(sheets: any): Promise<string[]> {
@@ -189,9 +403,10 @@ async function ensureAndGetTab(sheets: any, dateStr: string): Promise<string> {
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
       range: `'${tabName}'!A1`,
-      valueInputOption: 'RAW',
+      valueInputOption: 'USER_ENTERED',
       requestBody: { values: template },
     });
+    await formatTab(sheets, tabName, dateStr);
   }
 
   return tabName;
@@ -252,6 +467,40 @@ function findTableRow(
   return -1;
 }
 
+function findExistingGuestRow(
+  rows: any[][],
+  sectionLabel: string,
+  customerName: string,
+  phoneNumber: string
+): number {
+  let sectionRow = -1;
+  for (let i = 0; i < rows.length; i++) {
+    if (String(rows[i]?.[0] || '').trim() === sectionLabel) {
+      sectionRow = i;
+      break;
+    }
+  }
+  if (sectionRow === -1) return -1;
+
+  let nextSectionRow = rows.length;
+  for (let i = sectionRow + 1; i < rows.length; i++) {
+    const cell = String(rows[i]?.[0] || '').trim();
+    if (cell.includes(' — ') && cell !== sectionLabel) {
+      nextSectionRow = i;
+      break;
+    }
+  }
+
+  for (let i = sectionRow + 2; i < nextSectionRow; i++) {
+    const rowName = String(rows[i]?.[1] || '').trim();
+    const rowPhone = String(rows[i]?.[6] || '').trim();
+    if (rowName && rowName === customerName && rowPhone === phoneNumber) {
+      return i;
+    }
+  }
+  return -1;
+}
+
 function parseTableInfo(tableName: string): { number: string; isTeppanyaki: boolean } {
   if (tableName.startsWith('Tepanyaki Seat ')) {
     return { number: tableName.replace('Tepanyaki Seat ', ''), isTeppanyaki: true };
@@ -304,8 +553,24 @@ export async function appendReservationToSheet(reservation: ReservationData) {
     }
 
     const { number: tableNum, isTeppanyaki } = parseTableInfo(reservation.tableName);
-    const rowIndex = findTableRow(rows, sectionLabel, tableNum, isTeppanyaki);
 
+    const existingRow = findExistingGuestRow(rows, sectionLabel, reservation.customerName, reservation.phoneNumber);
+
+    if (existingRow !== -1) {
+      const currentTable = String(rows[existingRow]?.[4] || '').trim();
+      const newTableVal = currentTable ? `${currentTable}, ${tableNum}` : tableNum;
+      const sheetRow = existingRow + 1;
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `'${tabName}'!E${sheetRow}`,
+        valueInputOption: 'RAW',
+        requestBody: { values: [[newTableVal]] },
+      });
+      console.log(`Added table ${tableNum} to existing row ${sheetRow} for ${reservation.customerName}`);
+      return;
+    }
+
+    const rowIndex = findTableRow(rows, sectionLabel, tableNum, isTeppanyaki);
     if (rowIndex === -1) {
       console.error(`Table row not found for ${reservation.tableName} in section "${sectionLabel}"`);
       return;
@@ -385,6 +650,45 @@ async function clearReservationFromSheet(reservation: ReservationData) {
   }
 }
 
+interface GroupedReservation {
+  customerName: string;
+  phoneNumber: string;
+  partySize: number;
+  time: string;
+  tableNumbers: string[];
+  comments: string;
+  firstTableNum: string;
+  firstIsTeppanyaki: boolean;
+}
+
+function groupReservationsByGuest(reservations: ReservationData[]): GroupedReservation[] {
+  const groups = new Map<string, GroupedReservation>();
+
+  for (const r of reservations) {
+    if (r.status === 'cancelled' || r.status === 'no-show') continue;
+    const key = `${r.customerName}|${r.phoneNumber}|${r.time}`;
+    const { number: tableNum, isTeppanyaki } = parseTableInfo(r.tableName);
+
+    const existing = groups.get(key);
+    if (existing) {
+      existing.tableNumbers.push(tableNum);
+    } else {
+      groups.set(key, {
+        customerName: r.customerName,
+        phoneNumber: r.phoneNumber,
+        partySize: r.partySize,
+        time: r.time,
+        tableNumbers: [tableNum],
+        comments: r.comments || '',
+        firstTableNum: tableNum,
+        firstIsTeppanyaki: isTeppanyaki,
+      });
+    }
+  }
+
+  return Array.from(groups.values());
+}
+
 export async function exportAllReservationsToSheet(reservations: ReservationData[]) {
   const sheets = await getUncachableGoogleSheetClient();
 
@@ -397,24 +701,37 @@ export async function exportAllReservationsToSheet(reservations: ReservationData
 
   const existingTabs = await getExistingTabs(sheets);
 
-  const allDates = new Set<string>();
-  for (const dateStr of byDate.keys()) allDates.add(dateStr);
-
-  for (const dateStr of allDates) {
+  for (const dateStr of byDate.keys()) {
     const tabName = formatDateForTab(dateStr);
 
     if (existingTabs.includes(tabName)) {
-      const spreadsheet = await sheets.spreadsheets.get({
+      await sheets.spreadsheets.values.clear({
         spreadsheetId: SPREADSHEET_ID,
-        fields: 'sheets.properties.title,sheets.properties.sheetId',
+        range: `'${tabName}'!A:Z`,
       });
-      const sheetInfo = (spreadsheet.data.sheets || []).find(
+      const spreadsheetMeta = await sheets.spreadsheets.get({
+        spreadsheetId: SPREADSHEET_ID,
+        fields: 'sheets.properties',
+      });
+      const sheetMeta = (spreadsheetMeta.data.sheets || []).find(
         (s: any) => s.properties?.title === tabName
       );
-      if (sheetInfo) {
-        await sheets.spreadsheets.values.clear({
+      if (sheetMeta) {
+        await sheets.spreadsheets.batchUpdate({
           spreadsheetId: SPREADSHEET_ID,
-          range: `'${tabName}'!A:H`,
+          requestBody: {
+            requests: [{
+              unmergeCells: {
+                range: {
+                  sheetId: sheetMeta.properties.sheetId,
+                  startRowIndex: 0,
+                  endRowIndex: 1000,
+                  startColumnIndex: 0,
+                  endColumnIndex: 26,
+                },
+              },
+            }],
+          },
         });
       }
     } else {
@@ -430,39 +747,41 @@ export async function exportAllReservationsToSheet(reservations: ReservationData
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
       range: `'${tabName}'!A1`,
-      valueInputOption: 'RAW',
+      valueInputOption: 'USER_ENTERED',
       requestBody: { values: template },
     });
 
+    await formatTab(sheets, tabName, dateStr);
+
     const dateReservations = byDate.get(dateStr) || [];
-    const result = await sheets.spreadsheets.values.get({
+    const grouped = groupReservationsByGuest(dateReservations);
+
+    const dataResult = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: `'${tabName}'!A:H`,
     });
-    const rows = result.data.values || [];
+    const rows = dataResult.data.values || [];
 
-    for (const reservation of dateReservations) {
-      if (reservation.status === 'cancelled' || reservation.status === 'no-show') continue;
-
-      const sectionLabel = getSectionLabelForTime(reservation.time, reservation.date);
+    for (const group of grouped) {
+      const sectionLabel = getSectionLabelForTime(group.time, dateStr);
       if (!sectionLabel) continue;
 
-      const { number: tableNum, isTeppanyaki } = parseTableInfo(reservation.tableName);
-      const rowIndex = findTableRow(rows, sectionLabel, tableNum, isTeppanyaki);
+      const rowIndex = findTableRow(rows, sectionLabel, group.firstTableNum, group.firstIsTeppanyaki);
       if (rowIndex === -1) continue;
 
       const sheetRow = rowIndex + 1;
       const existingSeating = rows[rowIndex]?.[5] || '';
+      const tableDisplay = group.tableNumbers.join(', ');
 
       rows[rowIndex] = [
         rows[rowIndex]?.[0] || '',
-        reservation.customerName,
-        reservation.partySize,
-        reservation.time,
-        tableNum,
+        group.customerName,
+        group.partySize,
+        group.time,
+        tableDisplay,
         existingSeating,
-        reservation.phoneNumber,
-        reservation.comments || '',
+        group.phoneNumber,
+        group.comments,
       ];
 
       await sheets.spreadsheets.values.update({
@@ -471,13 +790,13 @@ export async function exportAllReservationsToSheet(reservations: ReservationData
         valueInputOption: 'RAW',
         requestBody: {
           values: [[
-            reservation.customerName,
-            reservation.partySize,
-            reservation.time,
-            tableNum,
+            group.customerName,
+            group.partySize,
+            group.time,
+            tableDisplay,
             existingSeating,
-            reservation.phoneNumber,
-            reservation.comments || '',
+            group.phoneNumber,
+            group.comments,
           ]],
         },
       });
