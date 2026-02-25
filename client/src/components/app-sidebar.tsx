@@ -128,7 +128,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
         <SidebarGroup>
-          <div className="flex items-center gap-2 px-4 pl-[8px] pr-[8px] mt-[0px] mb-[0px]">
+          <div className="flex items-center gap-2 px-4 pl-[8px] pr-[8px] mt-[6px] mb-[6px]">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">
               Order
             </span>
