@@ -111,6 +111,15 @@ export function ReservationCard({
             {statusStyle.label}
           </span>
         </div>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-7 w-7 shrink-0"
+          onClick={onEdit}
+          data-testid={`button-edit-${id}`}
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
       </div>
 
       <div className="space-y-1.5 sm:space-y-2 mb-3 sm:mb-4 text-sm text-muted-foreground">
@@ -180,15 +189,6 @@ export function ReservationCard({
             </Button>
           )
         )}
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-7 w-7 shrink-0"
-          onClick={onEdit}
-          data-testid={`button-edit-${id}`}
-        >
-          <Pencil className="h-3.5 w-3.5" />
-        </Button>
         {actions.tertiary && (
           <Button
             size="sm"
