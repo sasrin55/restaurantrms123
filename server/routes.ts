@@ -460,11 +460,51 @@ export async function registerRoutes(
 
   app.post("/api/call-log", async (req, res) => {
     try {
-      const { phone, time } = req.body;
+      const { phone } = req.body;
+      if (!phone) {
+        return res.status(400).json({ error: "phone is required" });
+      }
 
-      console.log("Incoming call:", phone, time);
+      console.log("Incoming call from MacroDroid:", phone);
 
-      res.json({ success: true });
+      const allGuests = await storage.getGuests();
+      const normalizedPhone = phone.replace(/[\s\-\(\)]/g, "").replace(/^0+/, "");
+      let guest = allGuests.find(g => {
+        const gPhone = g.phone.replace(/[\s\-\(\)]/g, "").replace(/^0+/, "");
+        return gPhone === normalizedPhone || gPhone.includes(normalizedPhone) || normalizedPhone.includes(gPhone);
+      });
+
+      let isNew = 0;
+      if (!guest) {
+        isNew = 1;
+        guest = await storage.upsertGuest("Unknown Caller", phone, new Date().toISOString().split("T")[0], 0);
+      }
+
+      const call = await storage.createCall({
+        phone,
+        customerId: guest.id,
+        isNewCustomer: isNew,
+      });
+
+      const allReservations = await storage.getReservations();
+      const guestReservations = allReservations.filter(r => {
+        const rPhone = r.phoneNumber.replace(/[\s\-\(\)]/g, "").replace(/^0+/, "");
+        return rPhone === normalizedPhone || rPhone.includes(normalizedPhone) || normalizedPhone.includes(rPhone);
+      });
+      const lastReservation = guestReservations.length > 0 ? guestReservations[0] : null;
+
+      res.json({
+        success: true,
+        call,
+        guest: { name: guest.name, visitCount: guest.visitCount },
+        isNewCustomer: isNew === 1,
+        lastReservation: lastReservation ? {
+          date: lastReservation.date,
+          time: lastReservation.time,
+          partySize: lastReservation.partySize,
+          table: lastReservation.tableName,
+        } : null,
+      });
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: "Failed" });
