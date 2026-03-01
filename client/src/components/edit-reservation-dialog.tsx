@@ -101,28 +101,31 @@ export function EditReservationDialog({
               className="bg-muted"
             />
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="date">Date</Label>
-            <Input
-              id="date"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              data-testid="input-edit-date"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="time">Time</Label>
-            <Select value={time} onValueChange={setTime}>
-              <SelectTrigger data-testid="select-edit-time">
-                <SelectValue placeholder="Select time" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableTimes.map((t) => (
-                  <SelectItem key={t} value={t}>{t}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-2">
+              <Label htmlFor="date">Date</Label>
+              <Input
+                id="date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="date-icon-right"
+                data-testid="input-edit-date"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="time">Time</Label>
+              <Select value={time} onValueChange={setTime}>
+                <SelectTrigger data-testid="select-edit-time">
+                  <SelectValue placeholder="Select time" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableTimes.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="party-size">Party Size</Label>

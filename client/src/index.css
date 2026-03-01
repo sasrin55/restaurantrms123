@@ -286,3 +286,13 @@
     inset: -1px;
   }
 }
+
+.date-icon-right::-webkit-calendar-picker-indicator {
+  position: absolute;
+  right: 8px;
+  cursor: pointer;
+}
+
+.date-icon-right {
+  position: relative;
+}
