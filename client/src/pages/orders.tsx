@@ -37,6 +37,7 @@ export default function OrdersPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("order-list");
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
   const [selectedTableName, setSelectedTableName] = useState("");
+  const [selectedTables, setSelectedTables] = useState<{ id: number; name: string }[]>([]);
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
   const [activeCategoryIdx, setActiveCategoryIdx] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
@@ -158,13 +159,25 @@ export default function OrdersPage() {
   const handleStartNewOrder = () => {
     setSelectedTableId(null);
     setSelectedTableName("");
+    setSelectedTables([]);
     setViewMode("table-select");
   };
 
-  const handleSelectTable = (tableId: number, tableName: string) => {
-    setSelectedTableId(tableId);
-    setSelectedTableName(tableName);
-    createOrderMutation.mutate({ tableId, tableName });
+  const handleToggleTable = (tableId: number, tableName: string) => {
+    setSelectedTables((prev) => {
+      const exists = prev.find((t) => t.id === tableId);
+      if (exists) return prev.filter((t) => t.id !== tableId);
+      return [...prev, { id: tableId, name: tableName }];
+    });
+  };
+
+  const handleConfirmTableSelection = () => {
+    if (selectedTables.length === 0) return;
+    const combinedName = selectedTables.map((t) => t.name).join(" + ");
+    const firstTableId = selectedTables[0].id;
+    setSelectedTableId(firstTableId);
+    setSelectedTableName(combinedName);
+    createOrderMutation.mutate({ tableId: firstTableId, tableName: combinedName });
   };
 
   const handleOpenOrder = (order: Order) => {
@@ -198,6 +211,7 @@ export default function OrdersPage() {
   const openOrders = orders.filter((o) => o.status === "open");
 
   if (viewMode === "table-select") {
+    const selectedIds = new Set(selectedTables.map((t) => t.id));
     return (
       <div className="p-3 sm:p-6 max-w-4xl mx-auto">
         <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
@@ -211,7 +225,7 @@ export default function OrdersPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <h1 className="text-lg sm:text-2xl font-bold text-foreground" data-testid="text-select-table-title">
-            Select Table
+            Select Tables
           </h1>
         </div>
 
@@ -223,9 +237,9 @@ export default function OrdersPage() {
             {restaurantTables.map((table) => (
               <Button
                 key={table.id}
-                variant="outline"
-                className="h-14 text-lg font-semibold"
-                onClick={() => handleSelectTable(table.id, `Table ${table.number}`)}
+                variant={selectedIds.has(table.id) ? "default" : "outline"}
+                className={`h-14 text-lg font-semibold ${selectedIds.has(table.id) ? "bg-[#0D7377] text-white border-[#0D7377]" : ""}`}
+                onClick={() => handleToggleTable(table.id, `Table ${table.number}`)}
                 data-testid={`button-select-table-${table.id}`}
               >
                 {table.number}
@@ -234,7 +248,7 @@ export default function OrdersPage() {
           </div>
         </div>
 
-        <div>
+        <div className="mb-6">
           <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
             Tepanyaki Bar
           </h2>
@@ -242,9 +256,9 @@ export default function OrdersPage() {
             {tepanyakiSeats.map((seat) => (
               <Button
                 key={seat.id}
-                variant="outline"
-                className="h-14 text-lg font-semibold"
-                onClick={() => handleSelectTable(seat.id, `Tep ${seat.number}`)}
+                variant={selectedIds.has(seat.id) ? "default" : "outline"}
+                className={`h-14 text-lg font-semibold ${selectedIds.has(seat.id) ? "bg-[#0D7377] text-white border-[#0D7377]" : ""}`}
+                onClick={() => handleToggleTable(seat.id, `Tep ${seat.number}`)}
                 data-testid={`button-select-tep-${seat.id}`}
               >
                 T{seat.number}
@@ -252,6 +266,23 @@ export default function OrdersPage() {
             ))}
           </div>
         </div>
+
+        {selectedTables.length > 0 && (
+          <div className="sticky bottom-4 flex items-center justify-between gap-3 bg-card border rounded-lg p-4 shadow-lg">
+            <p className="text-sm font-medium text-foreground">
+              {selectedTables.map((t) => t.name).join(" + ")}
+            </p>
+            <Button
+              className="bg-[#0D7377] text-white flex-shrink-0"
+              onClick={handleConfirmTableSelection}
+              disabled={createOrderMutation.isPending}
+              data-testid="button-confirm-tables"
+            >
+              <Check className="h-4 w-4 mr-2" />
+              Start Order
+            </Button>
+          </div>
+        )}
       </div>
     );
   }
