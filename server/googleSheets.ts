@@ -874,6 +874,210 @@ export async function exportAllReservationsToSheet(reservations: ReservationData
   return SPREADSHEET_ID;
 }
 
+function parseTabNameToDate(tabName: string): string | null {
+  const months: Record<string, number> = {
+    'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
+    'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11,
+  };
+  const match = tabName.match(/(\d+)\w+\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/);
+  if (!match) return null;
+  const day = parseInt(match[1]);
+  const monthIdx = months[match[2]];
+  if (monthIdx === undefined) return null;
+  const now = new Date();
+  const year = now.getFullYear();
+  const m = String(monthIdx + 1).padStart(2, '0');
+  const d = String(day).padStart(2, '0');
+  return `${year}-${m}-${d}`;
+}
+
+function reverseTableLookup(tableNum: string, isTeppanyaki: boolean): { tableId: number; tableName: string } | null {
+  if (isTeppanyaki) {
+    const seatNum = parseInt(tableNum);
+    if (seatNum >= 1 && seatNum <= 8) {
+      return { tableId: 1000 + seatNum, tableName: `Tepanyaki Seat ${seatNum}` };
+    }
+    return null;
+  }
+  const tableMap: Record<string, number> = {
+    '1': 1, '2': 2, '25': 25, '3': 3, '4': 4, '5': 5, '20': 20,
+    '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, '11': 11,
+    '12': 12, '13': 13, '14': 14, '15': 15, '15a': 16,
+  };
+  const id = tableMap[tableNum];
+  if (!id) return null;
+  return { tableId: id, tableName: `Table ${tableNum}` };
+}
+
 export async function syncFromSheet(): Promise<{ updated: number; errors: string[]; updates: SheetReservationUpdate[]; sheetDates: string[] }> {
-  return { updated: 0, errors: [], updates: [], sheetDates: [] };
+  const updates: SheetReservationUpdate[] = [];
+  const errors: string[] = [];
+  const sheetDates: string[] = [];
+
+  try {
+    const sheets = await getUncachableGoogleSheetClient();
+    const spreadsheet = await sheets.spreadsheets.get({
+      spreadsheetId: SPREADSHEET_ID,
+      fields: 'sheets.properties.title',
+    });
+    const tabs = (spreadsheet.data.sheets || []).map((s: any) => s.properties?.title as string);
+
+    const { storage } = await import('./storage');
+    const allReservations = await storage.getReservations();
+
+    for (const tabName of tabs) {
+      const dateStr = parseTabNameToDate(tabName);
+      if (!dateStr) continue;
+      sheetDates.push(dateStr);
+
+      const result = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `'${tabName}'!A:H`,
+      });
+      const rows = result.data.values || [];
+
+      const sections = getSectionsForDate(dateStr);
+      const dateReservations = allReservations.filter(r => r.date === dateStr);
+
+      for (const section of sections) {
+        let sectionRow = -1;
+        for (let i = 0; i < rows.length; i++) {
+          if (String(rows[i]?.[0] || '').trim() === section.label) {
+            sectionRow = i;
+            break;
+          }
+        }
+        if (sectionRow === -1) continue;
+
+        let nextSectionRow = rows.length;
+        for (let i = sectionRow + 1; i < rows.length; i++) {
+          const cell = String(rows[i]?.[0] || '').trim();
+          if (cell.includes(' — ') && cell !== section.label) {
+            nextSectionRow = i;
+            break;
+          }
+        }
+
+        let tepRow = -1;
+        for (let i = sectionRow + 1; i < nextSectionRow; i++) {
+          if (String(rows[i]?.[0] || '').trim() === 'Teppanyaki Bar') {
+            tepRow = i;
+            break;
+          }
+        }
+
+        const regularEnd = tepRow !== -1 ? tepRow : nextSectionRow;
+        for (let i = sectionRow + 2; i < regularEnd; i++) {
+          processSheetRow(rows[i], dateStr, section.timeKey, false, dateReservations, updates);
+        }
+
+        if (tepRow !== -1) {
+          for (let i = tepRow + 2; i < nextSectionRow; i++) {
+            processSheetRow(rows[i], dateStr, section.timeKey, true, dateReservations, updates);
+          }
+        }
+      }
+    }
+  } catch (error: any) {
+    errors.push(error.message || 'Unknown sync error');
+    console.error('syncFromSheet error:', error);
+  }
+
+  return { updated: updates.length, errors, updates, sheetDates };
+}
+
+function processSheetRow(
+  row: any[] | undefined,
+  dateStr: string,
+  timeKey: string,
+  isTeppanyaki: boolean,
+  dateReservations: any[],
+  updates: SheetReservationUpdate[]
+) {
+  if (!row) return;
+  const name = String(row[1] || '').trim();
+  const pax = parseInt(String(row[2] || '0'));
+  const tableNum = String(row[4] || '').trim();
+  const phone = String(row[6] || '').trim();
+  const comments = String(row[7] || '').trim();
+
+  if (!name || !tableNum) return;
+
+  const tableInfo = reverseTableLookup(tableNum, isTeppanyaki);
+  if (!tableInfo) return;
+
+  const matching = dateReservations.filter(r =>
+    r.tableId === tableInfo.tableId && r.time === timeKey
+  );
+
+  if (matching.length === 1) {
+    const r = matching[0];
+    const hasChanges =
+      r.customerName !== name ||
+      r.phoneNumber !== phone ||
+      r.partySize !== pax ||
+      (r.comments || '') !== comments;
+
+    if (hasChanges) {
+      updates.push({
+        id: r.id,
+        customerName: name,
+        phoneNumber: phone || r.phoneNumber,
+        date: dateStr,
+        time: timeKey,
+        partySize: pax || r.partySize,
+        tableName: tableInfo.tableName,
+        tableId: tableInfo.tableId,
+        comments: comments,
+        status: r.status,
+      });
+    } else {
+      updates.push({
+        id: r.id,
+        customerName: r.customerName,
+        phoneNumber: r.phoneNumber,
+        date: r.date,
+        time: r.time,
+        partySize: r.partySize,
+        tableName: r.tableName,
+        tableId: r.tableId,
+        comments: r.comments || '',
+        status: r.status,
+      });
+    }
+  } else if (matching.length > 1) {
+    const exact = matching.find(r =>
+      r.customerName === name || r.phoneNumber === phone
+    );
+    if (exact) {
+      updates.push({
+        id: exact.id,
+        customerName: name,
+        phoneNumber: phone || exact.phoneNumber,
+        date: dateStr,
+        time: timeKey,
+        partySize: pax || exact.partySize,
+        tableName: tableInfo.tableName,
+        tableId: tableInfo.tableId,
+        comments: comments,
+        status: exact.status,
+      });
+      for (const r of matching) {
+        if (r.id !== exact.id) {
+          updates.push({
+            id: r.id,
+            customerName: r.customerName,
+            phoneNumber: r.phoneNumber,
+            date: r.date,
+            time: r.time,
+            partySize: r.partySize,
+            tableName: r.tableName,
+            tableId: r.tableId,
+            comments: r.comments || '',
+            status: r.status,
+          });
+        }
+      }
+    }
+  }
 }
