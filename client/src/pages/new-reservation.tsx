@@ -190,17 +190,17 @@ export default function NewCustomerPage() {
             <SelectItem value="PM">PM</SelectItem>
           </SelectContent>
         </Select>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => { setUseCustomTime(false); setTime(""); setCustomHour(""); setCustomMinute("00"); setCustomAmPm("PM"); }}
-          className="ml-1 flex-shrink-0"
-          data-testid="button-preset-time"
-        >
-          Presets
-        </Button>
       </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => { setUseCustomTime(false); setTime(""); setCustomHour(""); setCustomMinute("00"); setCustomAmPm("PM"); }}
+        className="w-full"
+        data-testid="button-preset-time"
+      >
+        Back to Presets
+      </Button>
     </div>
   ) : (
     <div className="flex items-center gap-2">
