@@ -670,9 +670,7 @@ function OrderCard({
               : ""}
           </p>
         </div>
-        <Badge variant={isOpen ? "default" : "secondary"}>
-          {isOpen ? "Open" : "Paid"}
-        </Badge>
+
       </div>
 
       <p className="text-sm text-muted-foreground mb-3">
