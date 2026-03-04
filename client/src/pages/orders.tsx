@@ -583,7 +583,7 @@ export default function OrdersPage() {
         <h1 className="text-lg sm:text-2xl font-bold text-foreground" data-testid="text-orders-title">
           Orders
         </h1>
-        <Button onClick={handleStartNewOrder} data-testid="button-new-order">
+        <Button onClick={handleStartNewOrder} className="bg-[#234148]" data-testid="button-new-order">
           <Plus className="h-4 w-4 mr-2" />
           New Order
         </Button>
