@@ -83,7 +83,7 @@ function groupReservations(reservations: Reservation[]): GroupedReservation[] {
       status: first.status,
       time: first.time,
       partySize: first.partySize,
-      tableNames: group.map((r) => r.tableName.replace("Table ", "")),
+      tableNames: [...new Set(group.map((r) => r.tableName.replace("Table ", "")))],
       phoneNumber: first.phoneNumber,
       comments: first.comments || "",
       date: first.date,
