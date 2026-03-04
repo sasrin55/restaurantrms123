@@ -190,14 +190,16 @@ export default function NewCustomerPage() {
             <SelectItem value="PM">PM</SelectItem>
           </SelectContent>
         </Select>
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={() => { setUseCustomTime(false); setTime(""); setCustomHour(""); setCustomMinute("00"); setCustomAmPm("PM"); }}
-          className="text-xs text-muted-foreground hover:text-foreground whitespace-nowrap ml-1"
+          className="ml-1 flex-shrink-0"
           data-testid="button-preset-time"
         >
           Presets
-        </button>
+        </Button>
       </div>
     </div>
   ) : (
