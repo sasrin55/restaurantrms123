@@ -535,6 +535,17 @@ export interface SheetReservationUpdate {
   status: string;
 }
 
+export interface SheetNewReservation {
+  customerName: string;
+  phoneNumber: string;
+  date: string;
+  time: string;
+  partySize: number;
+  tableName: string;
+  tableId: number;
+  comments: string;
+}
+
 export async function appendReservationToSheet(reservation: ReservationData) {
   try {
     const sheets = await getUncachableGoogleSheetClient();
@@ -909,8 +920,9 @@ function reverseTableLookup(tableNum: string, isTeppanyaki: boolean): { tableId:
   return { tableId: id, tableName: `Table ${tableNum}` };
 }
 
-export async function syncFromSheet(): Promise<{ updated: number; errors: string[]; updates: SheetReservationUpdate[]; sheetDates: string[] }> {
+export async function syncFromSheet(): Promise<{ updated: number; errors: string[]; updates: SheetReservationUpdate[]; newReservations: SheetNewReservation[]; sheetDates: string[] }> {
   const updates: SheetReservationUpdate[] = [];
+  const newReservations: SheetNewReservation[] = [];
   const errors: string[] = [];
   const sheetDates: string[] = [];
 
@@ -968,12 +980,12 @@ export async function syncFromSheet(): Promise<{ updated: number; errors: string
 
         const regularEnd = tepRow !== -1 ? tepRow : nextSectionRow;
         for (let i = sectionRow + 2; i < regularEnd; i++) {
-          processSheetRow(rows[i], dateStr, section.timeKey, false, dateReservations, updates);
+          processSheetRow(rows[i], dateStr, section.timeKey, false, dateReservations, updates, newReservations);
         }
 
         if (tepRow !== -1) {
           for (let i = tepRow + 2; i < nextSectionRow; i++) {
-            processSheetRow(rows[i], dateStr, section.timeKey, true, dateReservations, updates);
+            processSheetRow(rows[i], dateStr, section.timeKey, true, dateReservations, updates, newReservations);
           }
         }
       }
@@ -983,7 +995,7 @@ export async function syncFromSheet(): Promise<{ updated: number; errors: string
     console.error('syncFromSheet error:', error);
   }
 
-  return { updated: updates.length, errors, updates, sheetDates };
+  return { updated: updates.length, errors, updates, newReservations, sheetDates };
 }
 
 function processSheetRow(
@@ -992,7 +1004,8 @@ function processSheetRow(
   timeKey: string,
   isTeppanyaki: boolean,
   dateReservations: any[],
-  updates: SheetReservationUpdate[]
+  updates: SheetReservationUpdate[],
+  newReservations: SheetNewReservation[]
 ) {
   if (!row) return;
   const name = String(row[1] || '').trim();
@@ -1045,6 +1058,17 @@ function processSheetRow(
         status: r.status,
       });
     }
+  } else if (matching.length === 0) {
+    newReservations.push({
+      customerName: name,
+      phoneNumber: phone,
+      date: dateStr,
+      time: timeKey,
+      partySize: pax || 1,
+      tableName: tableInfo.tableName,
+      tableId: tableInfo.tableId,
+      comments: comments,
+    });
   } else if (matching.length > 1) {
     const exact = matching.find(r =>
       r.customerName === name || r.phoneNumber === phone

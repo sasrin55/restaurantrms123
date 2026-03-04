@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertReservationSchema, insertOrderSchema, insertOrderItemSchema, insertMenuItemSchema, guests } from "@shared/schema";
 import { menuCategories } from "@shared/menuData";
-import { appendReservationToSheet, updateReservationInSheet, exportAllReservationsToSheet, syncFromSheet, type SheetReservationUpdate } from "./googleSheets";
+import { appendReservationToSheet, updateReservationInSheet, exportAllReservationsToSheet, syncFromSheet, type SheetReservationUpdate, type SheetNewReservation } from "./googleSheets";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -108,11 +108,13 @@ export async function registerRoutes(
     }
   });
 
-  async function applySyncFromSheets(): Promise<{ updated: number; deleted: number; errors: string[] }> {
+  async function applySyncFromSheets(): Promise<{ updated: number; created: number; deleted: number; errors: string[] }> {
     const result = await syncFromSheet();
     const sheetUpdates: SheetReservationUpdate[] = result.updates || [];
+    const sheetNewReservations: SheetNewReservation[] = result.newReservations || [];
     const sheetDates: string[] = result.sheetDates || [];
     let updatedCount = 0;
+    let createdCount = 0;
     let deletedCount = 0;
 
     const sheetIds = new Set(sheetUpdates.map(u => u.id));
@@ -146,6 +148,22 @@ export async function registerRoutes(
       }
     }
 
+    for (const nr of sheetNewReservations) {
+      const newRes = await storage.createReservation({
+        customerName: nr.customerName,
+        phoneNumber: nr.phoneNumber,
+        date: nr.date,
+        time: nr.time,
+        partySize: nr.partySize,
+        tableName: nr.tableName,
+        tableId: nr.tableId,
+        comments: nr.comments,
+        status: "confirmed",
+      });
+      sheetIds.add(newRes.id);
+      createdCount++;
+    }
+
     const sheetDateSet = new Set(sheetDates);
     const allReservations = await storage.getReservations();
     for (const r of allReservations) {
@@ -155,11 +173,11 @@ export async function registerRoutes(
       }
     }
 
-    if (updatedCount > 0 || deletedCount > 0) {
+    if (updatedCount > 0 || createdCount > 0 || deletedCount > 0) {
       await storage.rebuildGuestData();
     }
 
-    return { updated: updatedCount, deleted: deletedCount, errors: result.errors };
+    return { updated: updatedCount, created: createdCount, deleted: deletedCount, errors: result.errors };
   }
 
   app.post("/api/reservations/sync-from-sheets", async (_req, res) => {
@@ -175,8 +193,8 @@ export async function registerRoutes(
   setInterval(async () => {
     try {
       const result = await applySyncFromSheets();
-      if (result.updated > 0 || result.deleted > 0) {
-        console.log(`Auto-sync from Sheets: updated ${result.updated}, deleted ${result.deleted} reservation(s)`);
+      if (result.updated > 0 || result.created > 0 || result.deleted > 0) {
+        console.log(`Auto-sync from Sheets: updated ${result.updated}, created ${result.created}, deleted ${result.deleted} reservation(s)`);
       }
     } catch (err) {
       console.error("Auto-sync from Sheets error:", err);
