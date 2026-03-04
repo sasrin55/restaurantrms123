@@ -129,6 +129,7 @@ export default function ReservationsPage() {
   const [partySizeFilter, setPartySizeFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [editingReservation, setEditingReservation] = useState<Reservation | null>(null);
+  const [editingGroupReservations, setEditingGroupReservations] = useState<Reservation[]>([]);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [dateFilter, setDateFilter] = useState<DateFilter>("today");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -206,8 +207,9 @@ export default function ReservationsPage() {
     },
   });
 
-  const handleEdit = (reservation: Reservation) => {
+  const handleEdit = (reservation: Reservation, groupResv?: Reservation[]) => {
     setEditingReservation(reservation);
+    setEditingGroupReservations(groupResv || [reservation]);
     setEditDialogOpen(true);
   };
 
@@ -565,7 +567,7 @@ export default function ReservationsPage() {
                         phone={group.phoneNumber}
                         comments={group.comments}
                         orderConfirmed={isOrderConfirmedForGroup(group)}
-                        onEdit={() => handleEdit(group.reservations[0])}
+                        onEdit={() => handleEdit(group.reservations[0], group.reservations)}
                         onPrimaryAction={() => handleGroupPrimaryAction(group)}
                         onSecondaryAction={() => handleGroupSecondaryAction(group)}
                         onTertiaryAction={() => handleGroupTertiaryAction(group)}
@@ -617,7 +619,7 @@ export default function ReservationsPage() {
                             phone={group.phoneNumber}
                             comments={group.comments}
                             orderConfirmed={isOrderConfirmedForGroup(group)}
-                            onEdit={() => handleEdit(group.reservations[0])}
+                            onEdit={() => handleEdit(group.reservations[0], group.reservations)}
                             onPrimaryAction={() => handleGroupPrimaryAction(group)}
                             onSecondaryAction={() => handleGroupSecondaryAction(group)}
                             onTertiaryAction={() => handleGroupTertiaryAction(group)}
@@ -636,6 +638,7 @@ export default function ReservationsPage() {
 
       <EditReservationDialog
         reservation={editingReservation}
+        groupReservations={editingGroupReservations}
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
       />

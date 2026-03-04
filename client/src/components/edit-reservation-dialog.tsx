@@ -19,10 +19,11 @@ import {
 } from "@/components/ui/select";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Reservation } from "@shared/schema";
-import { restaurantTables } from "@/lib/tables";
+import { restaurantTables, tepanyakiSeats } from "@/lib/tables";
 
 interface EditReservationDialogProps {
   reservation: Reservation | null;
+  groupReservations?: Reservation[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -31,11 +32,13 @@ const availableTimes = [
   "12:00 PM", "12:30 PM", "1:00 PM", "1:30 PM", "2:00 PM", "2:30 PM",
   "3:00 PM", "3:30 PM", "4:00 PM", "4:30 PM", "5:00 PM", "5:30 PM",
   "6:00 PM", "6:30 PM", "7:00 PM", "7:30 PM", "8:00 PM", "8:30 PM",
-  "9:00 PM", "9:30 PM", "10:00 PM"
+  "9:00 PM", "9:30 PM", "10:00 PM", "10:30 PM", "11:00 PM", "11:30 PM",
+  "12:00 AM", "12:30 AM", "1:00 AM", "1:30 AM", "2:00 AM",
 ];
 
 export function EditReservationDialog({
   reservation,
+  groupReservations,
   open,
   onOpenChange,
 }: EditReservationDialogProps) {
@@ -43,7 +46,7 @@ export function EditReservationDialog({
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [partySize, setPartySize] = useState("4");
-  const [tableId, setTableId] = useState("");
+  const [selectedTableIds, setSelectedTableIds] = useState<number[]>([]);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [comments, setComments] = useState("");
 
@@ -53,26 +56,89 @@ export function EditReservationDialog({
       setDate(reservation.date);
       setTime(reservation.time);
       setPartySize(reservation.partySize.toString());
-      setTableId(reservation.tableId.toString());
       setPhoneNumber(reservation.phoneNumber);
       setComments(reservation.comments || "");
+
+      if (groupReservations && groupReservations.length > 0) {
+        setSelectedTableIds(groupReservations.map(r => r.tableId));
+      } else {
+        setSelectedTableIds([reservation.tableId]);
+      }
     }
-  }, [reservation]);
+  }, [reservation, groupReservations]);
+
+  const toggleTable = (tableId: number) => {
+    setSelectedTableIds(prev => {
+      if (prev.includes(tableId)) {
+        if (prev.length === 1) return prev;
+        return prev.filter(id => id !== tableId);
+      }
+      return [...prev, tableId];
+    });
+  };
 
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!reservation) return;
-      const selectedTable = restaurantTables.find(t => t.id.toString() === tableId);
-      return apiRequest("PATCH", `/api/reservations/${reservation.id}`, {
+
+      const existingIds = (groupReservations || [reservation]).map(r => r.id);
+      const existingTableIds = (groupReservations || [reservation]).map(r => r.tableId);
+
+      const tablesToKeep = selectedTableIds.filter(tid => existingTableIds.includes(tid));
+      const tablesToAdd = selectedTableIds.filter(tid => !existingTableIds.includes(tid));
+      const reservationsToDelete = (groupReservations || [reservation]).filter(
+        r => !selectedTableIds.includes(r.tableId)
+      );
+
+      const commonFields = {
         customerName: customerName.trim(),
         date,
         time,
         partySize: parseInt(partySize),
-        tableId: parseInt(tableId),
-        tableName: selectedTable ? `Table ${selectedTable.number}` : reservation.tableName,
         phoneNumber,
         comments: comments.trim(),
-      });
+      };
+
+      const promises: Promise<any>[] = [];
+
+      for (const r of (groupReservations || [reservation])) {
+        if (tablesToKeep.includes(r.tableId)) {
+          const table = restaurantTables.find(t => t.id === r.tableId) ||
+                        tepanyakiSeats.find(t => t.id === r.tableId);
+          const tableName = table
+            ? (r.tableId >= 1001 ? `Tepanyaki Seat ${table.number}` : `Table ${table.number}`)
+            : r.tableName;
+          promises.push(
+            apiRequest("PATCH", `/api/reservations/${r.id}`, {
+              ...commonFields,
+              tableId: r.tableId,
+              tableName,
+            })
+          );
+        }
+      }
+
+      for (const tid of tablesToAdd) {
+        const table = restaurantTables.find(t => t.id === tid) ||
+                      tepanyakiSeats.find(t => t.id === tid);
+        const tableName = table
+          ? (tid >= 1001 ? `Tepanyaki Seat ${table.number}` : `Table ${table.number}`)
+          : `Table ${tid}`;
+        promises.push(
+          apiRequest("POST", "/api/reservations", {
+            ...commonFields,
+            tableId: tid,
+            tableName,
+            status: reservation.status,
+          })
+        );
+      }
+
+      for (const r of reservationsToDelete) {
+        promises.push(apiRequest("DELETE", `/api/reservations/${r.id}`));
+      }
+
+      return Promise.all(promises);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
@@ -86,11 +152,11 @@ export function EditReservationDialog({
 
   if (!reservation) return null;
 
-  const parsedSize = parseInt(partySize);
+  const selectedSet = new Set(selectedTableIds);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]" data-testid="dialog-edit-reservation">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto" data-testid="dialog-edit-reservation">
         <DialogHeader>
           <DialogTitle>Edit Reservation</DialogTitle>
         </DialogHeader>
@@ -132,7 +198,7 @@ export function EditReservationDialog({
           </div>
           <div className="grid gap-2">
             <Label htmlFor="party-size">Party Size</Label>
-            <Select value={partySize} onValueChange={(val) => { setPartySize(val); setTableId(""); }}>
+            <Select value={partySize} onValueChange={setPartySize}>
               <SelectTrigger data-testid="select-edit-party-size">
                 <SelectValue placeholder="Select party size" />
               </SelectTrigger>
@@ -146,23 +212,55 @@ export function EditReservationDialog({
             </Select>
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="table">Table</Label>
-            <Select value={tableId} onValueChange={setTableId}>
-              <SelectTrigger data-testid="select-edit-table">
-                <SelectValue placeholder="Select table" />
-              </SelectTrigger>
-              <SelectContent>
-                {restaurantTables
-                  .filter(t => parsedSize >= t.minCapacity && parsedSize <= t.maxCapacity)
-                  .map((table) => (
-                  <SelectItem key={table.id} value={table.id.toString()}>
-                    Table {table.number} ({table.minCapacity === table.maxCapacity
-                      ? `${table.minCapacity} seats`
-                      : `${table.minCapacity}-${table.maxCapacity} seats`})
-                  </SelectItem>
+            <Label>Tables</Label>
+            <div className="grid grid-cols-6 gap-1.5">
+              {restaurantTables.map((table) => (
+                <button
+                  key={table.id}
+                  type="button"
+                  onClick={() => toggleTable(table.id)}
+                  className={`h-10 rounded-md border text-sm font-medium transition-colors ${
+                    selectedSet.has(table.id)
+                      ? "bg-[#0D7377] text-white border-[#0D7377]"
+                      : "bg-background text-foreground border-border hover:bg-muted"
+                  }`}
+                  data-testid={`button-edit-table-${table.id}`}
+                >
+                  {table.number}
+                </button>
+              ))}
+            </div>
+            <div className="mt-1">
+              <Label className="text-xs text-muted-foreground">Tepanyaki</Label>
+              <div className="grid grid-cols-8 gap-1.5 mt-1">
+                {tepanyakiSeats.map((seat) => (
+                  <button
+                    key={seat.id}
+                    type="button"
+                    onClick={() => toggleTable(seat.id)}
+                    className={`h-10 rounded-md border text-sm font-medium transition-colors ${
+                      selectedSet.has(seat.id)
+                        ? "bg-[#0D7377] text-white border-[#0D7377]"
+                        : "bg-background text-foreground border-border hover:bg-muted"
+                    }`}
+                    data-testid={`button-edit-tep-${seat.id}`}
+                  >
+                    T{seat.number}
+                  </button>
                 ))}
-              </SelectContent>
-            </Select>
+              </div>
+            </div>
+            {selectedTableIds.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-1" data-testid="text-selected-tables">
+                Selected: {selectedTableIds.map(tid => {
+                  const t = restaurantTables.find(t => t.id === tid);
+                  if (t) return `Table ${t.number}`;
+                  const s = tepanyakiSeats.find(s => s.id === tid);
+                  if (s) return `Tep ${s.number}`;
+                  return `#${tid}`;
+                }).join(", ")}
+              </p>
+            )}
           </div>
           <div className="grid gap-2">
             <Label htmlFor="phone">Phone Number</Label>
@@ -192,7 +290,7 @@ export function EditReservationDialog({
           </Button>
           <Button
             onClick={handleSave}
-            disabled={updateMutation.isPending || !tableId}
+            disabled={updateMutation.isPending || selectedTableIds.length === 0}
             className="bg-[#0D7377] text-white"
             data-testid="button-save-edit"
           >
