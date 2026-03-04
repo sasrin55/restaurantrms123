@@ -63,15 +63,17 @@ export async function registerRoutes(
   });
 
   app.patch("/api/reservations/:id", async (req, res) => {
-    const { time, partySize, tableId, tableName, phoneNumber, comments } = req.body;
-    const reservation = await storage.updateReservation(req.params.id, {
-      time,
-      partySize,
-      tableId,
-      tableName,
-      phoneNumber,
-      comments,
-    });
+    const { date, time, partySize, tableId, tableName, phoneNumber, comments, customerName } = req.body;
+    const updates: any = {};
+    if (date !== undefined) updates.date = date;
+    if (time !== undefined) updates.time = time;
+    if (partySize !== undefined) updates.partySize = partySize;
+    if (tableId !== undefined) updates.tableId = tableId;
+    if (tableName !== undefined) updates.tableName = tableName;
+    if (phoneNumber !== undefined) updates.phoneNumber = phoneNumber;
+    if (comments !== undefined) updates.comments = comments;
+    if (customerName !== undefined) updates.customerName = customerName;
+    const reservation = await storage.updateReservation(req.params.id, updates);
     if (!reservation) {
       return res.status(404).json({ error: "Reservation not found" });
     }

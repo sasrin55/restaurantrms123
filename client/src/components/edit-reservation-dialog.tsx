@@ -39,6 +39,7 @@ export function EditReservationDialog({
   open,
   onOpenChange,
 }: EditReservationDialogProps) {
+  const [customerName, setCustomerName] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [partySize, setPartySize] = useState("4");
@@ -48,6 +49,7 @@ export function EditReservationDialog({
 
   useEffect(() => {
     if (reservation) {
+      setCustomerName(reservation.customerName);
       setDate(reservation.date);
       setTime(reservation.time);
       setPartySize(reservation.partySize.toString());
@@ -62,6 +64,7 @@ export function EditReservationDialog({
       if (!reservation) return;
       const selectedTable = restaurantTables.find(t => t.id.toString() === tableId);
       return apiRequest("PATCH", `/api/reservations/${reservation.id}`, {
+        customerName: customerName.trim(),
         date,
         time,
         partySize: parseInt(partySize),
@@ -96,9 +99,9 @@ export function EditReservationDialog({
             <Label htmlFor="guest-name">Guest Name</Label>
             <Input
               id="guest-name"
-              value={reservation.customerName}
-              disabled
-              className="bg-muted"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              data-testid="input-edit-guest-name"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
