@@ -22,7 +22,7 @@ const WEEKEND_SLOTS: TimeSlot[] = [
 ];
 
 const RAMADAN_SLOTS: TimeSlot[] = [
-  { label: "5:00 PM", period: "iftar" },
+  { label: "5:30 PM", period: "iftar" },
   { label: "8:00 PM", period: "dinner" },
   { label: "10:00 PM", period: "dinner" },
   { label: "12:00 AM", period: "sehri" },
