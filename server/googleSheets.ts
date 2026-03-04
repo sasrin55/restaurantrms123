@@ -108,7 +108,7 @@ interface TimeSlotSection {
 function getSectionsForDate(dateStr: string): TimeSlotSection[] {
   if (isRamadanDate(dateStr)) {
     return [
-      { label: "Iftar — 5:30 PM", timeKey: "5:30 PM" },
+      { label: "Iftar — 5:00 PM", timeKey: "5:00 PM" },
       { label: "Dinner — 8:00 PM", timeKey: "8:00 PM" },
       { label: "Dinner — 10:00 PM", timeKey: "10:00 PM" },
       { label: "Sehri — 12:00 AM", timeKey: "12:00 AM" },
