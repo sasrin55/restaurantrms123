@@ -40,15 +40,46 @@ interface GroupedReservation {
   date: string;
 }
 
+function parseTimeTo24(time: string): number {
+  const match = time.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+  if (!match) return 12;
+  let hour = parseInt(match[1]);
+  const minute = parseInt(match[2] || "0");
+  const ampm = (match[3] || "").toUpperCase();
+  if (ampm === "PM" && hour !== 12) hour += 12;
+  if (ampm === "AM" && hour === 12) hour = 0;
+  return hour + minute / 60;
+}
+
+function isRamadanDate(date: Date): boolean {
+  const year = date.getFullYear();
+  const start = new Date(year, 1, 18);
+  const end = new Date(year, 2, 20);
+  start.setHours(0, 0, 0, 0);
+  end.setHours(23, 59, 59, 999);
+  const check = new Date(date);
+  check.setHours(0, 0, 0, 0);
+  return check >= start && check <= end;
+}
+
 function getTimePeriod(time: string, date: Date): MealPeriod {
   const slots = getTimeSlotsForDate(date);
   const slot = slots.find(s => s.label === time);
   if (slot) return slot.period;
-  const hour = parseInt(time.match(/(\d+):/)?.[1] || "12");
-  const isPM = time.toLowerCase().includes("pm");
-  const h24 = isPM && hour !== 12 ? hour + 12 : (!isPM && hour === 12 ? 0 : hour);
-  if (h24 < 14) return "breakfast";
-  if (h24 < 19) return "lunch";
+  const h24 = parseTimeTo24(time);
+  if (isRamadanDate(date)) {
+    if (h24 >= 17 && h24 < 20) return "iftar";
+    if (h24 >= 20 || (h24 >= 0 && h24 < 4)) return "dinner";
+    if (h24 < 6) return "sehri";
+    return "dinner";
+  }
+  const day = date.getDay();
+  if (day === 0 || day === 6) {
+    if (h24 < 14) return "breakfast";
+    if (h24 < 17) return "lunch";
+    return "dinner";
+  }
+  if (h24 < 17) return "lunch";
   return "dinner";
 }
 
@@ -291,7 +322,9 @@ export default function ReservationsPage() {
     return matchesSearch && matchesStatus && matchesPartySize && matchesDate;
   });
 
-  const groupedReservations = groupReservations(filteredReservations);
+  const groupedReservations = groupReservations(filteredReservations).sort((a, b) => {
+    return parseTimeTo24(a.time) - parseTimeTo24(b.time);
+  });
 
   return (
     <div className="flex-1 overflow-auto">

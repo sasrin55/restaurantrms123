@@ -40,6 +40,7 @@ export default function NewCustomerPage() {
     return today;
   });
   const [time, setTime] = useState("");
+  const [useCustomTime, setUseCustomTime] = useState(false);
   const [partySize, setPartySize] = useState("2");
   const [selectedTables, setSelectedTables] = useState<{ id: number; number: string }[]>([]);
   const [selectionMode, setSelectionMode] = useState<"tables" | "tepanyaki">("tables");
@@ -112,13 +113,32 @@ export default function NewCustomerPage() {
   };
 
   const handleTimeChange = (val: string) => {
+    if (val === "__custom__") {
+      setUseCustomTime(true);
+      setTime("");
+      clearSelections();
+      return;
+    }
+    setUseCustomTime(false);
     setTime(val);
+    clearSelections();
+  };
+
+  const handleCustomTimeInput = (val: string) => {
+    if (!val) { setTime(""); return; }
+    const [h, m] = val.split(":");
+    const hour = parseInt(h);
+    const minute = m || "00";
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    setTime(`${h12}:${minute} ${ampm}`);
     clearSelections();
   };
 
   const handleDateChange = (d: Date | undefined) => {
     setDate(d);
     setTime("");
+    setUseCustomTime(false);
     clearSelections();
   };
 
@@ -138,6 +158,57 @@ export default function NewCustomerPage() {
     return acc;
   }, {} as Record<MealPeriod, typeof timeSlots>);
   const periodOrder: MealPeriod[] = ["breakfast", "lunch", "iftar", "dinner", "sehri"];
+
+  const timeSelector = useCustomTime ? (
+    <div className="flex items-center gap-2">
+      <Input
+        type="time"
+        onChange={(e) => handleCustomTimeInput(e.target.value)}
+        className="w-full"
+        data-testid="input-custom-time"
+        autoFocus
+      />
+      <button
+        type="button"
+        onClick={() => { setUseCustomTime(false); setTime(""); }}
+        className="text-xs text-muted-foreground hover:text-foreground whitespace-nowrap"
+        data-testid="button-preset-time"
+      >
+        Presets
+      </button>
+      <Clock className="h-5 w-5 text-muted-foreground shrink-0" />
+    </div>
+  ) : (
+    <div className="flex items-center gap-2">
+      <Select value={time} onValueChange={handleTimeChange}>
+        <SelectTrigger className="w-full" data-testid="select-time">
+          <SelectValue placeholder="Select time slot" />
+        </SelectTrigger>
+        <SelectContent>
+          {timeSlots.length === 0 ? (
+            <div className="px-2 py-1.5 text-sm text-muted-foreground">Closed on Mondays</div>
+          ) : (
+            <>
+              {periodOrder.filter(p => groupedSlots[p]).map((period) => (
+                <div key={period}>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{getPeriodLabel(period)}</div>
+                  {groupedSlots[period].map((slot) => (
+                    <SelectItem key={slot.label} value={slot.label}>
+                      {slot.label}
+                    </SelectItem>
+                  ))}
+                </div>
+              ))}
+              <div className="border-t mt-1 pt-1">
+                <SelectItem value="__custom__">Custom Time...</SelectItem>
+              </div>
+            </>
+          )}
+        </SelectContent>
+      </Select>
+      <Clock className="h-5 w-5 text-muted-foreground shrink-0" />
+    </div>
+  );
 
   const toggleTable = (table: { id: number; number: string }) => {
     if (bookedTableIds.includes(table.id)) return;
@@ -369,30 +440,7 @@ export default function NewCustomerPage() {
 
               <div className="space-y-2">
                 <Label className="text-muted-foreground text-sm">Time</Label>
-                <div className="flex items-center gap-2">
-                  <Select value={time} onValueChange={handleTimeChange}>
-                    <SelectTrigger className="w-full" data-testid="select-time">
-                      <SelectValue placeholder="Select time slot" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {timeSlots.length === 0 ? (
-                        <div className="px-2 py-1.5 text-sm text-muted-foreground">Closed on Mondays</div>
-                      ) : (
-                        periodOrder.filter(p => groupedSlots[p]).map((period) => (
-                          <div key={period}>
-                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{getPeriodLabel(period)}</div>
-                            {groupedSlots[period].map((slot) => (
-                              <SelectItem key={slot.label} value={slot.label}>
-                                {slot.label}
-                              </SelectItem>
-                            ))}
-                          </div>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <Clock className="h-5 w-5 text-muted-foreground shrink-0" />
-                </div>
+                {timeSelector}
               </div>
 
               <div className="space-y-2">
@@ -415,30 +463,7 @@ export default function NewCustomerPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
               <div className="space-y-2">
                 <Label className="text-muted-foreground text-sm">Time</Label>
-                <div className="flex items-center gap-2">
-                  <Select value={time} onValueChange={handleTimeChange}>
-                    <SelectTrigger className="w-full" data-testid="select-time">
-                      <SelectValue placeholder="Select time slot" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {timeSlots.length === 0 ? (
-                        <div className="px-2 py-1.5 text-sm text-muted-foreground">Closed on Mondays</div>
-                      ) : (
-                        periodOrder.filter(p => groupedSlots[p]).map((period) => (
-                          <div key={period}>
-                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{getPeriodLabel(period)}</div>
-                            {groupedSlots[period].map((slot) => (
-                              <SelectItem key={slot.label} value={slot.label}>
-                                {slot.label}
-                              </SelectItem>
-                            ))}
-                          </div>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <Clock className="h-5 w-5 text-muted-foreground shrink-0" />
-                </div>
+                {timeSelector}
               </div>
 
               <div className="space-y-2">
