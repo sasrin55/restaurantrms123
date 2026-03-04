@@ -41,6 +41,9 @@ export default function NewCustomerPage() {
   });
   const [time, setTime] = useState("");
   const [useCustomTime, setUseCustomTime] = useState(false);
+  const [customHour, setCustomHour] = useState("");
+  const [customMinute, setCustomMinute] = useState("00");
+  const [customAmPm, setCustomAmPm] = useState("PM");
   const [partySize, setPartySize] = useState("2");
   const [selectedTables, setSelectedTables] = useState<{ id: number; number: string }[]>([]);
   const [selectionMode, setSelectionMode] = useState<"tables" | "tepanyaki">("tables");
@@ -124,14 +127,9 @@ export default function NewCustomerPage() {
     clearSelections();
   };
 
-  const handleCustomTimeInput = (val: string) => {
-    if (!val) { setTime(""); return; }
-    const [h, m] = val.split(":");
-    const hour = parseInt(h);
-    const minute = m || "00";
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    setTime(`${h12}:${minute} ${ampm}`);
+  const updateCustomTime = (hour: string, minute: string, ampm: string) => {
+    if (!hour) { setTime(""); return; }
+    setTime(`${hour}:${minute} ${ampm}`);
     clearSelections();
   };
 
@@ -160,23 +158,47 @@ export default function NewCustomerPage() {
   const periodOrder: MealPeriod[] = ["breakfast", "lunch", "iftar", "dinner", "sehri"];
 
   const timeSelector = useCustomTime ? (
-    <div className="flex items-center gap-2">
-      <Input
-        type="time"
-        onChange={(e) => handleCustomTimeInput(e.target.value)}
-        className="w-full"
-        data-testid="input-custom-time"
-        autoFocus
-      />
-      <button
-        type="button"
-        onClick={() => { setUseCustomTime(false); setTime(""); }}
-        className="text-xs text-muted-foreground hover:text-foreground whitespace-nowrap"
-        data-testid="button-preset-time"
-      >
-        Presets
-      </button>
-      <Clock className="h-5 w-5 text-muted-foreground shrink-0" />
+    <div className="space-y-2">
+      <div className="flex items-center gap-1.5">
+        <Select value={customHour} onValueChange={(v) => { setCustomHour(v); updateCustomTime(v, customMinute, customAmPm); }}>
+          <SelectTrigger className="w-[70px]" data-testid="select-custom-hour">
+            <SelectValue placeholder="Hr" />
+          </SelectTrigger>
+          <SelectContent>
+            {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
+              <SelectItem key={h} value={h.toString()}>{h}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span className="text-muted-foreground font-bold">:</span>
+        <Select value={customMinute} onValueChange={(v) => { setCustomMinute(v); updateCustomTime(customHour, v, customAmPm); }}>
+          <SelectTrigger className="w-[70px]" data-testid="select-custom-minute">
+            <SelectValue placeholder="Min" />
+          </SelectTrigger>
+          <SelectContent>
+            {["00", "15", "30", "45"].map((m) => (
+              <SelectItem key={m} value={m}>{m}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={customAmPm} onValueChange={(v) => { setCustomAmPm(v); updateCustomTime(customHour, customMinute, v); }}>
+          <SelectTrigger className="w-[70px]" data-testid="select-custom-ampm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="AM">AM</SelectItem>
+            <SelectItem value="PM">PM</SelectItem>
+          </SelectContent>
+        </Select>
+        <button
+          type="button"
+          onClick={() => { setUseCustomTime(false); setTime(""); setCustomHour(""); setCustomMinute("00"); setCustomAmPm("PM"); }}
+          className="text-xs text-muted-foreground hover:text-foreground whitespace-nowrap ml-1"
+          data-testid="button-preset-time"
+        >
+          Presets
+        </button>
+      </div>
     </div>
   ) : (
     <div className="flex items-center gap-2">
