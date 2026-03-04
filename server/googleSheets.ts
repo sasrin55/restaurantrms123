@@ -546,7 +546,21 @@ export interface SheetNewReservation {
   comments: string;
 }
 
+const sheetWriteQueues = new Map<string, Promise<void>>();
+
+function queueSheetWrite(key: string, fn: () => Promise<void>): Promise<void> {
+  const prev = sheetWriteQueues.get(key) || Promise.resolve();
+  const next = prev.then(fn, fn);
+  sheetWriteQueues.set(key, next);
+  return next;
+}
+
 export async function appendReservationToSheet(reservation: ReservationData) {
+  const queueKey = `${reservation.date}|${reservation.time}|${reservation.customerName}|${reservation.phoneNumber}`;
+  return queueSheetWrite(queueKey, () => appendReservationToSheetInner(reservation));
+}
+
+async function appendReservationToSheetInner(reservation: ReservationData) {
   try {
     const sheets = await getUncachableGoogleSheetClient();
     const tabName = await ensureAndGetTab(sheets, reservation.date);
@@ -569,7 +583,11 @@ export async function appendReservationToSheet(reservation: ReservationData) {
 
     if (existingRow !== -1) {
       const currentTable = String(rows[existingRow]?.[4] || '').trim();
-      const newTableVal = currentTable ? `${currentTable}, ${tableNum}` : tableNum;
+      const existingNums = currentTable ? currentTable.split(',').map((s: string) => s.trim()) : [];
+      if (!existingNums.includes(tableNum)) {
+        existingNums.push(tableNum);
+      }
+      const newTableVal = existingNums.join(', ');
       const sheetRow = existingRow + 1;
       await sheets.spreadsheets.values.update({
         spreadsheetId: SPREADSHEET_ID,
@@ -710,6 +728,36 @@ async function clearReservationFromSheet(reservation: ReservationData) {
     if (!sectionLabel) return;
 
     const { number: tableNum, isTeppanyaki } = parseTableInfo(reservation.tableName);
+
+    const existingRow = findExistingGuestRow(rows, sectionLabel, reservation.customerName, reservation.phoneNumber);
+    if (existingRow !== -1) {
+      const currentTable = String(rows[existingRow]?.[4] || '').trim();
+      const tableNums = currentTable.split(',').map((s: string) => s.trim()).filter((s: string) => s !== tableNum);
+      if (tableNums.length > 0) {
+        const sheetRow = existingRow + 1;
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `'${tabName}'!E${sheetRow}`,
+          valueInputOption: 'RAW',
+          requestBody: { values: [[tableNums.join(', ')]] },
+        });
+        return;
+      } else {
+        const sheetRow = existingRow + 1;
+        const existingSeating = rows[existingRow]?.[5] || '';
+        const rowNum = rows[existingRow]?.[0] || '';
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `'${tabName}'!A${sheetRow}:H${sheetRow}`,
+          valueInputOption: 'RAW',
+          requestBody: {
+            values: [[rowNum, '', '', '', '', existingSeating, '', '']],
+          },
+        });
+        return;
+      }
+    }
+
     const rowIndex = findTableRow(rows, sectionLabel, tableNum, isTeppanyaki);
     if (rowIndex === -1) return;
 
@@ -841,6 +889,8 @@ export async function exportAllReservationsToSheet(reservations: ReservationData
     });
     const rows = dataResult.data.values || [];
 
+    const batchData: { range: string; values: any[][] }[] = [];
+
     for (const group of grouped) {
       const sectionLabel = getSectionLabelForTime(group.time, dateStr);
       if (!sectionLabel) continue;
@@ -863,20 +913,26 @@ export async function exportAllReservationsToSheet(reservations: ReservationData
         group.comments,
       ];
 
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: SPREADSHEET_ID,
+      batchData.push({
         range: `'${tabName}'!B${sheetRow}:H${sheetRow}`,
-        valueInputOption: 'RAW',
+        values: [[
+          group.customerName,
+          group.partySize,
+          group.time,
+          tableDisplay,
+          existingSeating,
+          group.phoneNumber,
+          group.comments,
+        ]],
+      });
+    }
+
+    if (batchData.length > 0) {
+      await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: SPREADSHEET_ID,
         requestBody: {
-          values: [[
-            group.customerName,
-            group.partySize,
-            group.time,
-            tableDisplay,
-            existingSeating,
-            group.phoneNumber,
-            group.comments,
-          ]],
+          valueInputOption: 'RAW',
+          data: batchData,
         },
       });
     }
