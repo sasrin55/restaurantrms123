@@ -609,8 +609,76 @@ export async function updateReservationInSheet(reservation: ReservationData) {
       return;
     }
     await appendReservationToSheet(reservation);
+    if (reservation.status === 'seated') {
+      await highlightReservationRow(reservation, { red: 0.71, green: 0.88, blue: 0.70 });
+    } else if (reservation.status === 'complete') {
+      await highlightReservationRow(reservation, { red: 0.85, green: 0.85, blue: 0.85 });
+    }
   } catch (error) {
     console.error('Failed to update reservation in Google Sheet:', error);
+  }
+}
+
+async function highlightReservationRow(reservation: ReservationData, color: { red: number; green: number; blue: number }) {
+  try {
+    const sheets = await getUncachableGoogleSheetClient();
+    const tabName = formatDateForTab(reservation.date);
+    const existingTabs = await getExistingTabs(sheets);
+    if (!existingTabs.includes(tabName)) return;
+
+    const spreadsheet = await sheets.spreadsheets.get({
+      spreadsheetId: SPREADSHEET_ID,
+      fields: 'sheets.properties',
+    });
+    const sheetInfo = (spreadsheet.data.sheets || []).find(
+      (s: any) => s.properties?.title === tabName
+    );
+    if (!sheetInfo) return;
+    const sheetId = sheetInfo.properties.sheetId;
+
+    const result = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'${tabName}'!A:H`,
+    });
+    const rows = result.data.values || [];
+
+    const sectionLabel = getSectionLabelForTime(reservation.time, reservation.date);
+    if (!sectionLabel) return;
+
+    const { number: tableNum, isTeppanyaki } = parseTableInfo(reservation.tableName);
+
+    let rowIndex = findExistingGuestRow(rows, sectionLabel, reservation.customerName, reservation.phoneNumber);
+    if (rowIndex === -1) {
+      rowIndex = findTableRow(rows, sectionLabel, tableNum, isTeppanyaki);
+    }
+    if (rowIndex === -1) return;
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [{
+          repeatCell: {
+            range: {
+              sheetId,
+              startRowIndex: rowIndex,
+              endRowIndex: rowIndex + 1,
+              startColumnIndex: 0,
+              endColumnIndex: COL_COUNT,
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: color,
+              },
+            },
+            fields: 'userEnteredFormat.backgroundColor',
+          },
+        }],
+      },
+    });
+
+    console.log(`Highlighted row ${rowIndex + 1} in ${tabName} for ${reservation.customerName} (${reservation.status})`);
+  } catch (error) {
+    console.error('Failed to highlight reservation in Google Sheet:', error);
   }
 }
 
