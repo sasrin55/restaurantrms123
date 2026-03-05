@@ -164,16 +164,7 @@ export async function registerRoutes(
       createdCount++;
     }
 
-    const sheetDateSet = new Set(sheetDates);
-    const allReservations = await storage.getReservations();
-    for (const r of allReservations) {
-      if (sheetDateSet.has(r.date) && !sheetIds.has(r.id)) {
-        await storage.deleteReservation(r.id);
-        deletedCount++;
-      }
-    }
-
-    if (updatedCount > 0 || createdCount > 0 || deletedCount > 0) {
+    if (updatedCount > 0 || createdCount > 0) {
       await storage.rebuildGuestData();
     }
 

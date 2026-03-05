@@ -96,7 +96,7 @@ function groupReservations(reservations: Reservation[]): GroupedReservation[] {
   const groups = new Map<string, Reservation[]>();
 
   for (const r of reservations) {
-    const key = `${r.customerName}|${r.date}|${r.time}|${r.partySize}|${r.phoneNumber}`;
+    const key = `${r.customerName}|${r.date}|${r.time}|${r.phoneNumber}`;
     const existing = groups.get(key);
     if (existing) {
       existing.push(r);
