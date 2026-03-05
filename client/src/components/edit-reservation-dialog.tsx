@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -50,6 +50,11 @@ export function EditReservationDialog({
   const [phoneNumber, setPhoneNumber] = useState("");
   const [comments, setComments] = useState("");
 
+  const { data: allReservations = [] } = useQuery<Reservation[]>({
+    queryKey: ["/api/reservations"],
+    enabled: open,
+  });
+
   useEffect(() => {
     if (reservation) {
       setCustomerName(reservation.customerName);
@@ -67,7 +72,22 @@ export function EditReservationDialog({
     }
   }, [reservation, groupReservations]);
 
+  const ownIds = new Set((groupReservations || (reservation ? [reservation] : [])).map(r => r.id));
+  const occupiedTableIds = new Set(
+    allReservations
+      .filter(r =>
+        r.date === date &&
+        r.time === time &&
+        r.status !== "cancelled" &&
+        r.status !== "no-show" &&
+        r.status !== "complete" &&
+        !ownIds.has(r.id)
+      )
+      .map(r => r.tableId)
+  );
+
   const toggleTable = (tableId: number) => {
+    if (occupiedTableIds.has(tableId)) return;
     setSelectedTableIds(prev => {
       if (prev.includes(tableId)) {
         if (prev.length === 1) return prev;
@@ -214,40 +234,54 @@ export function EditReservationDialog({
           <div className="grid gap-2">
             <Label>Tables</Label>
             <div className="grid grid-cols-6 gap-1.5">
-              {restaurantTables.map((table) => (
-                <button
-                  key={table.id}
-                  type="button"
-                  onClick={() => toggleTable(table.id)}
-                  className={`h-10 rounded-md border text-sm font-medium transition-colors ${
-                    selectedSet.has(table.id)
-                      ? "bg-[#0D7377] text-white border-[#0D7377]"
-                      : "bg-background text-foreground border-border hover:bg-muted"
-                  }`}
-                  data-testid={`button-edit-table-${table.id}`}
-                >
-                  {table.number}
-                </button>
-              ))}
+              {restaurantTables.map((table) => {
+                const isOccupied = occupiedTableIds.has(table.id);
+                const isSelected = selectedSet.has(table.id);
+                return (
+                  <button
+                    key={table.id}
+                    type="button"
+                    onClick={() => toggleTable(table.id)}
+                    disabled={isOccupied}
+                    className={`h-10 rounded-md border text-sm font-medium transition-colors ${
+                      isSelected
+                        ? "bg-[#0D7377] text-white border-[#0D7377]"
+                        : isOccupied
+                          ? "bg-muted text-muted-foreground/40 border-border cursor-not-allowed line-through"
+                          : "bg-background text-foreground border-border hover:bg-muted"
+                    }`}
+                    data-testid={`button-edit-table-${table.id}`}
+                  >
+                    {table.number}
+                  </button>
+                );
+              })}
             </div>
             <div className="mt-1">
               <Label className="text-xs text-muted-foreground">Tepanyaki</Label>
               <div className="grid grid-cols-8 gap-1.5 mt-1">
-                {tepanyakiSeats.map((seat) => (
-                  <button
-                    key={seat.id}
-                    type="button"
-                    onClick={() => toggleTable(seat.id)}
-                    className={`h-10 rounded-md border text-sm font-medium transition-colors ${
-                      selectedSet.has(seat.id)
-                        ? "bg-[#0D7377] text-white border-[#0D7377]"
-                        : "bg-background text-foreground border-border hover:bg-muted"
-                    }`}
-                    data-testid={`button-edit-tep-${seat.id}`}
-                  >
-                    T{seat.number}
-                  </button>
-                ))}
+                {tepanyakiSeats.map((seat) => {
+                  const isOccupied = occupiedTableIds.has(seat.id);
+                  const isSelected = selectedSet.has(seat.id);
+                  return (
+                    <button
+                      key={seat.id}
+                      type="button"
+                      onClick={() => toggleTable(seat.id)}
+                      disabled={isOccupied}
+                      className={`h-10 rounded-md border text-sm font-medium transition-colors ${
+                        isSelected
+                          ? "bg-[#0D7377] text-white border-[#0D7377]"
+                          : isOccupied
+                            ? "bg-muted text-muted-foreground/40 border-border cursor-not-allowed line-through"
+                            : "bg-background text-foreground border-border hover:bg-muted"
+                      }`}
+                      data-testid={`button-edit-tep-${seat.id}`}
+                    >
+                      T{seat.number}
+                    </button>
+                  );
+                })}
               </div>
             </div>
             {selectedTableIds.length > 0 && (

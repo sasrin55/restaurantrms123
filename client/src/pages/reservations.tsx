@@ -557,7 +557,7 @@ export default function ReservationsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     {periodGroups.map((group) => (
                       <ReservationCard
-                        key={group.ids.join("-")}
+                        key={group.ids[0]}
                         id={group.ids[0]}
                         guestName={group.customerName}
                         status={group.status as ReservationStatus}
@@ -609,7 +609,7 @@ export default function ReservationsPage() {
                       <tbody>
                         {periodGroups.map((group) => (
                           <ReservationRow
-                            key={group.ids.join("-")}
+                            key={group.ids[0]}
                             id={group.ids[0]}
                             guestName={group.customerName}
                             status={group.status as ReservationStatus}
