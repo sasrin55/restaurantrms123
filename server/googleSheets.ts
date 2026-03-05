@@ -969,7 +969,7 @@ function reverseTableLookup(tableNum: string, isTeppanyaki: boolean): { tableId:
   const tableMap: Record<string, number> = {
     '1': 1, '2': 2, '25': 25, '3': 3, '4': 4, '5': 5, '20': 20,
     '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, '11': 11,
-    '12': 12, '13': 13, '14': 14, '15': 15, '15a': 16,
+    '12': 12, '13': 13, '14': 14, '15': 15, '15a': 150,
   };
   const id = tableMap[tableNum];
   if (!id) return null;
@@ -1066,96 +1066,100 @@ function processSheetRow(
   if (!row) return;
   const name = String(row[1] || '').trim();
   const pax = parseInt(String(row[2] || '0'));
-  const tableNum = String(row[4] || '').trim();
+  const tableNumRaw = String(row[4] || '').trim();
   const phone = String(row[6] || '').trim();
   const comments = String(row[7] || '').trim();
 
-  if (!name || !tableNum) return;
+  if (!name || !tableNumRaw) return;
 
-  const tableInfo = reverseTableLookup(tableNum, isTeppanyaki);
-  if (!tableInfo) return;
+  const tableNums = tableNumRaw.split(',').map((s: string) => s.trim()).filter(Boolean);
 
-  const matching = dateReservations.filter(r =>
-    r.tableId === tableInfo.tableId && r.time === timeKey
-  );
+  for (const tableNum of tableNums) {
+    const tableInfo = reverseTableLookup(tableNum, isTeppanyaki);
+    if (!tableInfo) continue;
 
-  if (matching.length === 1) {
-    const r = matching[0];
-    const hasChanges =
-      r.customerName !== name ||
-      r.phoneNumber !== phone ||
-      r.partySize !== pax ||
-      (r.comments || '') !== comments;
-
-    if (hasChanges) {
-      updates.push({
-        id: r.id,
-        customerName: name,
-        phoneNumber: phone || r.phoneNumber,
-        date: dateStr,
-        time: timeKey,
-        partySize: pax || r.partySize,
-        tableName: tableInfo.tableName,
-        tableId: tableInfo.tableId,
-        comments: comments,
-        status: r.status,
-      });
-    } else {
-      updates.push({
-        id: r.id,
-        customerName: r.customerName,
-        phoneNumber: r.phoneNumber,
-        date: r.date,
-        time: r.time,
-        partySize: r.partySize,
-        tableName: r.tableName,
-        tableId: r.tableId,
-        comments: r.comments || '',
-        status: r.status,
-      });
-    }
-  } else if (matching.length === 0) {
-    newReservations.push({
-      customerName: name,
-      phoneNumber: phone,
-      date: dateStr,
-      time: timeKey,
-      partySize: pax || 1,
-      tableName: tableInfo.tableName,
-      tableId: tableInfo.tableId,
-      comments: comments,
-    });
-  } else if (matching.length > 1) {
-    const exact = matching.find(r =>
-      r.customerName === name || r.phoneNumber === phone
+    const matching = dateReservations.filter(r =>
+      r.tableId === tableInfo.tableId && r.time === timeKey
     );
-    if (exact) {
-      updates.push({
-        id: exact.id,
+
+    if (matching.length === 1) {
+      const r = matching[0];
+      const hasChanges =
+        r.customerName !== name ||
+        r.phoneNumber !== phone ||
+        r.partySize !== pax ||
+        (r.comments || '') !== comments;
+
+      if (hasChanges) {
+        updates.push({
+          id: r.id,
+          customerName: name,
+          phoneNumber: phone || r.phoneNumber,
+          date: dateStr,
+          time: timeKey,
+          partySize: pax || r.partySize,
+          tableName: tableInfo.tableName,
+          tableId: tableInfo.tableId,
+          comments: comments,
+          status: r.status,
+        });
+      } else {
+        updates.push({
+          id: r.id,
+          customerName: r.customerName,
+          phoneNumber: r.phoneNumber,
+          date: r.date,
+          time: r.time,
+          partySize: r.partySize,
+          tableName: r.tableName,
+          tableId: r.tableId,
+          comments: r.comments || '',
+          status: r.status,
+        });
+      }
+    } else if (matching.length === 0) {
+      newReservations.push({
         customerName: name,
-        phoneNumber: phone || exact.phoneNumber,
+        phoneNumber: phone,
         date: dateStr,
         time: timeKey,
-        partySize: pax || exact.partySize,
+        partySize: pax || 1,
         tableName: tableInfo.tableName,
         tableId: tableInfo.tableId,
         comments: comments,
-        status: exact.status,
       });
-      for (const r of matching) {
-        if (r.id !== exact.id) {
-          updates.push({
-            id: r.id,
-            customerName: r.customerName,
-            phoneNumber: r.phoneNumber,
-            date: r.date,
-            time: r.time,
-            partySize: r.partySize,
-            tableName: r.tableName,
-            tableId: r.tableId,
-            comments: r.comments || '',
-            status: r.status,
-          });
+    } else if (matching.length > 1) {
+      const exact = matching.find(r =>
+        r.customerName === name || r.phoneNumber === phone
+      );
+      if (exact) {
+        updates.push({
+          id: exact.id,
+          customerName: name,
+          phoneNumber: phone || exact.phoneNumber,
+          date: dateStr,
+          time: timeKey,
+          partySize: pax || exact.partySize,
+          tableName: tableInfo.tableName,
+          tableId: tableInfo.tableId,
+          comments: comments,
+          status: exact.status,
+        });
+        for (const r of matching) {
+          if (r.id !== exact.id) {
+            updates.push({
+              id: r.id,
+              customerName: r.customerName,
+              phoneNumber: r.phoneNumber,
+              date: r.date,
+              time: r.time,
+              partySize: r.partySize,
+              tableName: r.tableName,
+              tableId: r.tableId,
+              comments: r.comments || '',
+              status: r.status,
+            });
+          }
         }
       }
     }
