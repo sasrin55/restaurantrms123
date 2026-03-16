@@ -1,10 +1,23 @@
+// AnalyticsTab.jsx
+// Drop this into your existing app and pass in your sheet data hook.
+//
+// USAGE:
+//   import AnalyticsTab from './AnalyticsTab'
+//   <AnalyticsTab useSheetData={useYourSheetHook} />
+//
+// Your hook should return: { data, loading, error }
+// where `data` is an array of sheet tabs, each shaped like:
+//   { sheetName: "Sunday 1st Mar", rows: [ [col0, col1, ...], ... ] }
+//
+// If your hook returns a different shape, adjust the parseSheetData() function below.
+
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
-  XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+  XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
 } from "recharts";
 
+// ─── Colour palette ────────────────────────────────────────────────────────
 const AMBER  = "#EF9F27";
 const BLUE   = "#378ADD";
 const PURPLE = "#7F77DD";
@@ -26,36 +39,25 @@ function dayColor(dateStr = "") {
   return "#c8c6be";
 }
 
-interface SheetTab {
-  sheetName: string;
-  rows: any[][];
-}
-
-interface Reservation {
-  date: string;
-  slot: string;
-  name: string;
-  pax: number;
-  time: string;
-  table: string;
-  notes: string;
-}
-
-function parseSheetData(tabs: SheetTab[]): Reservation[] {
+// ─── Parse raw sheet rows into reservations ────────────────────────────────
+function parseSheetData(tabs = []) {
   const marchTabs = tabs.filter(t => t.sheetName?.includes("Mar"));
-  const reservations: Reservation[] = [];
+  const reservations = [];
 
   for (const tab of marchTabs) {
-    let currentSlot: string | null = null;
+    let currentSlot = null;
 
     for (const row of tab.rows ?? []) {
       const [a, b, c, d, e, , , h] = row;
 
+      // Slot header
       if (typeof a === "string" && (a.includes("Iftar") || a.includes("Dinner") || a.includes("dinner"))) {
         if (!a.includes("Teppanyaki")) currentSlot = a.trim();
         continue;
       }
+      // Pause slot on Teppanyaki
       if (typeof a === "string" && a.includes("Teppanyaki")) { currentSlot = null; continue; }
+      // Skip header / total rows
       if (a === "No." || b === "Total:") continue;
 
       const pax = typeof c === "number" ? c : parseFloat(c);
@@ -75,18 +77,21 @@ function parseSheetData(tabs: SheetTab[]): Reservation[] {
   return reservations;
 }
 
-function computeAnalytics(reservations: Reservation[]) {
+// ─── Derived analytics ─────────────────────────────────────────────────────
+function computeAnalytics(reservations) {
   const totalCovers = reservations.reduce((s, r) => s + r.pax, 0);
   const totalResos  = reservations.length;
   const avgParty    = totalResos ? +(totalCovers / totalResos).toFixed(1) : 0;
 
-  const dayMap: Record<string, { covers: number; resos: number }> = {};
+  // By day
+  const dayMap = {};
   for (const r of reservations) {
     if (!dayMap[r.date]) dayMap[r.date] = { covers: 0, resos: 0 };
     dayMap[r.date].covers += r.pax;
     dayMap[r.date].resos  += 1;
   }
 
+  // Sort by calendar order (extract day number)
   const dayData = Object.entries(dayMap)
     .map(([date, v]) => {
       const num = parseInt(date.match(/\d+/)?.[0] ?? "0");
@@ -96,7 +101,8 @@ function computeAnalytics(reservations: Reservation[]) {
 
   const avgPerDay = dayData.length ? Math.round(totalCovers / dayData.length) : 0;
 
-  const slotMap: Record<string, { covers: number; resos: number }> = {};
+  // By slot
+  const slotMap = {};
   for (const r of reservations) {
     let key = "Other";
     if (r.slot.includes("5:00") || r.slot.toLowerCase().includes("iftar")) key = "Iftar 5:00 PM";
@@ -110,31 +116,35 @@ function computeAnalytics(reservations: Reservation[]) {
     .map(([slot, v]) => ({ slot, ...v, color: slotColor(slot) }))
     .sort((a, b) => b.covers - a.covers);
 
-  const dowMap: Record<string, { covers: number; resos: number }> = {};
+  // By day of week
+  const dowMap = {};
   for (const r of reservations) {
     const dow = r.date.split(" ")[0];
     if (!dowMap[dow]) dowMap[dow] = { covers: 0, resos: 0 };
     dowMap[dow].covers += r.pax;
     dowMap[dow].resos  += 1;
   }
+  const dowOrder = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
   const dowData = Object.entries(dowMap)
     .map(([dow, v]) => ({ dow, ...v }))
     .sort((a, b) => b.covers - a.covers);
 
-  const weekMap: Record<string, number> = { "Wk 1 (1–7)": 0, "Wk 2 (8–14)": 0, "Wk 3 (15–18)": 0 };
+  // Weekly buckets (by week of March)
+  const weekMap = { "Wk 1 (1–7)": 0, "Wk 2 (8–14)": 0, "Wk 3 (15–18)": 0 };
   for (const { num, covers } of dayData) {
-    if (num <= 7)       weekMap["Wk 1 (1–7)"]  += covers;
+    if (num <= 7)  weekMap["Wk 1 (1–7)"]  += covers;
     else if (num <= 14) weekMap["Wk 2 (8–14)"] += covers;
-    else                weekMap["Wk 3 (15–18)"] += covers;
+    else           weekMap["Wk 3 (15–18)"] += covers;
   }
   const weekData = Object.entries(weekMap).map(([week, covers]) => ({ week, covers }));
 
-  const sorted      = [...dayData].sort((a, b) => b.covers - a.covers);
-  const busiestDay  = sorted[0];
-  const quietestDay = sorted[sorted.length - 1];
-  const busiestDow  = dowData[0];
-  const busiestSlot = slotData[0];
-  const lateShare   = totalCovers
+  // Busiest / quietest
+  const sorted     = [...dayData].sort((a, b) => b.covers - a.covers);
+  const busiestDay = sorted[0];
+  const quietestDay= sorted[sorted.length - 1];
+  const busiestDow = dowData[0];
+  const busiestSlot= slotData[0];
+  const lateShare  = totalCovers
     ? Math.round(((slotMap["Dinner 10:00 PM"]?.covers ?? 0) / totalCovers) * 100)
     : 0;
 
@@ -145,7 +155,8 @@ function computeAnalytics(reservations: Reservation[]) {
   };
 }
 
-function KpiCard({ value, label, sub }: { value: number | string; label: string; sub?: string }) {
+// ─── Small reusable components ─────────────────────────────────────────────
+function KpiCard({ value, label, sub }) {
   return (
     <div className="bg-gray-50 rounded-xl p-4">
       <p className="text-xs text-gray-500 mb-1">{label}</p>
@@ -155,7 +166,7 @@ function KpiCard({ value, label, sub }: { value: number | string; label: string;
   );
 }
 
-function InsightCard({ accent, label, value, sub }: { accent: string; label: string; value?: string; sub?: string }) {
+function InsightCard({ accent, label, value, sub }) {
   return (
     <div className="bg-gray-50 rounded-xl p-3 flex gap-3 items-start">
       <div className="w-1 rounded-full self-stretch mt-1" style={{ background: accent }} />
@@ -168,7 +179,7 @@ function InsightCard({ accent, label, value, sub }: { accent: string; label: str
   );
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function SectionTitle({ children }) {
   return (
     <div className="flex items-center gap-3 mb-3">
       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{children}</p>
@@ -177,7 +188,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-function HorizBar({ label, value, maxValue, color, suffix = "" }: { label: string; value: number; maxValue: number; color: string; suffix?: string }) {
+function HorizBar({ label, value, maxValue, color, suffix = "" }) {
   const pct = maxValue ? (value / maxValue) * 100 : 0;
   return (
     <div className="flex items-center gap-2 mb-2">
@@ -197,28 +208,26 @@ function HorizBar({ label, value, maxValue, color, suffix = "" }: { label: strin
   );
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-white border border-gray-100 rounded-lg shadow-sm px-3 py-2 text-xs">
       <p className="font-medium text-gray-700 mb-1">{label}</p>
-      {payload.map((p: any, i: number) => (
+      {payload.map((p, i) => (
         <p key={i} style={{ color: p.color ?? p.fill }}>{p.name}: <strong>{p.value}</strong></p>
       ))}
     </div>
   );
 };
 
-export default function AnalyticsPage() {
-  const { data: tabs, isLoading, error } = useQuery<SheetTab[]>({
-    queryKey: ["/api/analytics/sheets"],
-    staleTime: 5 * 60 * 1000,
-  });
+// ─── Main component ────────────────────────────────────────────────────────
+export default function AnalyticsTab({ useSheetData }) {
+  const { data, loading, error } = useSheetData();
 
-  const reservations = useMemo(() => parseSheetData(tabs ?? []), [tabs]);
+  const reservations = useMemo(() => parseSheetData(data ?? []), [data]);
   const stats = useMemo(() => computeAnalytics(reservations), [reservations]);
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
         Loading reservation data…
@@ -244,37 +253,42 @@ export default function AnalyticsPage() {
 
   const { totalCovers, totalResos, avgParty, avgPerDay,
           dayData, slotData, dowData, weekData,
-          busiestDay, quietestDay: _quietestDay, busiestDow, busiestSlot, lateShare } = stats;
+          busiestDay, quietestDay, busiestSlot, lateShare } = stats;
 
+  const maxDayCovers = Math.max(...dayData.map(d => d.covers));
   const maxDowCovers = Math.max(...dowData.map(d => d.covers));
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6 font-sans overflow-auto">
+    <div className="p-6 max-w-6xl mx-auto space-y-6 font-sans">
 
+      {/* Header */}
       <div>
-        <h1 className="text-xl font-semibold text-gray-900" data-testid="text-analytics-title">March Analytics</h1>
+        <h1 className="text-xl font-semibold text-gray-900">March Analytics</h1>
         <p className="text-sm text-gray-400 mt-0.5">
           Ramadan 2025 · {dayData.length} active days · live from Google Sheets
         </p>
       </div>
 
+      {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <KpiCard value={totalCovers} label="Total Covers"     sub="guests in March" />
-        <KpiCard value={totalResos}  label="Reservations"     sub="bookings logged" />
-        <KpiCard value={avgParty}    label="Avg Party Size"   sub="guests per booking" />
-        <KpiCard value={avgPerDay}   label="Avg Covers / Day" sub={`${dayData.length} active days`} />
+        <KpiCard value={totalCovers} label="Total Covers"       sub="guests in March" />
+        <KpiCard value={totalResos}  label="Reservations"       sub="bookings logged" />
+        <KpiCard value={avgParty}    label="Avg Party Size"     sub="guests per booking" />
+        <KpiCard value={avgPerDay}   label="Avg Covers / Day"   sub={`${dayData.length} active days`} />
       </div>
 
+      {/* Insights */}
       <div>
         <SectionTitle>Key Insights</SectionTitle>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <InsightCard accent={BLUE}   label="Busiest Day"         value={busiestDay?.shortDate}  sub={`${busiestDay?.covers} covers`} />
-          <InsightCard accent={TEAL}   label="Busiest Day of Week" value={busiestDow?.dow}         sub={`${busiestDow?.covers} covers`} />
-          <InsightCard accent={AMBER}  label="Busiest Slot"        value={busiestSlot?.slot?.replace("Dinner ", "").replace("Iftar ", "Iftar ")} sub={`${busiestSlot?.covers} covers`} />
-          <InsightCard accent={PURPLE} label="Late Dinner Share"   value={`${lateShare}%`}         sub="covers at 10:00 PM" />
+          <InsightCard accent={BLUE}   label="Busiest Day"          value={busiestDay?.shortDate}       sub={`${busiestDay?.covers} covers`} />
+          <InsightCard accent={TEAL}   label="Busiest Day of Week"  value={busiestDow?.dow}             sub={`${busiestDow?.covers} covers`} />
+          <InsightCard accent={AMBER}  label="Busiest Slot"         value={busiestSlot?.slot?.replace("Dinner ","").replace("Iftar ","Iftar ")} sub={`${busiestSlot?.covers} covers`} />
+          <InsightCard accent={PURPLE} label="Late Dinner Share"    value={`${lateShare}%`}             sub="covers at 10:00 PM" />
         </div>
       </div>
 
+      {/* Covers by day */}
       <div>
         <SectionTitle>Covers by Day</SectionTitle>
         <div className="bg-white border border-gray-100 rounded-xl p-4">
@@ -291,8 +305,9 @@ export default function AnalyticsPage() {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+          {/* Legend */}
           <div className="flex gap-4 mt-2 justify-end">
-            {([["Sunday", BLUE], ["Saturday", TEAL], ["Friday", AMBER], ["Weekday", "#c8c6be"]] as [string, string][]).map(([l, c]) => (
+            {[["Sunday", BLUE], ["Saturday", TEAL], ["Friday", AMBER], ["Weekday", "#c8c6be"]].map(([l, c]) => (
               <div key={l} className="flex items-center gap-1.5">
                 <div className="w-2.5 h-2.5 rounded-sm" style={{ background: c }} />
                 <span className="text-xs text-gray-400">{l}</span>
@@ -302,8 +317,10 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
+      {/* Bottom row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
+        {/* Slot breakdown */}
         <div className="bg-white border border-gray-100 rounded-xl p-4">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Service Slots</p>
           {slotData.map(s => (
@@ -311,7 +328,7 @@ export default function AnalyticsPage() {
               key={s.slot}
               label={s.slot.replace("Dinner ", "").replace("Iftar ", "Iftar ")}
               value={s.covers}
-              maxValue={slotData[0]?.covers ?? 1}
+              maxValue={slotData[0]?.covers}
               color={s.color}
               suffix=" covers"
             />
@@ -329,6 +346,7 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
+        {/* Day of week */}
         <div className="bg-white border border-gray-100 rounded-xl p-4">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Day of Week</p>
           {dowData.map(d => (
@@ -343,6 +361,7 @@ export default function AnalyticsPage() {
           ))}
         </div>
 
+        {/* Weekly trend */}
         <div className="bg-white border border-gray-100 rounded-xl p-4">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Weekly Trend</p>
           <ResponsiveContainer width="100%" height={180}>
@@ -356,7 +375,6 @@ export default function AnalyticsPage() {
             </LineChart>
           </ResponsiveContainer>
         </div>
-
       </div>
 
     </div>

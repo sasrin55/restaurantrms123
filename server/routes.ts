@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertReservationSchema, insertOrderSchema, insertOrderItemSchema, insertMenuItemSchema, guests } from "@shared/schema";
 import { menuCategories } from "@shared/menuData";
-import { appendReservationToSheet, updateReservationInSheet, exportAllReservationsToSheet, syncFromSheet, type SheetReservationUpdate, type SheetNewReservation } from "./googleSheets";
+import { appendReservationToSheet, updateReservationInSheet, exportAllReservationsToSheet, syncFromSheet, fetchAllSheetTabsData, type SheetReservationUpdate, type SheetNewReservation } from "./googleSheets";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -402,6 +402,16 @@ export async function registerRoutes(
     const avgItemsPerOrder = totalOrders > 0 ? Math.round(totalItemsOrdered / totalOrders) : 0;
 
     res.json({ favouriteItems, totalOrders, totalItemsOrdered, avgItemsPerOrder });
+  });
+
+  app.get("/api/analytics/sheets", async (_req, res) => {
+    try {
+      const tabs = await fetchAllSheetTabsData();
+      res.json(tabs);
+    } catch (error: any) {
+      console.error("Failed to fetch sheet analytics:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch sheet data" });
+    }
   });
 
   app.post("/api/incoming-call", async (req, res) => {

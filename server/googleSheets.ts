@@ -1165,3 +1165,27 @@ function processSheetRow(
     }
   }
 }
+
+export async function fetchAllSheetTabsData(): Promise<{ sheetName: string; rows: any[][] }[]> {
+  const sheets = await getUncachableGoogleSheetClient();
+  const tabNames = await getExistingTabs(sheets);
+
+  const result: { sheetName: string; rows: any[][] }[] = [];
+
+  for (const tabName of tabNames) {
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `'${tabName}'`,
+      });
+      result.push({
+        sheetName: tabName,
+        rows: response.data.values ?? [],
+      });
+    } catch (err) {
+      console.error(`Failed to fetch tab "${tabName}":`, err);
+    }
+  }
+
+  return result;
+}
