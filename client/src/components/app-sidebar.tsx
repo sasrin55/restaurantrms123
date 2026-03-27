@@ -37,6 +37,11 @@ const restaurantItems = [
     icon: PlusCircle,
   },
   {
+    title: "Waitlist",
+    url: "/waitlist",
+    icon: ListOrdered,
+  },
+  {
     title: "Reservations",
     url: "/",
     icon: Table2,
@@ -46,6 +51,9 @@ const restaurantItems = [
     url: "/tables",
     icon: LayoutGrid,
   },
+];
+
+const generalItems = [
   {
     title: "Guest List",
     url: "/guests",
@@ -66,14 +74,6 @@ const restaurantItems = [
     url: "/analytics",
     icon: BarChart3,
   },
-  {
-    title: "Waitlist",
-    url: "/waitlist",
-    icon: ListOrdered,
-  },
-];
-
-const generalItems = [
   {
     title: "Settings",
     url: "/settings",
