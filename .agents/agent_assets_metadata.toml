@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "9IREQGQc9aCtmE2vai5S_"
+uri = "file://reservations_export.xlsx"
+type = "table"
+title = "Reservations Database Export"
