@@ -2,6 +2,13 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Reservation } from "@shared/schema";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, Check } from "lucide-react";
+import {
   BarChart, Bar, LineChart, Line, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
@@ -203,14 +210,21 @@ function KpiCard({ value, label, sub, accent }: { value: string | number; label:
 }
 
 const STATUS_CONFIG = {
-  confirmed:  { label: "Confirmed",  color: "#16a34a", bg: "#dcfce7" },
-  complete:   { label: "Completed",  color: "#2563eb", bg: "#dbeafe" },
-  seated:     { label: "Seated",     color: "#4A5D23", bg: "#d9f99d" },
-  cancelled:  { label: "Cancelled",  color: "#e11d48", bg: "#ffe4e6" },
-  pending:    { label: "Pending",    color: "#d97706", bg: "#fef3c7" },
+  confirmed: { label: "Confirmed", color: "#16a34a" },
+  seated:    { label: "Seated",    color: "#4A5D23" },
+  complete:  { label: "Completed", color: "#2563eb" },
 } as const;
 
 type KnownStatus = keyof typeof STATUS_CONFIG;
+
+type FilterOption = "total" | KnownStatus;
+
+const FILTER_OPTIONS: { value: FilterOption; label: string }[] = [
+  { value: "total",     label: "Total" },
+  { value: "confirmed", label: "Confirmed" },
+  { value: "seated",    label: "Seated" },
+  { value: "complete",  label: "Completed" },
+];
 
 function ReservationStatusCard({
   total, counts, accent,
@@ -219,38 +233,46 @@ function ReservationStatusCard({
   counts: Partial<Record<KnownStatus, number>>;
   accent?: string;
 }) {
-  const [selected, setSelected] = useState<KnownStatus | null>(null);
-  const displayed = selected !== null ? (counts[selected] ?? 0) : total;
-  const displayedLabel = selected ? STATUS_CONFIG[selected].label : "Total";
+  const [filter, setFilter] = useState<FilterOption>("total");
+
+  const displayed = filter === "total" ? total : (counts[filter] ?? 0);
+  const activeOption = FILTER_OPTIONS.find(o => o.value === filter)!;
+  const color = filter !== "total" ? STATUS_CONFIG[filter].color : undefined;
 
   return (
-    <div className="bg-gray-50 rounded-xl p-4 relative overflow-hidden col-span-2 sm:col-span-1">
+    <div className="bg-gray-50 rounded-xl p-4 relative overflow-hidden">
       {accent && <div className="absolute top-0 left-0 w-1 h-full rounded-l-xl" style={{ background: accent }} />}
-      <p className="text-xs text-gray-400 mb-1 pl-1">Reservations</p>
-      <p className="text-3xl font-semibold text-gray-900 leading-none pl-1">{displayed}</p>
-      <p className="text-xs text-gray-400 mt-1 pl-1">{displayedLabel}</p>
-      <div className="flex flex-wrap gap-1.5 mt-3 pl-1">
-        {(Object.keys(STATUS_CONFIG) as KnownStatus[])
-          .filter(s => (counts[s] ?? 0) > 0)
-          .map(s => {
-            const cfg = STATUS_CONFIG[s];
-            const isActive = selected === s;
-            return (
-              <button
-                key={s}
-                onClick={() => setSelected(isActive ? null : s)}
-                className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-all border"
-                style={{
-                  background: isActive ? cfg.color : cfg.bg,
-                  color:      isActive ? "#fff"     : cfg.color,
-                  borderColor: cfg.color + "44",
-                }}
+
+      <div className="flex items-start justify-between pl-1">
+        <p className="text-xs text-gray-400">Reservations</p>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="p-0.5 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors -mt-0.5 -mr-0.5">
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-36">
+            {FILTER_OPTIONS.map(opt => (
+              <DropdownMenuItem
+                key={opt.value}
+                onClick={() => setFilter(opt.value)}
+                className="flex items-center justify-between cursor-pointer"
               >
-                {cfg.label} <span className="font-semibold">{counts[s]}</span>
-              </button>
-            );
-          })}
+                <span className="text-sm">{opt.label}</span>
+                {filter === opt.value && <Check className="h-3.5 w-3.5 text-gray-500" />}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
+
+      <p
+        className="text-3xl font-semibold leading-none pl-1 mt-1"
+        style={{ color: color ?? "#111827" }}
+      >
+        {displayed}
+      </p>
+      <p className="text-xs text-gray-400 mt-1 pl-1">{activeOption.label}</p>
     </div>
   );
 }
