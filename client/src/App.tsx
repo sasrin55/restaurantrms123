@@ -14,6 +14,7 @@ import AnalyticsPage from "@/pages/analytics";
 import MenuManagementPage from "@/pages/menu-management";
 import PastOrdersPage from "@/pages/past-orders";
 import CallsPage from "@/pages/calls";
+import WaitlistPage from "@/pages/waitlist";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -28,6 +29,7 @@ function Router() {
       <Route path="/menu" component={MenuManagementPage} />
       <Route path="/past-orders" component={PastOrdersPage} />
       <Route path="/calls" component={CallsPage} />
+      <Route path="/waitlist" component={WaitlistPage} />
       <Route component={NotFound} />
     </Switch>
   );

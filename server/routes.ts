@@ -404,6 +404,59 @@ export async function registerRoutes(
     res.json({ favouriteItems, totalOrders, totalItemsOrdered, avgItemsPerOrder });
   });
 
+  app.post("/api/waitlist/notify", async (req, res) => {
+    const { guestName, phone } = req.body;
+    if (!phone || !guestName) {
+      return res.status(400).json({ error: "guestName and phone are required" });
+    }
+
+    const token = process.env.WHATSAPP_TOKEN;
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+
+    if (!token || !phoneNumberId) {
+      return res.status(503).json({ error: "WhatsApp credentials not configured (WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID)" });
+    }
+
+    const to = phone.replace(/\D/g, "");
+
+    const body = {
+      messaging_product: "whatsapp",
+      to,
+      type: "template",
+      template: {
+        name: "waitlist_ready",
+        language: { code: "en" },
+        components: [
+          {
+            type: "body",
+            parameters: [{ type: "text", text: guestName }],
+          },
+        ],
+      },
+    };
+
+    const response = await fetch(
+      `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      }
+    );
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      console.error("WhatsApp API error:", err);
+      return res.status(502).json({ error: (err as any)?.error?.message || "WhatsApp API error" });
+    }
+
+    const data = await response.json();
+    res.json({ success: true, data });
+  });
+
   app.get("/api/analytics/sheets", async (_req, res) => {
     try {
       const tabs = await fetchAllSheetTabsData();

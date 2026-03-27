@@ -26,6 +26,7 @@ import {
   UtensilsCrossed,
   History,
   Phone,
+  ListOrdered,
 } from "lucide-react";
 import paolasLogo from "@/assets/images/paolas-logo.png";
 
@@ -64,6 +65,11 @@ const restaurantItems = [
     title: "Analytics",
     url: "/analytics",
     icon: BarChart3,
+  },
+  {
+    title: "Waitlist",
+    url: "/waitlist",
+    icon: ListOrdered,
   },
 ];
 

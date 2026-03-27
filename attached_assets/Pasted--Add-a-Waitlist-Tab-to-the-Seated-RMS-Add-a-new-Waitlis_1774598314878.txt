@@ -1,0 +1,57 @@
+
+Add a Waitlist Tab to the Seated RMS
+Add a new "Waitlist" tab to the existing tab navigation. This is for managing walk-in guests who are waiting for a table.
+
+Data & Storage
+Waitlist lives in local React state only (resets on refresh). Each entry has:
+js{
+  id: uuid,
+  guestName: string,
+  phone: string,           // Pakistani format e.g. +923001234567
+  partySize: number,
+  notes: string,
+  joinedAt: timestamp,
+  estimatedWaitMins: number,
+  notified: boolean,
+  notifiedAt: timestamp | null,
+  status: "waiting" | "notified" | "seated" | "cancelled"
+}
+
+UI Layout
+Top — Add Guest Form
+Fields: Guest Name, Phone, Party Size, Estimated Wait (mins), Notes. One "Add to Waitlist" button. joinedAt is auto-stamped on add.
+Bottom — Live Waitlist Table
+Columns: Position, Name, Party Size, Waited (live ticking timer from joinedAt), Est. Remaining (estimatedWaitMins minus minutes waited, shows "Ready" when it hits 0), Status badge, Actions.
+Actions per row:
+
+Notify — fires WhatsApp message via Meta Cloud API, then disables itself and shows "Notified ✓" with a timestamp. Uses the same Meta API credentials and setup already in the codebase.
+Seat — opens a table assignment modal (see below)
+✕ — removes guest from waitlist (cancelled/left)
+
+
+WhatsApp Notify
+Use the existing Meta Cloud API integration in the codebase. When Notify is clicked, send a pre-approved template message to the guest's phone number. The template should say something like:
+
+"Hi [guestName], your table at Como Restaurant is almost ready! Please make your way to the host stand."
+
+Use a template named waitlist_ready. If the template call fails, show an inline error on that row without crashing the rest of the list.
+
+Seat Guest — Table Assignment Modal
+When the host clicks Seat:
+
+Read today's reservation data from the existing Google Sheets hook already in the app
+Get the full table list from the existing tables data in the codebase
+Determine available tables by subtracting any table currently marked as "Seated" in today's sheet
+Show available tables as selectable cards displaying: Table number + seating capacity
+Highlight tables where capacity ≥ guest's party size. Grey out tables that are too small (still selectable but visually flagged)
+Host selects a table → hits Confirm
+
+On confirm:
+
+Write a new row to the existing Google Sheets reservation sheet for today using the same append method already in the codebase. The row should match the exact column structure of existing rows: No., Name, Pax, Time, Table, Seating Capacity, Phone Number, Details — with Time = now, Details = "Walk-in", Status = "Seated"
+Remove the guest from local waitlist state
+Close the modal
+
+
+Style
+Match the existing UI — same Tailwind classes, component patterns, and tab style used elsewhere in the app. Status badges should follow the same badge style as other statuses in the codebase. Do not change any existing functionality.
