@@ -1,5 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import type { Reservation } from "@shared/schema";
 import {
   BarChart, Bar, LineChart, Line, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -201,6 +202,59 @@ function KpiCard({ value, label, sub, accent }: { value: string | number; label:
   );
 }
 
+const STATUS_CONFIG = {
+  confirmed:  { label: "Confirmed",  color: "#16a34a", bg: "#dcfce7" },
+  complete:   { label: "Completed",  color: "#2563eb", bg: "#dbeafe" },
+  seated:     { label: "Seated",     color: "#4A5D23", bg: "#d9f99d" },
+  cancelled:  { label: "Cancelled",  color: "#e11d48", bg: "#ffe4e6" },
+  pending:    { label: "Pending",    color: "#d97706", bg: "#fef3c7" },
+} as const;
+
+type KnownStatus = keyof typeof STATUS_CONFIG;
+
+function ReservationStatusCard({
+  total, counts, accent,
+}: {
+  total: number;
+  counts: Partial<Record<KnownStatus, number>>;
+  accent?: string;
+}) {
+  const [selected, setSelected] = useState<KnownStatus | null>(null);
+  const displayed = selected !== null ? (counts[selected] ?? 0) : total;
+  const displayedLabel = selected ? STATUS_CONFIG[selected].label : "Total";
+
+  return (
+    <div className="bg-gray-50 rounded-xl p-4 relative overflow-hidden col-span-2 sm:col-span-1">
+      {accent && <div className="absolute top-0 left-0 w-1 h-full rounded-l-xl" style={{ background: accent }} />}
+      <p className="text-xs text-gray-400 mb-1 pl-1">Reservations</p>
+      <p className="text-3xl font-semibold text-gray-900 leading-none pl-1">{displayed}</p>
+      <p className="text-xs text-gray-400 mt-1 pl-1">{displayedLabel}</p>
+      <div className="flex flex-wrap gap-1.5 mt-3 pl-1">
+        {(Object.keys(STATUS_CONFIG) as KnownStatus[])
+          .filter(s => (counts[s] ?? 0) > 0)
+          .map(s => {
+            const cfg = STATUS_CONFIG[s];
+            const isActive = selected === s;
+            return (
+              <button
+                key={s}
+                onClick={() => setSelected(isActive ? null : s)}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-all border"
+                style={{
+                  background: isActive ? cfg.color : cfg.bg,
+                  color:      isActive ? "#fff"     : cfg.color,
+                  borderColor: cfg.color + "44",
+                }}
+              >
+                {cfg.label} <span className="font-semibold">{counts[s]}</span>
+              </button>
+            );
+          })}
+      </div>
+    </div>
+  );
+}
+
 function PlaceholderCard({ label, note }: { label: string; note: string }) {
   return (
     <div className="bg-gray-50 rounded-xl p-4 border border-dashed border-gray-200">
@@ -257,6 +311,21 @@ export default function AnalyticsPage() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: dbReservations = [] } = useQuery<Reservation[]>({
+    queryKey: ["/api/reservations"],
+    staleTime: 60 * 1000,
+  });
+
+  const marchStatusCounts = useMemo(() => {
+    const march = dbReservations.filter(r => r.date.includes("-03-"));
+    const counts: Partial<Record<KnownStatus, number>> = {};
+    for (const r of march) {
+      const s = r.status as KnownStatus;
+      if (s in STATUS_CONFIG) counts[s] = (counts[s] ?? 0) + 1;
+    }
+    return { counts, total: march.length };
+  }, [dbReservations]);
+
   const reservations = useMemo(() => parseSheetData(tabs), [tabs]);
   const stats = useMemo(() => computeAnalytics(reservations), [reservations]);
 
@@ -303,7 +372,11 @@ export default function AnalyticsPage() {
         <SectionHeader label="Performance" />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <KpiCard value={totalCovers} label="Total covers"      sub="guests served in March"                accent={C.teal}   />
-          <KpiCard value={totalResos}  label="Reservations"      sub="total bookings logged"                 accent={C.blue}   />
+          <ReservationStatusCard
+            total={marchStatusCounts.total}
+            counts={marchStatusCounts.counts}
+            accent={C.blue}
+          />
           <KpiCard value={avgParty}    label="Avg party size"    sub="guests per booking"                    accent={C.amber}  />
           <KpiCard value={avgPerDay}   label="Avg covers / day"  sub={`based on ${activeDays} active days`}  accent={C.purple} />
         </div>
