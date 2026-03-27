@@ -1,11 +1,20 @@
+// AnalyticsTab.jsx — Seated Analytics Dashboard v2
+// Sections: Performance · Demand Patterns · Guest Behavior · Operations
+//
+// USAGE:
+//   import AnalyticsTab from './AnalyticsTab'
+//   <AnalyticsTab useSheetData={useYourSheetHook} />
+//
+// Hook must return: { data: [{ sheetName, rows }], loading, error }
+// Adjust parseSheetData() below if your hook returns a different shape.
+
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
   BarChart, Bar, LineChart, Line, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
 
-// ── Palette ────────────────────────────────────────────────────────────────
+// ─── Palette ──────────────────────────────────────────────────────────────
 const C = {
   amber:  "#EF9F27",
   blue:   "#378ADD",
@@ -30,20 +39,12 @@ function dayColor(dateStr = "") {
   return C.muted;
 }
 
-// ── Types ──────────────────────────────────────────────────────────────────
-interface SheetTab { sheetName: string; rows: any[][]; }
-
-interface Reso {
-  date: string; slot: string; name: string;
-  pax: number; table: string; notes: string;
-}
-
-// ── Parser ─────────────────────────────────────────────────────────────────
-function parseSheetData(tabs: SheetTab[]): Reso[] {
+// ─── Parser ───────────────────────────────────────────────────────────────
+function parseSheetData(tabs = []) {
   const marchTabs = tabs.filter(t => t.sheetName?.includes("Mar"));
-  const reservations: Reso[] = [];
+  const reservations = [];
   for (const tab of marchTabs) {
-    let currentSlot: string | null = null;
+    let currentSlot = null;
     for (const row of tab.rows ?? []) {
       const [a, b, c, , e, , , h] = row;
       if (typeof a === "string" && (a.includes("Iftar") || a.includes("Dinner"))) {
@@ -72,13 +73,14 @@ function parseSheetData(tabs: SheetTab[]): Reso[] {
   return reservations;
 }
 
-// ── Analytics engine ───────────────────────────────────────────────────────
-function computeAnalytics(reservations: Reso[]) {
+// ─── Analytics engine ─────────────────────────────────────────────────────
+function computeAnalytics(reservations) {
   const totalCovers = reservations.reduce((s, r) => s + r.pax, 0);
   const totalResos  = reservations.length;
   const avgParty    = totalResos ? +(totalCovers / totalResos).toFixed(1) : 0;
 
-  const dayMap: Record<string, { covers: number; resos: number; tables: Set<string> }> = {};
+  // By day
+  const dayMap = {};
   for (const r of reservations) {
     if (!dayMap[r.date]) dayMap[r.date] = { covers: 0, resos: 0, tables: new Set() };
     dayMap[r.date].covers += r.pax;
@@ -89,17 +91,19 @@ function computeAnalytics(reservations: Reso[]) {
     .map(([date, v]) => ({
       date,
       shortDate: `${date.match(/\d+/)?.[0]} Mar`,
-      covers: v.covers, resos: v.resos,
+      covers:     v.covers,
+      resos:      v.resos,
       tablesUsed: v.tables.size,
-      utilPct: Math.round(v.tables.size / 18 * 100),
-      num: parseInt(date.match(/\d+/)?.[0] ?? "0"),
+      utilPct:    Math.round(v.tables.size / 18 * 100),
+      num:        parseInt(date.match(/\d+/)?.[0] ?? "0"),
     }))
     .sort((a, b) => a.num - b.num);
 
   const activeDays = dayData.length;
   const avgPerDay  = activeDays ? Math.round(totalCovers / activeDays) : 0;
 
-  const slotMap: Record<string, { covers: number; resos: number }> = {};
+  // By slot
+  const slotMap = {};
   for (const r of reservations) {
     if (!slotMap[r.slot]) slotMap[r.slot] = { covers: 0, resos: 0 };
     slotMap[r.slot].covers += r.pax;
@@ -113,7 +117,8 @@ function computeAnalytics(reservations: Reso[]) {
     }))
     .sort((a, b) => b.covers - a.covers);
 
-  const dowMap: Record<string, { covers: number; resos: number; days: Set<string> }> = {};
+  // By DOW
+  const dowMap = {};
   for (const r of reservations) {
     const dow = r.date.split(" ")[0];
     if (!dowMap[dow]) dowMap[dow] = { covers: 0, resos: 0, days: new Set() };
@@ -129,7 +134,8 @@ function computeAnalytics(reservations: Reso[]) {
     }))
     .sort((a, b) => b.covers - a.covers);
 
-  const weekMap: Record<string, number> = { "Wk 1 (1–7)": 0, "Wk 2 (8–14)": 0, "Wk 3 (15–18)*": 0 };
+  // Weekly buckets
+  const weekMap = { "Wk 1 (1–7)": 0, "Wk 2 (8–14)": 0, "Wk 3 (15–18)*": 0 };
   for (const { num, covers } of dayData) {
     if (num <= 7)       weekMap["Wk 1 (1–7)"]    += covers;
     else if (num <= 14) weekMap["Wk 2 (8–14)"]   += covers;
@@ -137,7 +143,8 @@ function computeAnalytics(reservations: Reso[]) {
   }
   const weekData = Object.entries(weekMap).map(([week, covers]) => ({ week, covers }));
 
-  const nameMap: Record<string, { displayName: string; visits: number; covers: number }> = {};
+  // Repeat guests
+  const nameMap = {};
   for (const r of reservations) {
     const key = r.name.toLowerCase().trim();
     if (!nameMap[key]) nameMap[key] = { displayName: r.name, visits: 0, covers: 0 };
@@ -150,7 +157,8 @@ function computeAnalytics(reservations: Reso[]) {
   const repeatResos = repeatGuests.reduce((s, g) => s + g.visits, 0);
   const repeatRate  = totalResos ? Math.round(repeatResos / totalResos * 100) : 0;
 
-  const tableMap: Record<string, { bookings: number; covers: number }> = {};
+  // Table utilisation
+  const tableMap = {};
   for (const r of reservations) {
     if (!r.table || r.table.includes(",")) continue;
     if (!tableMap[r.table]) tableMap[r.table] = { bookings: 0, covers: 0 };
@@ -178,8 +186,8 @@ function computeAnalytics(reservations: Reso[]) {
   };
 }
 
-// ── UI primitives ──────────────────────────────────────────────────────────
-function SectionHeader({ label }: { label: string }) {
+// ─── UI primitives ────────────────────────────────────────────────────────
+function SectionHeader({ label }) {
   return (
     <div className="flex items-center gap-4 mb-4">
       <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest whitespace-nowrap">
@@ -190,10 +198,12 @@ function SectionHeader({ label }: { label: string }) {
   );
 }
 
-function KpiCard({ value, label, sub, accent }: { value: string | number; label: string; sub?: string; accent?: string }) {
+function KpiCard({ value, label, sub, accent }) {
   return (
     <div className="bg-gray-50 rounded-xl p-4 relative overflow-hidden">
-      {accent && <div className="absolute top-0 left-0 w-1 h-full rounded-l-xl" style={{ background: accent }} />}
+      {accent && (
+        <div className="absolute top-0 left-0 w-1 h-full rounded-l-xl" style={{ background: accent }} />
+      )}
       <p className="text-xs text-gray-400 mb-1 pl-1">{label}</p>
       <p className="text-3xl font-semibold text-gray-900 leading-none pl-1">{value}</p>
       {sub && <p className="text-xs text-gray-400 mt-1 pl-1">{sub}</p>}
@@ -201,7 +211,7 @@ function KpiCard({ value, label, sub, accent }: { value: string | number; label:
   );
 }
 
-function PlaceholderCard({ label, note }: { label: string; note: string }) {
+function PlaceholderCard({ label, note }) {
   return (
     <div className="bg-gray-50 rounded-xl p-4 border border-dashed border-gray-200">
       <p className="text-xs text-gray-400 mb-1">{label}</p>
@@ -211,7 +221,7 @@ function PlaceholderCard({ label, note }: { label: string; note: string }) {
   );
 }
 
-function ChartCard({ title, children, className = "" }: { title: string; children: React.ReactNode; className?: string }) {
+function ChartCard({ title, children, className = "" }) {
   return (
     <div className={`bg-white border border-gray-100 rounded-xl p-4 ${className}`}>
       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">{title}</p>
@@ -220,7 +230,7 @@ function ChartCard({ title, children, className = "" }: { title: string; childre
   );
 }
 
-function HorizBar({ label, value, maxValue, color, suffix = "" }: { label: string; value: number; maxValue: number; color: string; suffix?: string }) {
+function HorizBar({ label, value, maxValue, color, suffix = "" }) {
   const pct = maxValue ? Math.round((value / maxValue) * 100) : 0;
   return (
     <div className="flex items-center gap-2 mb-2.5">
@@ -230,7 +240,9 @@ function HorizBar({ label, value, maxValue, color, suffix = "" }: { label: strin
           className="h-full rounded flex items-center px-2 transition-all duration-500"
           style={{ width: `${Math.max(pct, 3)}%`, background: color + "33" }}
         >
-          {pct > 28 && <span className="text-xs font-medium" style={{ color }}>{value}{suffix}</span>}
+          {pct > 28 && (
+            <span className="text-xs font-medium" style={{ color }}>{value}{suffix}</span>
+          )}
         </div>
       </div>
       <span className="text-xs text-gray-400 w-16 text-right shrink-0">{value}{suffix}</span>
@@ -238,29 +250,27 @@ function HorizBar({ label, value, maxValue, color, suffix = "" }: { label: strin
   );
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-white border border-gray-100 rounded-lg shadow-sm px-3 py-2 text-xs">
       <p className="font-medium text-gray-700 mb-1">{label}</p>
-      {payload.map((p: any, i: number) => (
-        <p key={i} style={{ color: p.color ?? p.fill }}>{p.name}: <strong>{p.value}</strong></p>
+      {payload.map((p, i) => (
+        <p key={i} style={{ color: p.color ?? p.fill }}>
+          {p.name}: <strong>{p.value}</strong>
+        </p>
       ))}
     </div>
   );
 };
 
-// ── Main page ──────────────────────────────────────────────────────────────
-export default function AnalyticsPage() {
-  const { data: tabs = [], isLoading, error } = useQuery<SheetTab[]>({
-    queryKey: ["/api/analytics/sheets"],
-    staleTime: 5 * 60 * 1000,
-  });
+// ─── Main component ────────────────────────────────────────────────────────
+export default function AnalyticsTab({ useSheetData }) {
+  const { data, loading, error } = useSheetData();
+  const reservations = useMemo(() => parseSheetData(data ?? []), [data]);
+  const stats        = useMemo(() => computeAnalytics(reservations), [reservations]);
 
-  const reservations = useMemo(() => parseSheetData(tabs), [tabs]);
-  const stats = useMemo(() => computeAnalytics(reservations), [reservations]);
-
-  if (isLoading) return (
+  if (loading) return (
     <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
       Loading reservation data…
     </div>
@@ -288,7 +298,7 @@ export default function AnalyticsPage() {
   const maxTableBookings = tableData[0]?.bookings ?? 1;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-10 font-sans overflow-auto" data-testid="text-analytics-title">
+    <div className="p-6 max-w-6xl mx-auto space-y-10 font-sans">
 
       {/* Page header */}
       <div>
@@ -298,26 +308,33 @@ export default function AnalyticsPage() {
         </p>
       </div>
 
-      {/* ── PERFORMANCE ── */}
+      {/* ══ SECTION 1: PERFORMANCE ══ */}
       <div>
         <SectionHeader label="Performance" />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <KpiCard value={totalCovers} label="Total covers"      sub="guests served in March"                accent={C.teal}   />
-          <KpiCard value={totalResos}  label="Reservations"      sub="total bookings logged"                 accent={C.blue}   />
-          <KpiCard value={avgParty}    label="Avg party size"    sub="guests per booking"                    accent={C.amber}  />
-          <KpiCard value={avgPerDay}   label="Avg covers / day"  sub={`based on ${activeDays} active days`}  accent={C.purple} />
+          <KpiCard value={totalCovers} label="Total covers"
+            sub="guests served in March"                 accent={C.teal}   />
+          <KpiCard value={totalResos}  label="Reservations"
+            sub="total bookings logged"                  accent={C.blue}   />
+          <KpiCard value={avgParty}    label="Avg party size"
+            sub="guests per booking"                     accent={C.amber}  />
+          <KpiCard value={avgPerDay}   label="Avg covers / day"
+            sub={`based on ${activeDays} active days`}   accent={C.purple} />
         </div>
       </div>
 
-      {/* ── DEMAND PATTERNS ── */}
+      {/* ══ SECTION 2: DEMAND PATTERNS ══ */}
       <div>
         <SectionHeader label="Demand Patterns" />
 
+        {/* Top 3 summary cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
           <div className="bg-gray-50 rounded-xl p-4">
             <p className="text-xs text-gray-400 mb-1">Busiest day</p>
             <p className="text-xl font-semibold text-gray-900">{busiestDay?.shortDate}</p>
-            <p className="text-xs text-gray-400 mt-1">{busiestDay?.covers} covers · {busiestDay?.resos} reservations</p>
+            <p className="text-xs text-gray-400 mt-1">
+              {busiestDay?.covers} covers · {busiestDay?.resos} reservations
+            </p>
           </div>
           <div className="bg-gray-50 rounded-xl p-4">
             <p className="text-xs text-gray-400 mb-1">Busiest day of week</p>
@@ -337,11 +354,13 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
+        {/* Covers by day — full width */}
         <ChartCard title="Covers by day" className="mb-4">
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={dayData} margin={{ top: 16, right: 8, left: -16, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke="#f0ede8" />
-              <XAxis dataKey="shortDate" tick={{ fontSize: 11, fill: "#888" }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="shortDate" tick={{ fontSize: 11, fill: "#888" }}
+                axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "#888" }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
               <Bar dataKey="covers" name="Covers" radius={[4, 4, 0, 0]}>
@@ -350,7 +369,7 @@ export default function AnalyticsPage() {
             </BarChart>
           </ResponsiveContainer>
           <div className="flex gap-4 mt-3 justify-end flex-wrap">
-            {([["Sunday", C.blue], ["Saturday", C.teal], ["Friday", C.amber], ["Weekday", C.muted]] as [string, string][]).map(([l, c]) => (
+            {[["Sunday", C.blue], ["Saturday", C.teal], ["Friday", C.amber], ["Weekday", C.muted]].map(([l, c]) => (
               <div key={l} className="flex items-center gap-1.5">
                 <div className="w-2.5 h-2.5 rounded-sm" style={{ background: c }} />
                 <span className="text-xs text-gray-400">{l}</span>
@@ -359,12 +378,13 @@ export default function AnalyticsPage() {
           </div>
         </ChartCard>
 
+        {/* Service slot + Day of week — side by side */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <ChartCard title="By service slot">
             {slotData.map(s => (
               <HorizBar key={s.slot}
                 label={s.slot.replace("Dinner ", "").replace("Iftar ", "Iftar ")}
-                value={s.covers} maxValue={slotData[0]?.covers ?? 1}
+                value={s.covers} maxValue={slotData[0]?.covers}
                 color={s.color} suffix=" covers" />
             ))}
             <div className="mt-3 pt-3 border-t border-gray-50 space-y-1.5">
@@ -373,7 +393,9 @@ export default function AnalyticsPage() {
                   <span className="text-xs text-gray-400">
                     {s.slot.replace("Dinner ", "").replace("Iftar ", "Iftar ")}
                   </span>
-                  <span className="text-xs font-semibold" style={{ color: s.color }}>{s.pct}%</span>
+                  <span className="text-xs font-semibold" style={{ color: s.color }}>
+                    {s.pct}%
+                  </span>
                 </div>
               ))}
             </div>
@@ -388,12 +410,14 @@ export default function AnalyticsPage() {
           </ChartCard>
         </div>
 
+        {/* Weekly trend — full width */}
         <ChartCard title="Weekly trend">
           <p className="text-xs text-gray-300 -mt-1 mb-3">* Week 3 is partial (4 days)</p>
           <ResponsiveContainer width="100%" height={160}>
             <LineChart data={weekData} margin={{ top: 12, right: 8, left: -16, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke="#f0ede8" />
-              <XAxis dataKey="week" tick={{ fontSize: 11, fill: "#888" }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="week" tick={{ fontSize: 11, fill: "#888" }}
+                axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "#888" }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
               <Line type="monotone" dataKey="covers" name="Covers"
@@ -403,28 +427,42 @@ export default function AnalyticsPage() {
         </ChartCard>
       </div>
 
-      {/* ── GUEST BEHAVIOR ── */}
+      {/* ══ SECTION 3: GUEST BEHAVIOR ══ */}
       <div>
         <SectionHeader label="Guest Behavior" />
 
+        {/* 3 KPI cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-          <KpiCard value={`${repeatRate}%`} label="Repeat guest rate"
-            sub="of reservations from returning guests" accent={C.teal} />
-          <PlaceholderCard label="Cancellation rate" note="Add a Status column to your sheet" />
-          <PlaceholderCard label="No show rate"       note="Add a Status column to your sheet" />
+          <KpiCard
+            value={`${repeatRate}%`}
+            label="Repeat guest rate"
+            sub="of reservations from returning guests"
+            accent={C.teal} />
+          <PlaceholderCard
+            label="Cancellation rate"
+            note="Add a Status column to your sheet" />
+          <PlaceholderCard
+            label="No show rate"
+            note="Add a Status column to your sheet" />
         </div>
 
+        {/* Top returning guests — full width */}
         <div className="bg-white border border-gray-100 rounded-xl p-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Top returning guests</p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+            Top returning guests
+          </p>
           {repeatGuests.length === 0 ? (
             <p className="text-sm text-gray-300">No repeat guests detected.</p>
           ) : (
             <div>
               {repeatGuests.slice(0, 8).map((g, i) => (
-                <div key={i} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                <div key={i}
+                  className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium shrink-0"
-                      style={{ background: C.teal + "22", color: C.teal }}>
+                    <div
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium shrink-0"
+                      style={{ background: C.teal + "22", color: C.teal }}
+                    >
                       {g.displayName[0].toUpperCase()}
                     </div>
                     <span className="text-sm text-gray-800">{g.displayName}</span>
@@ -440,13 +478,16 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* ── OPERATIONS ── */}
+      {/* ══ SECTION 4: OPERATIONS ══ */}
       <div>
         <SectionHeader label="Operations" />
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-          <KpiCard value={`${avgUtilPct}%`} label="Avg table utilisation"
-            sub="booked tables vs 18 available" accent={C.blue} />
+          <KpiCard
+            value={`${avgUtilPct}%`}
+            label="Avg table utilisation"
+            sub="booked tables vs 18 available"
+            accent={C.blue} />
           <KpiCard
             value={tableData[0]?.table ? `Table ${tableData[0].table}` : "—"}
             label="Most used table"
@@ -457,7 +498,9 @@ export default function AnalyticsPage() {
             label="Least used table"
             sub={`${tableData[tableData.length - 1]?.bookings ?? 0} bookings this month`}
             accent={C.muted} />
-          <PlaceholderCard label="Avg table turnover time" note="Requires end-time data in your sheet" />
+          <PlaceholderCard
+            label="Avg table turnover time"
+            note="Requires end-time data in your sheet" />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -465,10 +508,14 @@ export default function AnalyticsPage() {
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={dayData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
                 <CartesianGrid vertical={false} stroke="#f0ede8" />
-                <XAxis dataKey="shortDate" tick={{ fontSize: 10, fill: "#888" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "#888" }} axisLine={false} tickLine={false} unit="%" domain={[0, 100]} />
-                <Tooltip content={<CustomTooltip />} formatter={(v: any) => [`${v}%`, "Utilisation"]} />
-                <Bar dataKey="utilPct" name="Utilisation %" radius={[3, 3, 0, 0]} fill={C.blue + "66"} />
+                <XAxis dataKey="shortDate" tick={{ fontSize: 10, fill: "#888" }}
+                  axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "#888" }} axisLine={false} tickLine={false}
+                  unit="%" domain={[0, 100]} />
+                <Tooltip content={<CustomTooltip />}
+                  formatter={(v) => [`${v}%`, "Utilisation"]} />
+                <Bar dataKey="utilPct" name="Utilisation %" radius={[3, 3, 0, 0]}
+                  fill={C.blue + "66"} />
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
