@@ -12,3 +12,9 @@ id = "3KuMQYqed3mAV6y2KPSsf"
 uri = "file://SEATED_Como_Ramadan_2026.pptx"
 type = "slides"
 title = "SEATED × Como — Ramadan 2026 Presentation"
+
+[[outputs]]
+id = "SzM3SBVQ1Ks-IQzRXukAd"
+uri = "file://SEATED_Como_Ramadan_2026.pdf"
+type = "pdf"
+title = "SEATED × Como — Ramadan 2026 Presentation (PDF)"
