@@ -18,3 +18,39 @@ id = "SzM3SBVQ1Ks-IQzRXukAd"
 uri = "file://SEATED_Como_Ramadan_2026.pdf"
 type = "pdf"
 title = "SEATED × Como — Ramadan 2026 (Updated)"
+
+[[outputs]]
+id = "FXrTVMN7wraWkToDp9uPT"
+uri = "file://SEATED_Presentation_Brief_for_Claude.md"
+type = "text"
+title = "Presentation Brief (paste into Claude)"
+
+[[outputs]]
+id = "Zq2jQvb_8qbKT-1q1ER_X"
+uri = "file://seated_logo.jpeg"
+type = "image"
+title = "Image 1 — SEATED Logo"
+
+[[outputs]]
+id = "_FQiIjc0Ec3f4GcNqsTHR"
+uri = "file://slide2_before_sheets.png"
+type = "image"
+title = "Image 2 — Before (Google Sheets)"
+
+[[outputs]]
+id = "9a6tgHnbWnfbqjkAHmSuL"
+uri = "file://slide3_after_reservations.png"
+type = "image"
+title = "Image 3 — After (Reservations)"
+
+[[outputs]]
+id = "yYD9Xemy8UV_ODeWTKJ6f"
+uri = "file://slide3_after_booking_form.png"
+type = "image"
+title = "Image 4 — After (Booking Form)"
+
+[[outputs]]
+id = "B5TUbTfIS-Cdq6cJkaWqv"
+uri = "file://slide8_analytics.png"
+type = "image"
+title = "Image 5 — Analytics Dashboard"
