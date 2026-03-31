@@ -6,3 +6,9 @@ id = "9IREQGQc9aCtmE2vai5S_"
 uri = "file://reservations_export.xlsx"
 type = "table"
 title = "Reservations Database Export"
+
+[[outputs]]
+id = "3KuMQYqed3mAV6y2KPSsf"
+uri = "file://SEATED_Como_Ramadan_2026.pptx"
+type = "slides"
+title = "SEATED × Como — Ramadan 2026 Presentation"
