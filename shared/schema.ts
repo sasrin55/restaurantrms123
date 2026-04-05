@@ -46,6 +46,7 @@ export const guests = pgTable("guests", {
   visitCount: integer("visit_count").notNull().default(1),
   lastVisit: text("last_visit").notNull(),
   totalPartySize: integer("total_party_size").notNull().default(0),
+  noShowCount: integer("no_show_count").notNull().default(0),
 });
 
 export const insertGuestSchema = createInsertSchema(guests).omit({

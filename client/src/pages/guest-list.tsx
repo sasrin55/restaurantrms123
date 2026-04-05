@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, Users, Phone, Calendar, Loader2, Trash2, Star, ShoppingCart } from "lucide-react";
+import { Search, Users, Phone, Calendar, Loader2, Trash2, Star, ShoppingCart, UserX } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -16,6 +16,7 @@ interface Guest {
   visitCount: number;
   lastVisit: string;
   totalPartySize: number;
+  noShowCount: number;
 }
 
 interface GuestAnalytics {
@@ -172,6 +173,16 @@ export default function GuestListPage() {
                       >
                         {guest.visitCount} {guest.visitCount === 1 ? "visit" : "visits"}
                       </Badge>
+                      {guest.noShowCount > 0 && (
+                        <Badge
+                          variant="outline"
+                          className="border-red-300 text-red-600 bg-red-50 flex items-center gap-1"
+                          data-testid={`badge-no-show-${guest.id}`}
+                        >
+                          <UserX className="h-3 w-3" />
+                          {guest.noShowCount}
+                        </Badge>
+                      )}
                       <Button
                         size="icon"
                         variant="ghost"

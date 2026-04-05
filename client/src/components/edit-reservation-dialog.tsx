@@ -97,6 +97,21 @@ export function EditReservationDialog({
     });
   };
 
+  const noShowMutation = useMutation({
+    mutationFn: async () => {
+      if (!reservation) return;
+      const ids = (groupReservations || [reservation]).map(r => r.id);
+      await Promise.all(
+        ids.map(id => apiRequest("PATCH", `/api/reservations/${id}/status`, { status: "no-show" }))
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/guests"] });
+      onOpenChange(false);
+    },
+  });
+
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!reservation) return;
@@ -318,18 +333,29 @@ export function EditReservationDialog({
             />
           </div>
         </div>
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
+        <div className="flex justify-between gap-2">
           <Button
-            onClick={handleSave}
-            disabled={updateMutation.isPending || selectedTableIds.length === 0}
-            className="bg-[#0D7377] text-white"
-            data-testid="button-save-edit"
+            variant="outline"
+            onClick={() => noShowMutation.mutate()}
+            disabled={noShowMutation.isPending || reservation.status === "no-show"}
+            className="border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-400"
+            data-testid="button-mark-no-show"
           >
-            Save Changes
+            {noShowMutation.isPending ? "Marking..." : "No Show"}
           </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Close
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={updateMutation.isPending || selectedTableIds.length === 0}
+              className="bg-[#0D7377] text-white"
+              data-testid="button-save-edit"
+            >
+              Save Changes
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

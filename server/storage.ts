@@ -107,13 +107,19 @@ export class DatabaseStorage implements IStorage {
     if (existing) {
       const allReservations = await db.select().from(reservations).where(eq(reservations.phoneNumber, phone));
       const visitKeys = new Set<string>();
+      let noShowCount = 0;
       for (const r of allReservations) {
-        visitKeys.add(`${r.date}|${r.time}|${r.partySize}`);
+        if (r.status === "no-show") {
+          noShowCount++;
+        } else {
+          visitKeys.add(`${r.date}|${r.time}|${r.partySize}`);
+        }
       }
       const visitCount = visitKeys.size;
       let totalPartySize = 0;
       const seenKeys = new Set<string>();
       for (const r of allReservations) {
+        if (r.status === "no-show") continue;
         const vk = `${r.date}|${r.time}|${r.partySize}`;
         if (!seenKeys.has(vk)) {
           seenKeys.add(vk);
@@ -125,6 +131,7 @@ export class DatabaseStorage implements IStorage {
         name: date >= existing.lastVisit ? name : existing.name,
         visitCount,
         totalPartySize,
+        noShowCount,
         lastVisit: date > existing.lastVisit ? date : existing.lastVisit,
       }).where(eq(guests.id, existing.id)).returning();
       return updated;
@@ -136,6 +143,7 @@ export class DatabaseStorage implements IStorage {
       visitCount: 1,
       lastVisit: date,
       totalPartySize: partySize,
+      noShowCount: 0,
     }).returning();
     return guest;
   }
@@ -149,15 +157,18 @@ export class DatabaseStorage implements IStorage {
     const allReservations = await db.select().from(reservations);
     if (allReservations.length === 0) return;
 
-    const visitMap = new Map<string, { name: string; phone: string; visitKeys: Set<string>; totalPartySize: number; lastVisit: string }>();
+    const visitMap = new Map<string, { name: string; phone: string; visitKeys: Set<string>; totalPartySize: number; lastVisit: string; noShowCount: number }>();
 
     for (const r of allReservations) {
       const key = r.phoneNumber;
+      const isNoShow = r.status === "no-show";
       const visitKey = `${r.date}|${r.time}|${r.partySize}`;
       const existing = visitMap.get(key);
 
       if (existing) {
-        if (!existing.visitKeys.has(visitKey)) {
+        if (isNoShow) {
+          existing.noShowCount++;
+        } else if (!existing.visitKeys.has(visitKey)) {
           existing.visitKeys.add(visitKey);
           existing.totalPartySize += r.partySize;
         }
@@ -169,9 +180,10 @@ export class DatabaseStorage implements IStorage {
         visitMap.set(key, {
           name: r.customerName,
           phone: r.phoneNumber,
-          visitKeys: new Set([visitKey]),
-          totalPartySize: r.partySize,
+          visitKeys: isNoShow ? new Set() : new Set([visitKey]),
+          totalPartySize: isNoShow ? 0 : r.partySize,
           lastVisit: r.date,
+          noShowCount: isNoShow ? 1 : 0,
         });
       }
     }
@@ -184,6 +196,7 @@ export class DatabaseStorage implements IStorage {
           visitCount: data.visitKeys.size,
           totalPartySize: data.totalPartySize,
           lastVisit: data.lastVisit,
+          noShowCount: data.noShowCount,
         }).where(eq(guests.id, existing.id));
       } else {
         await db.insert(guests).values({
@@ -192,6 +205,7 @@ export class DatabaseStorage implements IStorage {
           visitCount: data.visitKeys.size,
           lastVisit: data.lastVisit,
           totalPartySize: data.totalPartySize,
+          noShowCount: data.noShowCount,
         });
       }
     }

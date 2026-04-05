@@ -59,6 +59,15 @@ export async function registerRoutes(
       console.error("Google Sheets status sync error:", err)
     );
 
+    if (status === "no-show") {
+      storage.upsertGuest(
+        reservation.customerName,
+        reservation.phoneNumber,
+        reservation.date,
+        reservation.partySize,
+      ).catch(err => console.error("Failed to update guest no-show count:", err));
+    }
+
     res.json(reservation);
   });
 
