@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -15,6 +16,7 @@ import MenuManagementPage from "@/pages/menu-management";
 import PastOrdersPage from "@/pages/past-orders";
 import CallsPage from "@/pages/calls";
 import WaitlistPage from "@/pages/waitlist";
+import LoginPage from "@/pages/login";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -36,6 +38,19 @@ function Router() {
 }
 
 function App() {
+  const [authed, setAuthed] = useState(() => sessionStorage.getItem("seated_auth") === "1");
+
+  if (!authed) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <LoginPage onLogin={() => setAuthed(true)} />
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
+  }
+
   const style = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "4rem",
