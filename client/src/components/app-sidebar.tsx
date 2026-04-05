@@ -10,7 +10,6 @@ import {
   SidebarMenuItem,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   PlusCircle,
   Table2,
@@ -19,7 +18,6 @@ import {
   Carrot,
   Settings,
   HelpCircle,
-  ArrowRight,
   LayoutGrid,
   ClipboardList,
   BarChart3,
@@ -27,6 +25,7 @@ import {
   History,
   Phone,
   ListOrdered,
+  LogOut,
 } from "lucide-react";
 import paolasLogo from "@/assets/images/paolas-logo.png";
 
@@ -235,18 +234,18 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-4 border-t border-sidebar-border">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10">
-            <AvatarImage src="" />
-            <AvatarFallback className="bg-orange-100 text-orange-600">N</AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">Naqash</p>
-            <p className="text-xs text-muted-foreground truncate">naqash@cosanostra.com</p>
-          </div>
-          <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-        </div>
+      <SidebarFooter className="p-3 border-t border-sidebar-border">
+        <button
+          data-testid="button-logout"
+          onClick={() => {
+            sessionStorage.removeItem("seated_auth");
+            window.location.reload();
+          }}
+          className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
+        >
+          <LogOut className="h-4 w-4 flex-shrink-0" />
+          <span>Log out</span>
+        </button>
       </SidebarFooter>
     </Sidebar>
   );
