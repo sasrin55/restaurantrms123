@@ -431,7 +431,7 @@ export default function NewCustomerPage() {
                               <circle cx="5" cy="3" r="2" fill="#ef4444" />
                               <path d="M1 9c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="#ef4444" strokeWidth="1.2" fill="none" strokeLinecap="round" />
                             </svg>
-                            <span className="text-[10px] font-semibold text-red-500 leading-none">{bookedRes.partySize}</span>
+                            <span className="font-semibold text-red-500 text-[12px]">{bookedRes.partySize}</span>
                           </div>
                         </>
                       )}
