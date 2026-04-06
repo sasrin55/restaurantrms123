@@ -73,20 +73,19 @@ function getTimePeriod(time: string, date: Date): MealPeriod {
     if (h24 < 6) return "sehri";
     return "dinner";
   }
-  const day = date.getDay();
-  if (day === 0 || day === 6) {
-    if (h24 < 14) return "breakfast";
-    if (h24 < 17) return "lunch";
-    return "dinner";
-  }
+  if (h24 < 10.5) return "breakfast";
+  if (h24 < 12.5) return "brunch";
   if (h24 < 17) return "lunch";
+  if (h24 < 19) return "tea";
   return "dinner";
 }
 
-const PERIOD_ORDER: MealPeriod[] = ["breakfast", "lunch", "iftar", "dinner", "sehri"];
+const PERIOD_ORDER: MealPeriod[] = ["breakfast", "brunch", "lunch", "tea", "iftar", "dinner", "sehri"];
 const PERIOD_LABELS: Record<MealPeriod, string> = {
   breakfast: "Breakfast",
+  brunch: "Brunch",
   lunch: "Lunch",
+  tea: "Tea",
   iftar: "Iftar",
   dinner: "Dinner",
   sehri: "Sehri",

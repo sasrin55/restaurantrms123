@@ -30,15 +30,7 @@ export default function NewCustomerPage() {
   const [mode, setMode] = useState<CustomerMode>("reservation");
   const [confirmed, setConfirmed] = useState(false);
 
-  const [date, setDate] = useState<Date | undefined>(() => {
-    const today = new Date();
-    if (isMonday(today)) {
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      return tomorrow;
-    }
-    return today;
-  });
+  const [date, setDate] = useState<Date | undefined>(() => new Date());
   const [time, setTime] = useState("");
   const [partySize, setPartySize] = useState("2");
   const [selectedTables, setSelectedTables] = useState<{ id: number; number: string }[]>([]);
@@ -54,9 +46,7 @@ export default function NewCustomerPage() {
 
   const parsedSize = parseInt(partySize) || 0;
 
-  const effectiveDate = mode === "walkin"
-    ? (isMonday(new Date()) ? undefined : new Date())
-    : date;
+  const effectiveDate = mode === "walkin" ? new Date() : date;
 
   const bookedTableIds = existingReservations
     .filter((r: any) => {
@@ -140,7 +130,7 @@ export default function NewCustomerPage() {
     acc[slot.period].push(slot);
     return acc;
   }, {} as Record<MealPeriod, typeof timeSlots>);
-  const periodOrder: MealPeriod[] = ["breakfast", "lunch", "iftar", "dinner", "sehri"];
+  const periodOrder: MealPeriod[] = ["breakfast", "brunch", "lunch", "tea", "iftar", "dinner", "sehri"];
 
   const timeSelector = (
     <div className="flex items-center gap-2">
@@ -150,7 +140,7 @@ export default function NewCustomerPage() {
         </SelectTrigger>
         <SelectContent>
           {timeSlots.length === 0 ? (
-            <div className="px-2 py-1.5 text-sm text-muted-foreground">Closed on Mondays</div>
+            <div className="px-2 py-1.5 text-sm text-muted-foreground">No time slots available</div>
           ) : (
             periodOrder.filter(p => groupedSlots[p]).map((period) => (
               <div key={period}>
@@ -205,38 +195,6 @@ export default function NewCustomerPage() {
     </div>
   );
 
-  if (mode === "walkin" && !effectiveDate) {
-    return (
-      <div
-        className="flex-1 h-full bg-cover bg-center bg-no-repeat relative overflow-auto"
-        style={{ backgroundImage: `url(${restaurantBg})` }}
-      >
-        <div className="absolute inset-0 bg-white/40" />
-        <div className="relative z-10 flex flex-col items-center justify-center min-h-full py-8 px-4">
-          <h1
-            className="mb-6"
-            style={{
-              fontFamily: "'Ortica Linear', 'Playfair Display', serif",
-              fontWeight: 300,
-              fontSize: "40px",
-              lineHeight: "100%",
-              color: "#0D7377",
-            }}
-            data-testid="text-brand-title"
-          >
-            seated
-          </h1>
-          <Card className="bg-white/95 shadow-lg w-full max-w-3xl p-8">
-            <h2 className="text-xl font-semibold text-foreground mb-4" data-testid="text-form-title">
-              New Customer
-            </h2>
-            {modePills}
-            <p className="text-muted-foreground text-center py-8">Restaurant is closed on Mondays.</p>
-          </Card>
-        </div>
-      </div>
-    );
-  }
 
   if (confirmed) {
     return (
@@ -397,7 +355,6 @@ export default function NewCustomerPage() {
                       selected={date}
                       onSelect={handleDateChange}
                       initialFocus
-                      disabled={(d) => isMonday(d)}
                     />
                   </PopoverContent>
                 </Popover>
