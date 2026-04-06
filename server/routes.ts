@@ -190,16 +190,7 @@ export async function registerRoutes(
     }
   });
 
-  setInterval(async () => {
-    try {
-      const result = await applySyncFromSheets();
-      if (result.updated > 0 || result.created > 0 || result.deleted > 0) {
-        console.log(`Auto-sync from Sheets: updated ${result.updated}, created ${result.created}, deleted ${result.deleted} reservation(s)`);
-      }
-    } catch (err) {
-      console.error("Auto-sync from Sheets error:", err);
-    }
-  }, 2 * 60 * 1000);
+  // Auto-sync from Sheets disabled — DB is now the source of truth.
 
   app.get("/api/guests", async (req, res) => {
     const guests = await storage.getGuests();

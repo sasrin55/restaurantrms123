@@ -18,7 +18,7 @@ import {
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { ReservationCard, ReservationRow, type ReservationStatus } from "@/components/reservation-card";
 import { EditReservationDialog } from "@/components/edit-reservation-dialog";
-import { Plus, Search, Calendar, LayoutGrid, List, Loader2, RefreshCw, Upload } from "lucide-react";
+import { Plus, Search, Calendar, LayoutGrid, List, Loader2, Upload } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format, addDays, startOfWeek, endOfWeek, isWithinInterval, parseISO, isToday, isTomorrow } from "date-fns";
@@ -197,15 +197,6 @@ export default function ReservationsPage() {
     },
   });
 
-  const syncFromSheetsMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest("POST", "/api/reservations/sync-from-sheets");
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/guests"] });
-    },
-  });
 
   const handleEdit = (reservation: Reservation, groupResv?: Reservation[]) => {
     setEditingReservation(reservation);
@@ -350,16 +341,6 @@ export default function ReservationsPage() {
               ) : (
                 <Upload className="h-4 w-4" />
               )}
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => syncFromSheetsMutation.mutate()}
-              disabled={syncFromSheetsMutation.isPending}
-              title="Sync from Google Sheets"
-              data-testid="button-sync-sheets"
-            >
-              <RefreshCw className={`h-4 w-4 ${syncFromSheetsMutation.isPending ? "animate-spin" : ""}`} />
             </Button>
             <Link href="/new-reservation">
               <Button 
