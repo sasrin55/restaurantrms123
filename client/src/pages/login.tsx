@@ -29,7 +29,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F8F7F4]">
-      <div className="w-full max-w-sm px-6">
+      <div className="w-full max-w-sm px-6 mt-24">
         {/* Logo */}
         <div className="flex justify-center" style={{ marginBottom: "1.5px" }}>
           <img
