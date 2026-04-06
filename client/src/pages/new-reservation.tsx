@@ -427,7 +427,7 @@ export default function NewCustomerPage() {
                             <X className="h-10 w-10 text-red-400 stroke-[2.5]" />
                           </div>
                           <div className="absolute top-1.5 right-1.5 z-20 flex items-center bg-red-50 border border-red-200 rounded pl-[4px] pr-[4px] pt-[2px] pb-[2px]" data-testid={`text-booked-pax-${table.id}`}>
-                            <span className="font-semibold text-red-500 text-[12px]">{bookedRes.partySize}</span>
+                            <span className="font-semibold text-[12px] text-[#ff0000]">{bookedRes.partySize}</span>
                           </div>
                         </>
                       )}
