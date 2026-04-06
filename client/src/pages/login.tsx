@@ -40,7 +40,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-[#E8E5DF] px-8 py-10">
+        <div className="px-8 py-10">
           <h1 className="text-xl font-semibold text-[#1D3A3A] mb-1">
             Welcome back
           </h1>
