@@ -7,10 +7,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Check, Archive, ChevronDown, ChevronUp } from "lucide-react";
+import { MoreHorizontal, Check } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import {
-  BarChart, Bar, LineChart, Line, Cell,
+  BarChart, Bar, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
 
@@ -440,267 +440,8 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
   );
 }
 
-// ── Archive: March Google Sheets ─────────────────────────────────────────────
-interface SheetTab { sheetName: string; rows: any[][]; }
-interface Reso { date: string; slot: string; name: string; pax: number; table: string; notes: string; }
-
-function parseSheetData(tabs: SheetTab[]): Reso[] {
-  const marchTabs = tabs.filter(t => t.sheetName?.includes("Mar"));
-  const reservations: Reso[] = [];
-  for (const tab of marchTabs) {
-    let currentSlot: string | null = null;
-    for (const row of tab.rows ?? []) {
-      const [a, b, c, , e, , , h] = row;
-      if (typeof a === "string" && (a.includes("Iftar") || a.includes("Dinner"))) {
-        if (!a.includes("Teppanyaki")) currentSlot = a.trim();
-        continue;
-      }
-      if (typeof a === "string" && a.includes("Teppanyaki")) { currentSlot = null; continue; }
-      if (a === "No." || b === "Total:") continue;
-      const pax = typeof c === "number" ? c : parseFloat(c);
-      if (currentSlot && b && typeof b === "string" && b.trim().length > 1 && pax > 0) {
-        const slot =
-          currentSlot.includes("5:00") || currentSlot.toLowerCase().includes("iftar")
-            ? "Iftar 5:00 PM"
-            : currentSlot.includes("8:00") ? "Dinner 8:00 PM" : "Dinner 10:00 PM";
-        reservations.push({ date: tab.sheetName, slot, name: b.trim(), pax: Math.round(pax), table: e != null ? String(e) : "", notes: h ?? "" });
-      }
-    }
-  }
-  return reservations;
-}
-
-function computeArchiveAnalytics(reservations: Reso[]) {
-  const totalCovers = reservations.reduce((s, r) => s + r.pax, 0);
-  const totalResos  = reservations.length;
-  const avgParty    = totalResos ? +(totalCovers / totalResos).toFixed(1) : 0;
-
-  const dayMap: Record<string, { covers: number; resos: number; tables: Set<string> }> = {};
-  for (const r of reservations) {
-    if (!dayMap[r.date]) dayMap[r.date] = { covers: 0, resos: 0, tables: new Set() };
-    dayMap[r.date].covers += r.pax;
-    dayMap[r.date].resos  += 1;
-    if (r.table) dayMap[r.date].tables.add(r.table);
-  }
-  const dayData = Object.entries(dayMap)
-    .map(([date, v]) => ({
-      date, shortDate: `${date.match(/\d+/)?.[0]} Mar`,
-      covers: v.covers, resos: v.resos,
-      tablesUsed: v.tables.size,
-      utilPct: Math.round(v.tables.size / 18 * 100),
-      num: parseInt(date.match(/\d+/)?.[0] ?? "0"),
-    }))
-    .sort((a, b) => a.num - b.num);
-
-  const activeDays = dayData.length;
-  const avgPerDay  = activeDays ? Math.round(totalCovers / activeDays) : 0;
-
-  const slotMap: Record<string, { covers: number; resos: number }> = {};
-  for (const r of reservations) {
-    if (!slotMap[r.slot]) slotMap[r.slot] = { covers: 0, resos: 0 };
-    slotMap[r.slot].covers += r.pax;
-    slotMap[r.slot].resos  += 1;
-  }
-  const slotData = Object.entries(slotMap)
-    .map(([slot, v]) => ({ slot, ...v, color: slotColor(slot), pct: totalCovers ? Math.round(v.covers / totalCovers * 100) : 0 }))
-    .sort((a, b) => b.covers - a.covers);
-
-  const dowMap: Record<string, { covers: number; resos: number; days: Set<string> }> = {};
-  for (const r of reservations) {
-    const dow = r.date.split(" ")[0];
-    if (!dowMap[dow]) dowMap[dow] = { covers: 0, resos: 0, days: new Set() };
-    dowMap[dow].covers += r.pax; dowMap[dow].resos += 1; dowMap[dow].days.add(r.date);
-  }
-  const dowData = Object.entries(dowMap)
-    .map(([dow, v]) => ({ dow, covers: v.covers, resos: v.resos, days: v.days.size, avgPerDay: Math.round(v.covers / v.days.size) }))
-    .sort((a, b) => b.covers - a.covers);
-
-  const weekMap: Record<string, number> = { "Wk 1 (1–7)": 0, "Wk 2 (8–14)": 0, "Wk 3 (15–18)*": 0 };
-  for (const { num, covers } of dayData) {
-    if (num <= 7)       weekMap["Wk 1 (1–7)"]    += covers;
-    else if (num <= 14) weekMap["Wk 2 (8–14)"]   += covers;
-    else                weekMap["Wk 3 (15–18)*"] += covers;
-  }
-  const weekData = Object.entries(weekMap).map(([week, covers]) => ({ week, covers }));
-
-  const nameMap: Record<string, { displayName: string; visits: number; covers: number }> = {};
-  for (const r of reservations) {
-    const key = r.name.toLowerCase().trim();
-    if (!nameMap[key]) nameMap[key] = { displayName: r.name, visits: 0, covers: 0 };
-    nameMap[key].visits += 1; nameMap[key].covers += r.pax;
-  }
-  const repeatGuests = Object.values(nameMap)
-    .filter(g => g.visits > 1 && !g.displayName.toLowerCase().includes("walk"))
-    .sort((a, b) => b.visits - a.visits);
-  const repeatResos = repeatGuests.reduce((s, g) => s + g.visits, 0);
-  const repeatRate  = totalResos ? Math.round(repeatResos / totalResos * 100) : 0;
-
-  const tableMap: Record<string, { bookings: number; covers: number }> = {};
-  for (const r of reservations) {
-    if (!r.table || r.table.includes(",")) continue;
-    if (!tableMap[r.table]) tableMap[r.table] = { bookings: 0, covers: 0 };
-    tableMap[r.table].bookings += 1; tableMap[r.table].covers += r.pax;
-  }
-  const tableData = Object.entries(tableMap)
-    .map(([table, v]) => ({ table, ...v }))
-    .sort((a, b) => b.bookings - a.bookings);
-
-  const avgUtilPct  = dayData.length ? Math.round(dayData.reduce((s, d) => s + d.utilPct, 0) / dayData.length) : 0;
-  const busiestDay  = [...dayData].sort((a, b) => b.covers - a.covers)[0];
-  const busiestDow  = dowData[0];
-  const busiestSlot = slotData[0];
-
-  return { totalCovers, totalResos, avgParty, avgPerDay, activeDays, dayData, slotData, dowData, weekData, busiestDay, busiestDow, busiestSlot, repeatGuests, repeatRate, tableData, avgUtilPct };
-}
-
-function ArchiveAnalytics() {
-  const { data: tabs = [], isLoading, error } = useQuery<SheetTab[]>({
-    queryKey: ["/api/analytics/sheets"],
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const reservations = useMemo(() => parseSheetData(tabs), [tabs]);
-  const stats = useMemo(() => computeArchiveAnalytics(reservations), [reservations]);
-
-  if (isLoading) return <div className="py-12 text-center text-sm text-gray-400">Loading archive…</div>;
-  if (error)     return <div className="py-12 text-center text-sm text-red-400">Failed to load archive data.</div>;
-  if (!reservations.length) return <div className="py-12 text-center text-sm text-gray-400">No archived March data found.</div>;
-
-  const { totalCovers, totalResos, avgParty, avgPerDay, activeDays, dayData, slotData, dowData, weekData, busiestDay, busiestDow, busiestSlot, repeatGuests, repeatRate, tableData, avgUtilPct } = stats;
-  const maxDowCovers     = Math.max(...dowData.map(d => d.covers));
-  const maxTableBookings = tableData[0]?.bookings ?? 1;
-
-  return (
-    <div className="space-y-10 mt-6">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <KpiCard value={totalCovers} label="Total covers"     sub="guests served in March"                accent={C.teal}   />
-        <KpiCard value={totalResos}  label="Reservations"     sub="March 2026"                            accent={C.blue}   />
-        <KpiCard value={avgParty}    label="Avg party size"   sub="guests per booking"                    accent={C.amber}  />
-        <KpiCard value={avgPerDay}   label="Avg covers / day" sub={`based on ${activeDays} active days`}  accent={C.purple} />
-      </div>
-
-      <div>
-        <SectionHeader label="Demand Patterns" />
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-          <div className="bg-gray-50 rounded-xl p-4">
-            <p className="text-xs text-gray-400 mb-1">Busiest day</p>
-            <p className="text-xl font-semibold text-gray-900">{busiestDay?.shortDate}</p>
-            <p className="text-xs text-gray-400 mt-1">{busiestDay?.covers} covers · {busiestDay?.resos} reservations</p>
-          </div>
-          <div className="bg-gray-50 rounded-xl p-4">
-            <p className="text-xs text-gray-400 mb-1">Busiest day of week</p>
-            <p className="text-xl font-semibold text-gray-900">{busiestDow?.dow}</p>
-            <p className="text-xs text-gray-400 mt-1">avg {busiestDow?.avgPerDay} covers/day · {busiestDow?.days} {busiestDow?.dow}s</p>
-          </div>
-          <div className="bg-gray-50 rounded-xl p-4 col-span-2 sm:col-span-1">
-            <p className="text-xs text-gray-400 mb-1">Busiest slot</p>
-            <p className="text-xl font-semibold text-gray-900">{busiestSlot?.slot?.replace("Dinner ", "").replace("Iftar ", "Iftar ")}</p>
-            <p className="text-xs text-gray-400 mt-1">{busiestSlot?.pct}% of covers · {busiestSlot?.covers} guests</p>
-          </div>
-        </div>
-
-        <ChartCard title="Covers by day (March)" className="mb-4">
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={dayData} margin={{ top: 16, right: 8, left: -16, bottom: 0 }}>
-              <CartesianGrid vertical={false} stroke="#f0ede8" />
-              <XAxis dataKey="shortDate" tick={{ fontSize: 11, fill: "#888" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#888" }} axisLine={false} tickLine={false} />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="covers" name="Covers" radius={[4, 4, 0, 0]}>
-                {dayData.map((entry, i) => <Cell key={i} fill={dayColor(entry.date)} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-          <ChartCard title="By service slot">
-            {slotData.map(s => (
-              <HorizBar key={s.slot} label={s.slot.replace("Dinner ", "").replace("Iftar ", "Iftar ")}
-                value={s.covers} maxValue={slotData[0]?.covers ?? 1} color={s.color} suffix=" covers" />
-            ))}
-            <div className="mt-3 pt-3 border-t border-gray-50 space-y-1.5">
-              {slotData.map(s => (
-                <div key={s.slot} className="flex justify-between items-center">
-                  <span className="text-xs text-gray-400">{s.slot.replace("Dinner ", "").replace("Iftar ", "Iftar ")}</span>
-                  <span className="text-xs font-semibold" style={{ color: s.color }}>{s.pct}%</span>
-                </div>
-              ))}
-            </div>
-          </ChartCard>
-          <ChartCard title="By day of week">
-            {dowData.map(d => (
-              <HorizBar key={d.dow} label={d.dow} value={d.covers} maxValue={maxDowCovers} color={C.teal} suffix=" covers" />
-            ))}
-          </ChartCard>
-        </div>
-
-        <ChartCard title="Weekly trend">
-          <p className="text-xs text-gray-300 -mt-1 mb-3">* Week 3 is partial (4 days)</p>
-          <ResponsiveContainer width="100%" height={160}>
-            <LineChart data={weekData} margin={{ top: 12, right: 8, left: -16, bottom: 0 }}>
-              <CartesianGrid vertical={false} stroke="#f0ede8" />
-              <XAxis dataKey="week" tick={{ fontSize: 11, fill: "#888" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#888" }} axisLine={false} tickLine={false} />
-              <Tooltip content={<CustomTooltip />} />
-              <Line type="monotone" dataKey="covers" name="Covers"
-                stroke={C.teal} strokeWidth={2.5} dot={{ fill: C.teal, r: 5 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
-
-      <div>
-        <SectionHeader label="Guest Behavior" />
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-          <KpiCard value={`${repeatRate}%`} label="Repeat guest rate" sub="of reservations from returning guests" accent={C.teal} />
-        </div>
-        <div className="bg-white border border-gray-100 rounded-xl p-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Top returning guests</p>
-          {repeatGuests.length === 0 ? <p className="text-sm text-gray-300">No repeat guests.</p> : (
-            <div>
-              {repeatGuests.slice(0, 8).map((g, i) => (
-                <div key={i} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium shrink-0"
-                      style={{ background: C.teal + "22", color: C.teal }}>
-                      {g.displayName[0].toUpperCase()}
-                    </div>
-                    <span className="text-sm text-gray-800">{g.displayName}</span>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span className="text-xs font-semibold text-gray-700">{g.visits} visits</span>
-                    <span className="text-xs text-gray-300 ml-2">{g.covers} covers</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div>
-        <SectionHeader label="Operations" />
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-          <KpiCard value={`${avgUtilPct}%`} label="Avg table utilisation" sub="booked tables vs 18 available" accent={C.blue} />
-          <KpiCard value={tableData[0]?.table ? `Table ${tableData[0].table}` : "—"} label="Most used table"
-            sub={`${tableData[0]?.bookings ?? 0} bookings`} accent={C.teal} />
-        </div>
-        <ChartCard title="Table performance">
-          {tableData.slice(0, 10).map((t, i) => (
-            <HorizBar key={t.table} label={`Table ${t.table}`} value={t.bookings}
-              maxValue={maxTableBookings} color={i < 3 ? C.teal : C.gray} suffix=" bookings" />
-          ))}
-        </ChartCard>
-      </div>
-    </div>
-  );
-}
-
 // ── Main page ────────────────────────────────────────────────────────────────
 export default function AnalyticsPage() {
-  const [showArchive, setShowArchive] = useState(false);
-
   const { data: dbReservations = [] } = useQuery<Reservation[]>({
     queryKey: ["/api/reservations"],
     staleTime: 60 * 1000,
@@ -709,35 +450,13 @@ export default function AnalyticsPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto font-sans overflow-auto" data-testid="text-analytics-title">
-      <div className="flex items-start justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Analytics</h1>
-          <p className="text-sm text-gray-400 mt-0.5">
-            Live data · starting April 2026
-          </p>
-        </div>
-        <button
-          onClick={() => setShowArchive(v => !v)}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors"
-          data-testid="button-toggle-archive"
-        >
-          <Archive className="h-4 w-4" />
-          March 2026 Archive
-          {showArchive ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-        </button>
+      <div className="mb-8">
+        <h1 className="text-2xl font-semibold text-gray-900">Analytics</h1>
+        <p className="text-sm text-gray-400 mt-0.5">
+          Live data · starting April 2026
+        </p>
       </div>
-
-      {showArchive ? (
-        <div>
-          <div className="mb-6 px-4 py-3 bg-amber-50 border border-amber-100 rounded-xl">
-            <p className="text-sm font-medium text-amber-800">March 2026 — Ramadan Season Archive</p>
-            <p className="text-xs text-amber-600 mt-0.5">862 covers · 344 reservations · 18 active days · data from Google Sheets</p>
-          </div>
-          <ArchiveAnalytics />
-        </div>
-      ) : (
-        <LiveAnalytics reservations={dbReservations} />
-      )}
+      <LiveAnalytics reservations={dbReservations} />
     </div>
   );
 }
