@@ -133,8 +133,7 @@ export default function TablesPage() {
                   <rect x="2" y="8" width="8" height="16" rx="2" stroke={isAvailable ? "#94a3b8" : "#0D7377"} strokeWidth="1.5" fill="none" />
                   <rect x="38" y="8" width="8" height="16" rx="2" stroke={isAvailable ? "#94a3b8" : "#0D7377"} strokeWidth="1.5" fill="none" />
                 </svg>
-
-                <span className="font-medium text-foreground" data-testid={`text-table-number-${table.id}`}>
+                <span className="font-medium text-foreground text-center" data-testid={`text-table-number-${table.id}`}>
                   Table {table.number}
                 </span>
                 <span className="text-xs text-muted-foreground mb-2">
@@ -142,7 +141,6 @@ export default function TablesPage() {
                     ? `${table.minCapacity} seats`
                     : `${table.minCapacity} to ${table.maxCapacity} seats`}
                 </span>
-
                 {isAvailable ? (
                   <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50" data-testid={`badge-status-${table.id}`}>
                     Available
