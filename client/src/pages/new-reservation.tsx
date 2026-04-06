@@ -118,7 +118,6 @@ export default function NewCustomerPage() {
     setMode(newMode);
     setTime("");
     setSelectedTables([]);
-    setSelectionMode("tables");
     setConfirmed(false);
     setTakenBy("");
   };
@@ -256,7 +255,7 @@ export default function NewCustomerPage() {
                 </div>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">{selectionMode === "tepanyaki" ? "Seats:" : "Tables:"}</span>
+                <span className="text-muted-foreground">Tables:</span>
                 <span className="font-medium" data-testid="text-confirm-tables">
                   {selectedTables
                     .sort((a, b) => a.id - b.id)

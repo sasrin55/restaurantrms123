@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,18 +7,29 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Reservation } from "@shared/schema";
 import { format, addDays, subDays, isToday } from "date-fns";
 import { restaurantTables } from "@/lib/tables";
+import { getTimeSlotsForDate } from "@/lib/timeSlots";
 
 export default function TablesPage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const dateStr = format(selectedDate, "yyyy-MM-dd");
+
+  const slots = getTimeSlotsForDate(selectedDate);
+
+  useEffect(() => {
+    setSelectedSlot(null);
+  }, [dateStr]);
 
   const { data: reservations = [] } = useQuery<Reservation[]>({
     queryKey: ["/api/reservations"],
   });
 
-  const activeReservations = reservations.filter(
-    (r) => r.date === dateStr && r.status !== "complete"
-  );
+  const activeReservations = reservations.filter((r) => {
+    if (r.date !== dateStr) return false;
+    if (r.status === "complete" || r.status === "cancelled") return false;
+    if (selectedSlot && r.time !== selectedSlot) return false;
+    return true;
+  });
 
   const getTableStatus = (tableId: number) => {
     const reservation = activeReservations.find((r) => r.tableId === tableId);
@@ -58,7 +69,7 @@ export default function TablesPage() {
           </div>
         </div>
 
-        <div className="flex items-center justify-center gap-4 mb-6">
+        <div className="flex items-center justify-center gap-4 mb-4">
           <Button
             size="icon"
             variant="ghost"
@@ -78,6 +89,28 @@ export default function TablesPage() {
           >
             <ChevronRight className="h-5 w-5" />
           </Button>
+        </div>
+
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-6 scrollbar-hide">
+          <Badge
+            variant={selectedSlot === null ? "default" : "outline"}
+            className={`cursor-pointer whitespace-nowrap px-3 py-1.5 text-xs shrink-0 ${selectedSlot === null ? "bg-[#0D7377] text-white" : ""}`}
+            onClick={() => setSelectedSlot(null)}
+            data-testid="slot-filter-all"
+          >
+            Any Time
+          </Badge>
+          {slots.map((slot) => (
+            <Badge
+              key={slot.label}
+              variant={selectedSlot === slot.label ? "default" : "outline"}
+              className={`cursor-pointer whitespace-nowrap px-3 py-1.5 text-xs shrink-0 ${selectedSlot === slot.label ? "bg-[#0D7377] text-white" : ""}`}
+              onClick={() => setSelectedSlot(slot.label === selectedSlot ? null : slot.label)}
+              data-testid={`slot-filter-${slot.label.replace(/[\s:]/g, "-")}`}
+            >
+              {slot.label}
+            </Badge>
+          ))}
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -120,7 +153,7 @@ export default function TablesPage() {
                       {status === "seated" ? "Seated" : status === "confirmed" ? "Confirmed" : status === "booked" ? "Booked" : "Pending"}
                     </Badge>
                     {reservation && (
-                      <span className="text-xs text-muted-foreground mt-1" data-testid={`text-guest-${table.id}`}>
+                      <span className="text-xs text-muted-foreground mt-1 text-center" data-testid={`text-guest-${table.id}`}>
                         {reservation.customerName} · {reservation.time}
                       </span>
                     )}
