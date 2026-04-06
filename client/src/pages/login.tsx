@@ -35,7 +35,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           <img
             src={seatedLogo}
             alt="Seated"
-            style={{ height: "50px" }} className="w-auto object-contain"
+            style={{ height: "150px", mixBlendMode: "multiply" }} className="w-auto object-contain"
           />
         </div>
 
