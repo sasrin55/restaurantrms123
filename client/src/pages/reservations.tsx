@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,6 +97,9 @@ function groupReservations(reservations: Reservation[]): GroupedReservation[] {
 
 export default function ReservationsPage() {
   const { toast } = useToast();
+  const searchString = useSearch();
+  const [, navigate] = useLocation();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [partySizeFilter, setPartySizeFilter] = useState("all");
@@ -104,11 +107,20 @@ export default function ReservationsPage() {
   const [editingReservation, setEditingReservation] = useState<Reservation | null>(null);
   const [editingGroupReservations, setEditingGroupReservations] = useState<Reservation[]>([]);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [dateFilter, setDateFilter] = useState<DateFilter>("today");
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [dateFilter, setDateFilter] = useState<DateFilter>(() => {
+    const p = new URLSearchParams(searchString);
+    return p.get("date") ? "custom" : "today";
+  });
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    const p = new URLSearchParams(searchString);
+    const d = p.get("date");
+    return d ? new Date(d + "T12:00:00") : new Date();
+  });
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [slotFilter, setSlotFilter] = useState<"all" | string>("all");
-  const [, navigate] = useLocation();
+  const [slotFilter, setSlotFilter] = useState<"all" | string>(() => {
+    const p = new URLSearchParams(searchString);
+    return p.get("slot") || "all";
+  });
 
   const { data: reservations = [], isLoading } = useQuery<Reservation[]>({
     queryKey: ["/api/reservations"],

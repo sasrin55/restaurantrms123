@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { restaurantTables } from "@/lib/tables";
 import { getTimeSlotsForDate } from "@/lib/timeSlots";
 
 export default function TablesPage() {
+  const [, navigate] = useLocation();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const dateStr = format(selectedDate, "yyyy-MM-dd");
@@ -118,12 +120,21 @@ export default function TablesPage() {
             const { status, reservation } = getTableStatus(table.id);
             const isAvailable = status === "available";
 
+            const handleCardClick = () => {
+              if (!isAvailable && reservation) {
+                navigate(`/reservations?date=${dateStr}&slot=${encodeURIComponent(reservation.time)}`);
+              }
+            };
+
             return (
               <Card
                 key={table.id}
-                className={`p-4 flex flex-col items-center justify-center ${
-                  isAvailable ? "bg-white" : "bg-[#0D7377]/5 ring-1 ring-[#0D7377]/20"
+                className={`p-4 flex flex-col items-center justify-center transition-colors ${
+                  isAvailable
+                    ? "bg-white"
+                    : "bg-[#0D7377]/5 ring-1 ring-[#0D7377]/20 cursor-pointer hover:bg-[#0D7377]/10"
                 }`}
+                onClick={handleCardClick}
                 data-testid={`table-card-${table.id}`}
               >
                 <svg width="48" height="32" viewBox="0 0 48 32" fill="none" className="mb-3">
