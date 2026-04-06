@@ -426,7 +426,7 @@ export default function NewCustomerPage() {
                           <div className="absolute inset-0 flex items-center justify-center z-10">
                             <X className="h-10 w-10 text-red-400 stroke-[2.5]" />
                           </div>
-                          <div className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 bg-red-50 border border-red-200 rounded px-1 py-0.5" data-testid={`text-booked-pax-${table.id}`}>
+                          <div className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 bg-red-50 border border-red-200 rounded px-1 py-0.5 pl-[6px] pr-[6px] pt-[4px] pb-[4px] text-[16px]" data-testid={`text-booked-pax-${table.id}`}>
                             <svg width="9" height="9" viewBox="0 0 10 10" fill="none" className="shrink-0">
                               <circle cx="5" cy="3" r="2" fill="#ef4444" />
                               <path d="M1 9c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="#ef4444" strokeWidth="1.2" fill="none" strokeLinecap="round" />
