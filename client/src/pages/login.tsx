@@ -31,7 +31,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     <div className="min-h-screen flex items-center justify-center bg-[#F8F7F4]">
       <div className="w-full max-w-sm px-6">
         {/* Logo */}
-        <div className="flex justify-center mb-10 mt-16">
+        <div className="flex justify-center mb-4">
           <img
             src={seatedLogo}
             alt="Seated"
