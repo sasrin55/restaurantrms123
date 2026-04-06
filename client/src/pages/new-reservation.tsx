@@ -81,7 +81,7 @@ export default function NewCustomerPage() {
           tableName: isTepanyaki ? `Tepanyaki Seat ${table.number}` : `Table ${table.number}`,
           comments: comments.trim(),
           takenBy: takenBy.trim(),
-          status: mode === "walkin" ? "seated" : "confirmed",
+          status: mode === "walkin" ? "seated" : "booked",
         };
         return apiRequest("POST", "/api/reservations", payload);
       });

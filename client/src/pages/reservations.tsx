@@ -208,6 +208,9 @@ export default function ReservationsPage() {
     const status = group.status;
     for (const id of group.ids) {
       switch (status) {
+        case "booked":
+          updateStatusMutation.mutate({ id, status: "confirmed" });
+          break;
         case "seated":
           updateStatusMutation.mutate({ id, status: "complete" });
           break;
@@ -221,7 +224,7 @@ export default function ReservationsPage() {
           deleteReservationMutation.mutate(id);
           break;
         case "cancelled":
-          updateStatusMutation.mutate({ id, status: "confirmed" });
+          updateStatusMutation.mutate({ id, status: "booked" });
           break;
       }
     }
@@ -429,8 +432,9 @@ export default function ReservationsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="seated">Seated</SelectItem>
+              <SelectItem value="booked">Booked</SelectItem>
               <SelectItem value="confirmed">Confirmed</SelectItem>
+              <SelectItem value="seated">Seated</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
               <SelectItem value="complete">Complete</SelectItem>
               <SelectItem value="cancelled">Cancelled</SelectItem>

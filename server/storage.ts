@@ -72,7 +72,7 @@ export class DatabaseStorage implements IStorage {
     const [reservation] = await db.insert(reservations).values({
       ...insertReservation,
       comments: insertReservation.comments ?? "",
-      status: insertReservation.status || "confirmed",
+      status: insertReservation.status || "booked",
     }).returning();
     return reservation;
   }

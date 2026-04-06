@@ -23,7 +23,7 @@ export default function TablesPage() {
   const getTableStatus = (tableId: number) => {
     const reservation = activeReservations.find((r) => r.tableId === tableId);
     if (!reservation) return { status: "available" as const, reservation: null };
-    return { status: reservation.status as "confirmed" | "seated" | "pending", reservation };
+    return { status: reservation.status as "booked" | "confirmed" | "seated" | "pending", reservation };
   };
 
   const availableCount = restaurantTables.filter(
@@ -117,7 +117,7 @@ export default function TablesPage() {
                 ) : (
                   <div className="flex flex-col items-center gap-1">
                     <Badge className="bg-[#0D7377] text-white" data-testid={`badge-status-${table.id}`}>
-                      {status === "seated" ? "Seated" : status === "confirmed" ? "Reserved" : "Pending"}
+                      {status === "seated" ? "Seated" : status === "confirmed" ? "Confirmed" : status === "booked" ? "Booked" : "Pending"}
                     </Badge>
                     {reservation && (
                       <span className="text-xs text-muted-foreground mt-1" data-testid={`text-guest-${table.id}`}>

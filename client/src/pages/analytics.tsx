@@ -100,6 +100,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 // ── Status card (DB) ────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
+  booked:    { label: "Booked",    color: "#3b82f6" },
   confirmed: { label: "Confirmed", color: "#16a34a" },
   seated:    { label: "Seated",    color: "#4A5D23" },
   complete:  { label: "Completed", color: "#2563eb" },
@@ -108,6 +109,7 @@ type KnownStatus = keyof typeof STATUS_CONFIG;
 type FilterOption = "total" | KnownStatus;
 const FILTER_OPTIONS: { value: FilterOption; label: string }[] = [
   { value: "total",     label: "Total" },
+  { value: "booked",    label: "Booked" },
   { value: "confirmed", label: "Confirmed" },
   { value: "seated",    label: "Seated" },
   { value: "complete",  label: "Completed" },

@@ -246,7 +246,7 @@ export async function registerRoutes(
       const reservations = await storage.getReservations();
       const today = new Date().toISOString().split("T")[0];
       const match = reservations.find(
-        (r) => r.tableId === orderData.tableId && r.date === today && (r.status === "confirmed" || r.status === "seated")
+        (r) => r.tableId === orderData.tableId && r.date === today && (r.status === "booked" || r.status === "confirmed" || r.status === "seated")
       );
       if (match) {
         const guests = await storage.getGuests();
