@@ -27,7 +27,7 @@ const FRIDAY_SLOTS: TimeSlot[] = [
 
 const WEEKEND_SLOTS: TimeSlot[] = [
   { label: "10:00 AM - 12:00 PM", period: "breakfast" },
-  { label: "12:15 PM - 2:00 PM",  period: "brunch" },
+  { label: "12:15 PM - 2:15 PM",  period: "brunch" },
   { label: "2:30 PM - 4:30 PM",   period: "lunch" },
   { label: "5:00 PM - 7:00 PM",   period: "tea" },
   { label: "7:30 PM - 9:30 PM",   period: "dinner" },
@@ -38,7 +38,7 @@ export const ALL_SLOTS: TimeSlot[] = [
   { label: "9:00 AM - 10:30 AM",  period: "breakfast" },
   { label: "10:00 AM - 12:00 PM", period: "breakfast" },
   { label: "10:45 AM - 12:15 PM", period: "brunch" },
-  { label: "12:15 PM - 2:00 PM",  period: "brunch" },
+  { label: "12:15 PM - 2:15 PM",  period: "brunch" },
   { label: "12:30 PM - 2:30 PM",  period: "lunch" },
   { label: "2:30 PM - 4:30 PM",   period: "lunch" },
   { label: "5:00 PM - 7:00 PM",   period: "tea" },
