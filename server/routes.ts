@@ -1,6 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 import { insertReservationSchema, insertOrderSchema, insertOrderItemSchema, insertMenuItemSchema, guests } from "@shared/schema";
 import { menuCategories } from "@shared/menuData";
 import { appendReservationToSheet, updateReservationInSheet, exportAllReservationsToSheet, syncFromSheet, fetchAllSheetTabsData, type SheetReservationUpdate, type SheetNewReservation } from "./googleSheets";
@@ -582,6 +584,23 @@ export async function registerRoutes(
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: "Failed" });
+    }
+  });
+
+  app.post("/api/admin/clear-all-data", async (req, res) => {
+    if (req.headers["x-admin-key"] !== "seated-reset-2026") {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    try {
+      await db.execute(sql`DELETE FROM calls`);
+      await db.execute(sql`DELETE FROM order_items`);
+      await db.execute(sql`DELETE FROM orders`);
+      await db.execute(sql`DELETE FROM reservations`);
+      await db.execute(sql`DELETE FROM guests`);
+      res.json({ ok: true, message: "All data cleared" });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: String(err) });
     }
   });
 
