@@ -136,7 +136,7 @@ export default function TablesPage() {
                 <span className="font-medium text-foreground text-center" data-testid={`text-table-number-${table.id}`}>
                   Table {table.number}
                 </span>
-                <span className="text-xs text-muted-foreground mt-[8px] mb-[8px]">
+                <span className="text-xs text-muted-foreground mb-[8px] mt-[2px]">
                   {table.minCapacity === table.maxCapacity
                     ? `${table.minCapacity} seats`
                     : `${table.minCapacity} to ${table.maxCapacity} seats`}
