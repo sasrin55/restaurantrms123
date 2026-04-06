@@ -122,7 +122,7 @@ export default function TablesPage() {
 
             const handleCardClick = () => {
               if (!isAvailable && reservation) {
-                navigate(`/reservations?date=${dateStr}&slot=${encodeURIComponent(reservation.time)}`);
+                navigate(`/?date=${dateStr}&slot=${encodeURIComponent(reservation.time)}`);
               }
             };
 
