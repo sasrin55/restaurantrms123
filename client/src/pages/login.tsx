@@ -35,7 +35,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           <img
             src={seatedLogo}
             alt="Seated"
-            className="h-20 w-auto object-contain"
+            style={{ height: "50px" }} className="w-auto object-contain"
           />
         </div>
 
