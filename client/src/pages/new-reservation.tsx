@@ -303,7 +303,6 @@ export default function NewCustomerPage() {
       style={{ backgroundImage: `url(${restaurantBg})` }}
     >
       <div className="absolute inset-0 bg-white/40" />
-
       <div className="relative z-10 flex flex-col items-center justify-center min-h-full py-8 px-4">
         <h1
           className="mb-6"
@@ -428,7 +427,7 @@ export default function NewCustomerPage() {
                         <rect x="2" y="8" width="8" height="16" rx="2" stroke={isBooked ? "#9CA3AF" : "#0D7377"} strokeWidth="1.5" fill="none" />
                         <rect x="38" y="8" width="8" height="16" rx="2" stroke={isBooked ? "#9CA3AF" : "#0D7377"} strokeWidth="1.5" fill="none" />
                       </svg>
-                      <span className={`font-medium text-sm ${isBooked ? "text-muted-foreground" : "text-foreground"}`}>Table {table.number}</span>
+                      <span className="font-medium text-sm text-foreground text-center mt-[5px] mb-[5px]">Table {table.number}</span>
                       <span className="text-xs text-muted-foreground">
                         {table.minCapacity === table.maxCapacity
                           ? `${table.minCapacity} seats`
