@@ -16,10 +16,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar as CalendarIcon, Clock, Users, Check, Send, X } from "lucide-react";
+import { Calendar as CalendarIcon, Check, Send, X } from "lucide-react";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { restaurantTables, tepanyakiSeats } from "@/lib/tables";
+import { restaurantTables } from "@/lib/tables";
 import { getTimeSlotsForDate, isMonday, getPeriodLabel, type MealPeriod } from "@/lib/timeSlots";
 import restaurantBg from "@/assets/images/restaurant-bg.jpg";
 
@@ -34,7 +34,6 @@ export default function NewCustomerPage() {
   const [time, setTime] = useState("");
   const [partySize, setPartySize] = useState("2");
   const [selectedTables, setSelectedTables] = useState<{ id: number; number: string }[]>([]);
-  const [selectionMode, setSelectionMode] = useState<"tables" | "tepanyaki">("tables");
   const [customerName, setCustomerName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [comments, setComments] = useState("");
@@ -155,7 +154,6 @@ export default function NewCustomerPage() {
           )}
         </SelectContent>
       </Select>
-      <Clock className="h-5 w-5 text-muted-foreground shrink-0" />
     </div>
   );
 
@@ -167,11 +165,6 @@ export default function NewCustomerPage() {
     } else {
       setSelectedTables([...selectedTables, table]);
     }
-  };
-
-  const switchTableMode = (tableMode: "tables" | "tepanyaki") => {
-    setSelectionMode(tableMode);
-    setSelectedTables([]);
   };
 
   const modePills = (
@@ -377,7 +370,6 @@ export default function NewCustomerPage() {
                     className="w-full"
                     data-testid="input-party-size"
                   />
-                  <Users className="h-5 w-5 text-muted-foreground shrink-0" />
                 </div>
               </div>
             </div>
@@ -400,7 +392,6 @@ export default function NewCustomerPage() {
                     className="w-full"
                     data-testid="input-party-size"
                   />
-                  <Users className="h-5 w-5 text-muted-foreground shrink-0" />
                 </div>
               </div>
             </div>
@@ -409,27 +400,7 @@ export default function NewCustomerPage() {
           <div className="mb-6">
             <Label className="text-muted-foreground text-sm mb-2 block">Select Seating</Label>
 
-            <div className="flex gap-2 mb-4">
-              <Badge
-                variant={selectionMode === "tables" ? "default" : "outline"}
-                className={`cursor-pointer px-4 py-1.5 text-sm ${selectionMode === "tables" ? "bg-[#0D7377] text-white" : ""}`}
-                onClick={() => switchTableMode("tables")}
-                data-testid="button-mode-tables"
-              >
-                Tables
-              </Badge>
-              <Badge
-                variant={selectionMode === "tepanyaki" ? "default" : "outline"}
-                className={`cursor-pointer px-4 py-1.5 text-sm ${selectionMode === "tepanyaki" ? "bg-[#0D7377] text-white" : ""}`}
-                onClick={() => switchTableMode("tepanyaki")}
-                data-testid="button-mode-tepanyaki"
-              >
-                Tepanyaki Bar
-              </Badge>
-            </div>
-
-            {selectionMode === "tables" ? (
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
                 {restaurantTables.map((table) => {
                   const isBooked = bookedTableIds.includes(table.id);
                   const isSelected = selectedTables.some((t) => t.id === table.id);
@@ -467,53 +438,11 @@ export default function NewCustomerPage() {
                     </div>
                   );
                 })}
-              </div>
-            ) : (
-              <div>
-                <p className="text-xs text-muted-foreground mb-3">
-                  Tepanyaki Bar — 8 seats total. Select the seats for your guest.
-                </p>
-                <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
-                  {tepanyakiSeats.map((seat) => {
-                    const isBooked = bookedTableIds.includes(seat.id);
-                    const isSelected = selectedTables.some((t) => t.id === seat.id);
-                    return (
-                      <div
-                        key={seat.id}
-                        className={`relative flex flex-col items-center justify-center p-3 rounded-md border transition-colors ${
-                          isBooked
-                            ? "border-border opacity-50 cursor-not-allowed"
-                            : isSelected
-                            ? "border-[#0D7377] bg-[#0D7377]/10 cursor-pointer"
-                            : "border-border hover-elevate cursor-pointer"
-                        }`}
-                        onClick={() => toggleTable({ id: seat.id, number: seat.number })}
-                        data-testid={`seat-card-${seat.id}`}
-                      >
-                        {isBooked && (
-                          <div className="absolute inset-0 flex items-center justify-center z-10">
-                            <X className="h-8 w-8 text-red-400 stroke-[2.5]" />
-                          </div>
-                        )}
-                        <svg width="24" height="28" viewBox="0 0 24 28" fill="none" className="mb-1">
-                          <rect x="4" y="10" width="16" height="3" rx="1" fill={isBooked ? "#9CA3AF" : "#0D7377"} />
-                          <rect x="6" y="13" width="2" height="10" fill={isBooked ? "#9CA3AF" : "#0D7377"} />
-                          <rect x="16" y="13" width="2" height="10" fill={isBooked ? "#9CA3AF" : "#0D7377"} />
-                          <path d="M5 10V4C5 2.9 5.9 2 7 2H17C18.1 2 19 2.9 19 4V10" stroke={isBooked ? "#9CA3AF" : "#0D7377"} strokeWidth="1.5" fill="none" />
-                        </svg>
-                        <span className={`font-medium text-sm ${isBooked ? "text-muted-foreground" : "text-foreground"}`}>Seat {seat.number}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            </div>
 
             {selectedTables.length > 0 && (
               <p className="text-sm text-[#0D7377] mt-2" data-testid="text-tables-selected">
-                {selectionMode === "tepanyaki"
-                  ? `${selectedTables.length} seat${selectedTables.length > 1 ? "s" : ""} selected`
-                  : `${selectedTables.length} table${selectedTables.length > 1 ? "s" : ""} selected`}
+                {`${selectedTables.length} table${selectedTables.length > 1 ? "s" : ""} selected`}
               </p>
             )}
           </div>
