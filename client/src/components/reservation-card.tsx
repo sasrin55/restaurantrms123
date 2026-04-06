@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Clock, Users, Phone, MessageSquare, ShoppingCart, Check, Pencil } from "lucide-react";
 
-export type ReservationStatus = "booked" | "seated" | "confirmed" | "pending" | "complete" | "cancelled";
+export type ReservationStatus = "booked" | "seated" | "confirmed" | "pending" | "complete" | "cancelled" | "no-show";
 
 interface ReservationCardProps {
   id: string;
@@ -45,6 +45,10 @@ const statusConfig: Record<ReservationStatus, { label: string; className: string
   cancelled: {
     label: "Cancelled",
     className: "bg-rose-500 text-white",
+  },
+  "no-show": {
+    label: "No Show",
+    className: "bg-orange-500 text-white",
   },
 };
 
@@ -107,7 +111,7 @@ export function ReservationCard({
   onTertiaryAction,
   onTakeOrder,
 }: ReservationCardProps) {
-  const statusStyle = statusConfig[status];
+  const statusStyle = statusConfig[status] ?? { label: status, className: "bg-gray-400 text-white" };
   const actions = getActionButtons(status);
 
   return (
@@ -259,7 +263,7 @@ export function ReservationRow({
   onTertiaryAction,
   onTakeOrder,
 }: ReservationRowProps) {
-  const statusStyle = statusConfig[status];
+  const statusStyle = statusConfig[status] ?? { label: status, className: "bg-gray-400 text-white" };
   const actions = getActionButtons(status);
 
   return (
