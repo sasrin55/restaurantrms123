@@ -23,7 +23,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format, addDays, startOfWeek, endOfWeek, isWithinInterval, parseISO, isToday, isTomorrow } from "date-fns";
 import type { Reservation, Order } from "@shared/schema";
-import { getTimeSlotsForDate, type MealPeriod } from "@/lib/timeSlots";
+import { getTimeSlotsForDate, getPeriodLabel, ALL_SLOTS, type MealPeriod } from "@/lib/timeSlots";
 
 type DateFilter = "today" | "tomorrow" | "this-week" | "custom";
 
@@ -51,21 +51,12 @@ function parseTimeTo24(time: string): number {
   return hour + minute / 60;
 }
 
-function isRamadanDate(date: Date): boolean {
-  const year = date.getFullYear();
-  const start = new Date(year, 1, 18);
-  const end = new Date(year, 2, 20);
-  start.setHours(0, 0, 0, 0);
-  end.setHours(23, 59, 59, 999);
-  const check = new Date(date);
-  check.setHours(0, 0, 0, 0);
-  return check >= start && check <= end;
-}
-
 function getTimePeriod(time: string, date: Date): MealPeriod {
   const slots = getTimeSlotsForDate(date);
   const slot = slots.find(s => s.label === time);
   if (slot) return slot.period;
+  const fallback = ALL_SLOTS.find(s => s.label === time);
+  if (fallback) return fallback.period;
   const h24 = parseTimeTo24(time);
   if (h24 < 10.5) return "breakfast";
   if (h24 < 12.5) return "brunch";
@@ -73,15 +64,6 @@ function getTimePeriod(time: string, date: Date): MealPeriod {
   if (h24 < 19) return "tea";
   return "dinner";
 }
-
-const PERIOD_ORDER: MealPeriod[] = ["breakfast", "brunch", "lunch", "tea", "dinner"];
-const PERIOD_LABELS: Record<MealPeriod, string> = {
-  breakfast: "Breakfast",
-  brunch: "Brunch",
-  lunch: "Lunch",
-  tea: "Tea",
-  dinner: "Dinner",
-};
 
 function groupReservations(reservations: Reservation[]): GroupedReservation[] {
   const groups = new Map<string, Reservation[]>();
@@ -125,7 +107,7 @@ export default function ReservationsPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>("today");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [periodFilter, setPeriodFilter] = useState<"all" | MealPeriod>("all");
+  const [slotFilter, setSlotFilter] = useState<"all" | string>("all");
   const [, navigate] = useLocation();
 
   const { data: reservations = [], isLoading } = useQuery<Reservation[]>({
@@ -243,6 +225,7 @@ export default function ReservationsPage() {
 
   const handleDateFilterChange = (filter: DateFilter) => {
     setDateFilter(filter);
+    setSlotFilter("all");
     if (filter === "today") {
       setSelectedDate(new Date());
     } else if (filter === "tomorrow") {
@@ -253,6 +236,7 @@ export default function ReservationsPage() {
   const handleCalendarSelect = (date: Date | undefined) => {
     if (date) {
       setSelectedDate(date);
+      setSlotFilter("all");
       if (isToday(date)) {
         setDateFilter("today");
       } else if (isTomorrow(date)) {
@@ -468,27 +452,33 @@ export default function ReservationsPage() {
         </div>
 
         <div className="flex items-center gap-2 mb-4 sm:mb-6 overflow-x-auto pb-1" data-testid="period-tabs">
-          {(["all", ...PERIOD_ORDER] as const).map((p) => {
-            const label = p === "all" ? "All" : PERIOD_LABELS[p];
-            const count = p === "all"
-              ? groupedReservations.length
-              : groupedReservations.filter((g) => getTimePeriod(g.time, selectedDate) === p).length;
-            if (p !== "all" && count === 0) return null;
-            return (
-              <button
-                key={p}
-                onClick={() => setPeriodFilter(p)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  periodFilter === p
-                    ? "bg-[#0D7377] text-white"
-                    : "bg-muted text-muted-foreground hover-elevate"
-                }`}
-                data-testid={`button-period-${p}`}
-              >
-                {label} ({count})
-              </button>
-            );
-          })}
+          <button
+            onClick={() => setSlotFilter("all")}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
+              slotFilter === "all" ? "bg-[#0D7377] text-white" : "bg-muted text-muted-foreground hover-elevate"
+            }`}
+            data-testid="button-period-all"
+          >
+            All ({groupedReservations.length})
+          </button>
+          {Array.from(new Set(groupedReservations.map(g => g.time)))
+            .sort((a, b) => parseTimeTo24(a) - parseTimeTo24(b))
+            .map(time => {
+              const period = getTimePeriod(time, selectedDate);
+              const count = groupedReservations.filter(g => g.time === time).length;
+              return (
+                <button
+                  key={time}
+                  onClick={() => setSlotFilter(time)}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
+                    slotFilter === time ? "bg-[#0D7377] text-white" : "bg-muted text-muted-foreground hover-elevate"
+                  }`}
+                  data-testid={`button-slot-${time}`}
+                >
+                  {getPeriodLabel(period)} · {time} ({count})
+                </button>
+              );
+            })}
         </div>
 
         {isLoading ? (
@@ -518,96 +508,108 @@ export default function ReservationsPage() {
           </div>
         ) : viewMode === "grid" ? (
           <div className="space-y-8">
-            {(periodFilter === "all" ? PERIOD_ORDER : [periodFilter]).map((period) => {
-              const periodGroups = groupedReservations.filter(
-                (g) => getTimePeriod(g.time, selectedDate) === period
-              );
-              if (periodGroups.length === 0) return null;
-              return (
-                <div key={period}>
-                  {periodFilter === "all" && (
-                    <h2 className="text-lg font-semibold text-foreground mb-4" data-testid={`text-period-${period}`}>
-                      {PERIOD_LABELS[period]}
-                    </h2>
-                  )}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                    {periodGroups.map((group) => (
-                      <ReservationCard
-                        key={group.ids[0]}
-                        id={group.ids[0]}
-                        guestName={group.customerName}
-                        status={group.status as ReservationStatus}
-                        time={group.time}
-                        partySize={group.partySize}
-                        tableNumber={group.tableNames.join(" + ")}
-                        phone={group.phoneNumber}
-                        comments={group.comments}
-                        orderConfirmed={isOrderConfirmedForGroup(group)}
-                        onEdit={() => handleEdit(group.reservations[0], group.reservations)}
-                        onPrimaryAction={() => handleGroupPrimaryAction(group)}
-                        onSecondaryAction={() => handleGroupSecondaryAction(group)}
-                        onTertiaryAction={() => handleGroupTertiaryAction(group)}
-                        onTakeOrder={() => handleTakeOrder(group)}
-                      />
-                    ))}
+            {Array.from(new Set(
+              (slotFilter === "all" ? groupedReservations : groupedReservations.filter(g => g.time === slotFilter))
+                .map(g => g.time)
+            ))
+              .sort((a, b) => parseTimeTo24(a) - parseTimeTo24(b))
+              .map(time => {
+                const slotGroups = groupedReservations.filter(g =>
+                  (slotFilter === "all" || g.time === slotFilter) && g.time === time
+                );
+                if (slotGroups.length === 0) return null;
+                const period = getTimePeriod(time, selectedDate);
+                return (
+                  <div key={time}>
+                    {slotFilter === "all" && (
+                      <h2 className="text-lg font-semibold text-foreground mb-4" data-testid={`text-slot-${time}`}>
+                        {getPeriodLabel(period)} · {time}
+                      </h2>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                      {slotGroups.map((group) => (
+                        <ReservationCard
+                          key={group.ids[0]}
+                          id={group.ids[0]}
+                          guestName={group.customerName}
+                          status={group.status as ReservationStatus}
+                          time={group.time}
+                          partySize={group.partySize}
+                          tableNumber={group.tableNames.join(" + ")}
+                          phone={group.phoneNumber}
+                          comments={group.comments}
+                          orderConfirmed={isOrderConfirmedForGroup(group)}
+                          onEdit={() => handleEdit(group.reservations[0], group.reservations)}
+                          onPrimaryAction={() => handleGroupPrimaryAction(group)}
+                          onSecondaryAction={() => handleGroupSecondaryAction(group)}
+                          onTertiaryAction={() => handleGroupTertiaryAction(group)}
+                          onTakeOrder={() => handleTakeOrder(group)}
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         ) : (
           <div className="space-y-8">
-            {(periodFilter === "all" ? PERIOD_ORDER : [periodFilter]).map((period) => {
-              const periodGroups = groupedReservations.filter(
-                (g) => getTimePeriod(g.time, selectedDate) === period
-              );
-              if (periodGroups.length === 0) return null;
-              return (
-                <div key={period}>
-                  {periodFilter === "all" && (
-                    <h2 className="text-lg font-semibold text-foreground mb-4" data-testid={`text-period-list-${period}`}>
-                      {PERIOD_LABELS[period]}
-                    </h2>
-                  )}
-                  <div className="border rounded-md overflow-hidden">
-                    <table className="w-full">
-                      <thead className="bg-muted/50">
-                        <tr className="border-b">
-                          <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Name</th>
-                          <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Time</th>
-                          <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Pax</th>
-                          <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Table</th>
-                          <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Phone</th>
-                          <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Status</th>
-                          <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {periodGroups.map((group) => (
-                          <ReservationRow
-                            key={group.ids[0]}
-                            id={group.ids[0]}
-                            guestName={group.customerName}
-                            status={group.status as ReservationStatus}
-                            time={group.time}
-                            partySize={group.partySize}
-                            tableNumber={group.tableNames.join(" + ")}
-                            phone={group.phoneNumber}
-                            comments={group.comments}
-                            orderConfirmed={isOrderConfirmedForGroup(group)}
-                            onEdit={() => handleEdit(group.reservations[0], group.reservations)}
-                            onPrimaryAction={() => handleGroupPrimaryAction(group)}
-                            onSecondaryAction={() => handleGroupSecondaryAction(group)}
-                            onTertiaryAction={() => handleGroupTertiaryAction(group)}
-                            onTakeOrder={() => handleTakeOrder(group)}
-                          />
-                        ))}
-                      </tbody>
-                    </table>
+            {Array.from(new Set(
+              (slotFilter === "all" ? groupedReservations : groupedReservations.filter(g => g.time === slotFilter))
+                .map(g => g.time)
+            ))
+              .sort((a, b) => parseTimeTo24(a) - parseTimeTo24(b))
+              .map(time => {
+                const slotGroups = groupedReservations.filter(g =>
+                  (slotFilter === "all" || g.time === slotFilter) && g.time === time
+                );
+                if (slotGroups.length === 0) return null;
+                const period = getTimePeriod(time, selectedDate);
+                return (
+                  <div key={time}>
+                    {slotFilter === "all" && (
+                      <h2 className="text-lg font-semibold text-foreground mb-4" data-testid={`text-slot-list-${time}`}>
+                        {getPeriodLabel(period)} · {time}
+                      </h2>
+                    )}
+                    <div className="border rounded-md overflow-hidden">
+                      <table className="w-full">
+                        <thead className="bg-muted/50">
+                          <tr className="border-b">
+                            <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Name</th>
+                            <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Time</th>
+                            <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Pax</th>
+                            <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Table</th>
+                            <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Phone</th>
+                            <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Status</th>
+                            <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {slotGroups.map((group) => (
+                            <ReservationRow
+                              key={group.ids[0]}
+                              id={group.ids[0]}
+                              guestName={group.customerName}
+                              status={group.status as ReservationStatus}
+                              time={group.time}
+                              partySize={group.partySize}
+                              tableNumber={group.tableNames.join(" + ")}
+                              phone={group.phoneNumber}
+                              comments={group.comments}
+                              orderConfirmed={isOrderConfirmedForGroup(group)}
+                              onEdit={() => handleEdit(group.reservations[0], group.reservations)}
+                              onPrimaryAction={() => handleGroupPrimaryAction(group)}
+                              onSecondaryAction={() => handleGroupSecondaryAction(group)}
+                              onTertiaryAction={() => handleGroupTertiaryAction(group)}
+                              onTakeOrder={() => handleTakeOrder(group)}
+                            />
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         )}
       </div>
