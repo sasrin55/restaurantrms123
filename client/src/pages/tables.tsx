@@ -106,7 +106,7 @@ export default function TablesPage() {
             <Badge
               key={slot.label}
               variant={selectedSlot === slot.label ? "default" : "outline"}
-              className="inline-flex items-center rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 hover-elevate border [border-color:var(--badge-outline)] shadow-xs cursor-pointer whitespace-nowrap px-3 py-1.5 text-xs shrink-0 font-medium"
+              className={`cursor-pointer whitespace-nowrap px-3 py-1.5 text-xs shrink-0 ${selectedSlot === slot.label ? "bg-[#0D7377] text-white border-[#0D7377]" : ""}`}
               onClick={() => setSelectedSlot(slot.label === selectedSlot ? null : slot.label)}
               data-testid={`slot-filter-${slot.label.replace(/[\s:]/g, "-")}`}
             >
