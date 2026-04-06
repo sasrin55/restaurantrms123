@@ -46,6 +46,7 @@ export default function NewCustomerPage() {
   const [customerName, setCustomerName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [comments, setComments] = useState("");
+  const [takenBy, setTakenBy] = useState("");
 
   const { data: existingReservations = [] } = useQuery<any[]>({
     queryKey: ["/api/reservations"],
@@ -79,6 +80,7 @@ export default function NewCustomerPage() {
           tableId: table.id,
           tableName: isTepanyaki ? `Tepanyaki Seat ${table.number}` : `Table ${table.number}`,
           comments: comments.trim(),
+          takenBy: takenBy.trim(),
           status: mode === "walkin" ? "seated" : "confirmed",
         };
         return apiRequest("POST", "/api/reservations", payload);
@@ -129,6 +131,7 @@ export default function NewCustomerPage() {
     setSelectedTables([]);
     setSelectionMode("tables");
     setConfirmed(false);
+    setTakenBy("");
   };
 
   const timeSlots = getTimeSlotsForDate(effectiveDate);
@@ -310,6 +313,12 @@ export default function NewCustomerPage() {
                     .join(", ")}
                 </span>
               </div>
+              {takenBy.trim() && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Taken by:</span>
+                  <span className="font-medium text-right max-w-[200px]" data-testid="text-confirm-taken-by">{takenBy}</span>
+                </div>
+              )}
               {comments.trim() && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Comments:</span>
@@ -552,7 +561,7 @@ export default function NewCustomerPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div className="space-y-2">
               <Label className="text-muted-foreground text-sm">
                 Guest Name {mode === "walkin" && <span className="text-xs">(optional)</span>}
@@ -576,6 +585,18 @@ export default function NewCustomerPage() {
               />
             </div>
           </div>
+
+          {mode === "reservation" && (
+            <div className="space-y-2 mb-4">
+              <Label className="text-muted-foreground text-sm">Taken by staff member <span className="text-xs">(optional)</span></Label>
+              <Input
+                placeholder="Staff member name"
+                value={takenBy}
+                onChange={(e) => setTakenBy(e.target.value)}
+                data-testid="input-taken-by"
+              />
+            </div>
+          )}
 
           <div className="space-y-2 mb-6">
             <Label className="text-muted-foreground text-sm">

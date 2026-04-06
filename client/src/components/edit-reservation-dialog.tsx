@@ -49,6 +49,7 @@ export function EditReservationDialog({
   const [selectedTableIds, setSelectedTableIds] = useState<number[]>([]);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [comments, setComments] = useState("");
+  const [takenBy, setTakenBy] = useState("");
 
   const { data: allReservations = [] } = useQuery<Reservation[]>({
     queryKey: ["/api/reservations"],
@@ -63,6 +64,7 @@ export function EditReservationDialog({
       setPartySize(reservation.partySize.toString());
       setPhoneNumber(reservation.phoneNumber);
       setComments(reservation.comments || "");
+      setTakenBy((reservation as any).takenBy || "");
 
       if (groupReservations && groupReservations.length > 0) {
         setSelectedTableIds(groupReservations.map(r => r.tableId));
@@ -132,6 +134,7 @@ export function EditReservationDialog({
         partySize: parseInt(partySize),
         phoneNumber,
         comments: comments.trim(),
+        takenBy: takenBy.trim(),
       };
 
       const promises: Promise<any>[] = [];
@@ -191,10 +194,11 @@ export function EditReservationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto" data-testid="dialog-edit-reservation">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col p-0 overflow-hidden" data-testid="dialog-edit-reservation">
+        <DialogHeader className="px-6 pt-6 pb-0 shrink-0">
           <DialogTitle>Edit Reservation</DialogTitle>
         </DialogHeader>
+        <div className="flex-1 overflow-y-auto px-6">
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
             <Label htmlFor="guest-name">Guest Name</Label>
@@ -332,8 +336,19 @@ export function EditReservationDialog({
               data-testid="input-edit-comments"
             />
           </div>
+          <div className="grid gap-2">
+            <Label htmlFor="taken-by">Taken by staff member</Label>
+            <Input
+              id="taken-by"
+              placeholder="Staff member name"
+              value={takenBy}
+              onChange={(e) => setTakenBy(e.target.value)}
+              data-testid="input-edit-taken-by"
+            />
+          </div>
         </div>
-        <div className="flex justify-between gap-2">
+        </div>
+        <div className="flex justify-between gap-2 px-6 py-4 border-t shrink-0">
           <Button
             variant="outline"
             onClick={() => noShowMutation.mutate()}
