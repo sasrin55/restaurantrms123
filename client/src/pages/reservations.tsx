@@ -67,12 +67,6 @@ function getTimePeriod(time: string, date: Date): MealPeriod {
   const slot = slots.find(s => s.label === time);
   if (slot) return slot.period;
   const h24 = parseTimeTo24(time);
-  if (isRamadanDate(date)) {
-    if (h24 >= 17 && h24 < 20) return "iftar";
-    if (h24 >= 20 || (h24 >= 0 && h24 < 4)) return "dinner";
-    if (h24 < 6) return "sehri";
-    return "dinner";
-  }
   if (h24 < 10.5) return "breakfast";
   if (h24 < 12.5) return "brunch";
   if (h24 < 17) return "lunch";
@@ -80,15 +74,13 @@ function getTimePeriod(time: string, date: Date): MealPeriod {
   return "dinner";
 }
 
-const PERIOD_ORDER: MealPeriod[] = ["breakfast", "brunch", "lunch", "tea", "iftar", "dinner", "sehri"];
+const PERIOD_ORDER: MealPeriod[] = ["breakfast", "brunch", "lunch", "tea", "dinner"];
 const PERIOD_LABELS: Record<MealPeriod, string> = {
   breakfast: "Breakfast",
   brunch: "Brunch",
   lunch: "Lunch",
   tea: "Tea",
-  iftar: "Iftar",
   dinner: "Dinner",
-  sehri: "Sehri",
 };
 
 function groupReservations(reservations: Reservation[]): GroupedReservation[] {

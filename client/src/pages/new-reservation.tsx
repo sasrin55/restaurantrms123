@@ -130,7 +130,7 @@ export default function NewCustomerPage() {
     acc[slot.period].push(slot);
     return acc;
   }, {} as Record<MealPeriod, typeof timeSlots>);
-  const periodOrder: MealPeriod[] = ["breakfast", "brunch", "lunch", "tea", "iftar", "dinner", "sehri"];
+  const periodOrder: MealPeriod[] = ["breakfast", "brunch", "lunch", "tea", "dinner"];
 
   const timeSelector = (
     <div className="flex items-center gap-2">

@@ -20,6 +20,7 @@ import {
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Reservation } from "@shared/schema";
 import { restaurantTables, tepanyakiSeats } from "@/lib/tables";
+import { ALL_SLOTS, getPeriodLabel } from "@/lib/timeSlots";
 
 interface EditReservationDialogProps {
   reservation: Reservation | null;
@@ -28,20 +29,6 @@ interface EditReservationDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const availableTimes = [
-  "9:00 AM - 10:30 AM",
-  "10:45 AM - 12:15 PM",
-  "12:30 PM - 2:30 PM",
-  "2:30 PM - 4:30 PM",
-  "5:00 PM - 7:00 PM",
-  "7:00 PM - 9:00 PM",
-  "9:00 PM - 11:00 PM",
-  "5:00 PM",
-  "8:00 PM",
-  "10:00 PM",
-  "12:00 AM",
-  "2:00 AM",
-];
 
 export function EditReservationDialog({
   reservation,
@@ -235,9 +222,19 @@ export function EditReservationDialog({
                   <SelectValue placeholder="Select time" />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableTimes.map((t) => (
-                    <SelectItem key={t} value={t}>{t}</SelectItem>
-                  ))}
+                  {(() => {
+                    const periods = Array.from(new Set(ALL_SLOTS.map(s => s.period)));
+                    return periods.map(period => (
+                      <div key={period}>
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          {getPeriodLabel(period)}
+                        </div>
+                        {ALL_SLOTS.filter(s => s.period === period).map(s => (
+                          <SelectItem key={s.label} value={s.label}>{s.label}</SelectItem>
+                        ))}
+                      </div>
+                    ));
+                  })()}
                 </SelectContent>
               </Select>
             </div>
