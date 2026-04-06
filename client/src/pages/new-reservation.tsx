@@ -47,13 +47,18 @@ export default function NewCustomerPage() {
 
   const effectiveDate = mode === "walkin" ? new Date() : date;
 
-  const bookedTableIds = existingReservations
+  const bookedTableMap: Record<number, any> = existingReservations
     .filter((r: any) => {
       if (!effectiveDate) return false;
       const selectedDate = format(effectiveDate, "yyyy-MM-dd");
       return r.date === selectedDate && r.time === time && r.status !== "complete" && r.status !== "cancelled";
     })
-    .map((r: any) => r.tableId);
+    .reduce((acc: Record<number, any>, r: any) => {
+      acc[r.tableId] = r;
+      return acc;
+    }, {});
+
+  const bookedTableIds = Object.keys(bookedTableMap).map(Number);
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -400,7 +405,8 @@ export default function NewCustomerPage() {
 
             <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
                 {restaurantTables.map((table) => {
-                  const isBooked = bookedTableIds.includes(table.id);
+                  const bookedRes = bookedTableMap[table.id];
+                  const isBooked = !!bookedRes;
                   const isSelected = selectedTables.some((t) => t.id === table.id);
                   return (
                     <div
@@ -416,9 +422,18 @@ export default function NewCustomerPage() {
                       data-testid={`table-card-${table.id}`}
                     >
                       {isBooked && (
-                        <div className="absolute inset-0 flex items-center justify-center z-10">
-                          <X className="h-10 w-10 text-red-400 stroke-[2.5]" />
-                        </div>
+                        <>
+                          <div className="absolute inset-0 flex items-center justify-center z-10">
+                            <X className="h-10 w-10 text-red-400 stroke-[2.5]" />
+                          </div>
+                          <div className="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 bg-red-50 border border-red-200 rounded px-1 py-0.5" data-testid={`text-booked-pax-${table.id}`}>
+                            <svg width="9" height="9" viewBox="0 0 10 10" fill="none" className="shrink-0">
+                              <circle cx="5" cy="3" r="2" fill="#ef4444" />
+                              <path d="M1 9c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="#ef4444" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+                            </svg>
+                            <span className="text-[10px] font-semibold text-red-500 leading-none">{bookedRes.partySize}</span>
+                          </div>
+                        </>
                       )}
                       <svg width="36" height="24" viewBox="0 0 48 32" fill="none" className="mb-1">
                         <rect x="8" y="12" width="32" height="4" fill={isBooked ? "#9CA3AF" : "#0D7377"} rx="1" />
