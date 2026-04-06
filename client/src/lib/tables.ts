@@ -6,9 +6,9 @@ export interface RestaurantTable {
 }
 
 export const restaurantTables: RestaurantTable[] = [
-  { id: 11,  number: "11",  minCapacity: 5,  maxCapacity: 6  },
-  { id: 12,  number: "12",  minCapacity: 7,  maxCapacity: 8  },
-  { id: 13,  number: "13",  minCapacity: 3,  maxCapacity: 4  },
+  { id: 11,  number: "11 Outdoor",  minCapacity: 5,  maxCapacity: 6  },
+  { id: 12,  number: "12 Outdoor",  minCapacity: 7,  maxCapacity: 8  },
+  { id: 13,  number: "13 Outdoor",  minCapacity: 3,  maxCapacity: 4  },
   { id: 17,  number: "17",  minCapacity: 4,  maxCapacity: 4  },
   { id: 18,  number: "18",  minCapacity: 3,  maxCapacity: 3  },
   { id: 19,  number: "19",  minCapacity: 6,  maxCapacity: 6  },
