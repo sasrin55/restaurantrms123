@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -6,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { ProtectedRoute } from "@/components/protected-route";
 import ReservationsPage from "@/pages/reservations";
 import NewCustomerPage from "@/pages/new-reservation";
 import GuestListPage from "@/pages/guest-list";
@@ -16,41 +16,43 @@ import MenuManagementPage from "@/pages/menu-management";
 import PastOrdersPage from "@/pages/past-orders";
 import CallsPage from "@/pages/calls";
 import WaitlistPage from "@/pages/waitlist";
-import LoginPage from "@/pages/login";
 import NotFound from "@/pages/not-found";
 
 function Router() {
   return (
     <Switch>
+      {/* Open — no password required */}
       <Route path="/" component={ReservationsPage} />
       <Route path="/new-reservation" component={NewCustomerPage} />
-      <Route path="/guests" component={GuestListPage} />
       <Route path="/tables" component={TablesPage} />
-      <Route path="/orders" component={OrdersPage} />
-      <Route path="/analytics" component={AnalyticsPage} />
-      <Route path="/menu" component={MenuManagementPage} />
-      <Route path="/past-orders" component={PastOrdersPage} />
-      <Route path="/calls" component={CallsPage} />
       <Route path="/waitlist" component={WaitlistPage} />
+
+      {/* Protected — requires password "Seated" */}
+      <Route path="/guests">
+        <ProtectedRoute><GuestListPage /></ProtectedRoute>
+      </Route>
+      <Route path="/orders">
+        <ProtectedRoute><OrdersPage /></ProtectedRoute>
+      </Route>
+      <Route path="/analytics">
+        <ProtectedRoute><AnalyticsPage /></ProtectedRoute>
+      </Route>
+      <Route path="/menu">
+        <ProtectedRoute><MenuManagementPage /></ProtectedRoute>
+      </Route>
+      <Route path="/past-orders">
+        <ProtectedRoute><PastOrdersPage /></ProtectedRoute>
+      </Route>
+      <Route path="/calls">
+        <ProtectedRoute><CallsPage /></ProtectedRoute>
+      </Route>
+
       <Route component={NotFound} />
     </Switch>
   );
 }
 
 function App() {
-  const [authed, setAuthed] = useState(() => sessionStorage.getItem("seated_auth") === "1");
-
-  if (!authed) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <LoginPage onLogin={() => setAuthed(true)} />
-          <Toaster />
-        </TooltipProvider>
-      </QueryClientProvider>
-    );
-  }
-
   const style = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "4rem",

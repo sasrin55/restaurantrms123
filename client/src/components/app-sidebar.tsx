@@ -238,7 +238,7 @@ export function AppSidebar() {
         <button
           data-testid="button-logout"
           onClick={() => {
-            sessionStorage.removeItem("seated_auth");
+            sessionStorage.removeItem("seated_admin");
             window.location.reload();
           }}
           className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
