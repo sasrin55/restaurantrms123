@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -40,17 +39,12 @@ interface WaitlistEntry {
   notified: boolean;
   notifiedAt: number | null;
   status: WaitlistStatus;
-  notifyError?: string;
   preferredDate: string;
   preferredTime: string;
   preferredTableId: number | null;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-function uuid() {
-  return crypto.randomUUID();
-}
-
 function elapsedMins(joinedAt: number): number {
   return Math.floor((Date.now() - joinedAt) / 60000);
 }
@@ -79,21 +73,10 @@ const statusConfig: Record<WaitlistStatus, { label: string; className: string }>
   cancelled: { label: "Left",      className: "bg-rose-100 text-rose-700 border-rose-200" },
 };
 
-
 const allTables = [
   ...restaurantTables.map(t => ({ id: t.id, label: `Table ${t.number}` })),
   ...tepanyakiSeats.map(t => ({ id: t.id, label: `Tepanyaki Seat ${t.number}` })),
 ];
-
-// ── Ticker hook ────────────────────────────────────────────────────────────
-function useTick(intervalMs = 1000) {
-  const [tick, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), intervalMs);
-    return () => clearInterval(id);
-  }, [intervalMs]);
-  return tick;
-}
 
 // ── Seat Modal ─────────────────────────────────────────────────────────────
 interface SeatModalProps {
@@ -214,10 +197,6 @@ function SeatModal({ entry, onClose, onSeated }: SeatModalProps) {
 // ── Main page ──────────────────────────────────────────────────────────────
 export default function WaitlistPage() {
   const { toast } = useToast();
-  const tick = useTick(30000);
-  void tick;
-
-  const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
   const [seatEntry, setSeatEntry] = useState<WaitlistEntry | null>(null);
 
   // Form state
@@ -230,7 +209,27 @@ export default function WaitlistPage() {
   const [preferredTime, setPreferredTime] = useState("");
   const [preferredTableId, setPreferredTableId] = useState<string>("");
 
-  // Book mutation
+  // Fetch from DB
+  const { data: waitlist = [], isLoading } = useQuery<WaitlistEntry[]>({
+    queryKey: ["/api/waitlist"],
+    refetchInterval: 30000,
+  });
+
+  // Mutations
+  const addMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/waitlist", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/waitlist"] });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, ...updates }: any) => apiRequest("PATCH", `/api/waitlist/${id}`, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/waitlist"] });
+    },
+  });
+
   const bookMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/reservations", data),
     onSuccess: () => {
@@ -238,23 +237,15 @@ export default function WaitlistPage() {
     },
   });
 
-  // Notify mutation
   const notifyMutation = useMutation({
     mutationFn: ({ entryId, guestName: name, phone: p }: { entryId: string; guestName: string; phone: string }) =>
       apiRequest("POST", "/api/waitlist/notify", { guestName: name, phone: p }),
     onSuccess: (_data, vars) => {
-      setWaitlist(prev => prev.map(e =>
-        e.id === vars.entryId
-          ? { ...e, notified: true, notifiedAt: Date.now(), status: "notified" as WaitlistStatus, notifyError: undefined }
-          : e
-      ));
+      updateMutation.mutate({ id: vars.entryId, notified: true, notifiedAt: Date.now(), status: "notified" });
       toast({ title: "WhatsApp message sent" });
     },
-    onError: (err: any, vars) => {
+    onError: (err: any) => {
       const msg = err?.message || "Failed to send notification";
-      setWaitlist(prev => prev.map(e =>
-        e.id === vars.entryId ? { ...e, notifyError: msg } : e
-      ));
       toast({ title: "Notification failed", description: msg, variant: "destructive" });
     },
   });
@@ -262,38 +253,35 @@ export default function WaitlistPage() {
   function handleAddGuest(e: React.FormEvent) {
     e.preventDefault();
     if (!guestName.trim() || !partySize) return;
-    const entry: WaitlistEntry = {
-      id: uuid(),
+    addMutation.mutate({
       guestName: guestName.trim(),
       phone: phone.trim(),
       partySize: parseInt(partySize),
       notes: notes.trim(),
       joinedAt: Date.now(),
       estimatedWaitMins: parseInt(estWait) || 20,
-      notified: false,
-      notifiedAt: null,
-      status: "waiting",
-      preferredDate: preferredDate,
-      preferredTime: preferredTime,
+      preferredDate,
+      preferredTime,
       preferredTableId: preferredTableId ? parseInt(preferredTableId) : null,
-    };
-    setWaitlist(prev => [...prev, entry]);
-    setGuestName(""); setPhone(""); setPartySize(""); setEstWait("20"); setNotes("");
-    setPreferredDate(""); setPreferredTime(""); setPreferredTableId("");
-    toast({ title: `${entry.guestName} added to waitlist` });
+    }, {
+      onSuccess: () => {
+        setGuestName(""); setPhone(""); setPartySize(""); setEstWait("20"); setNotes("");
+        setPreferredDate(""); setPreferredTime(""); setPreferredTableId("");
+        toast({ title: `${guestName.trim()} added to waitlist` });
+      },
+    });
   }
 
   function handleRemove(id: string) {
-    setWaitlist(prev => prev.map(e => e.id === id ? { ...e, status: "cancelled" } : e));
+    updateMutation.mutate({ id, status: "cancelled" });
   }
 
   function handleSeated(entryId: string) {
-    setWaitlist(prev => prev.map(e => e.id === entryId ? { ...e, status: "seated" } : e));
+    updateMutation.mutate({ id: entryId, status: "seated" });
   }
 
   async function handleBook(entry: WaitlistEntry) {
     if (!entry.preferredDate || !entry.preferredTime || !entry.preferredTableId) return;
-
     const tableInfo = allTables.find(t => t.id === entry.preferredTableId);
     if (!tableInfo) return;
 
@@ -309,7 +297,7 @@ export default function WaitlistPage() {
         comments: entry.notes ? entry.notes : "",
         status: "confirmed",
       });
-      setWaitlist(prev => prev.map(e => e.id === entry.id ? { ...e, status: "booked" } : e));
+      updateMutation.mutate({ id: entry.id, status: "booked" });
       toast({
         title: `${entry.guestName} moved to reservations`,
         description: `Confirmed for ${entry.preferredDate} at ${entry.preferredTime} — ${tableInfo.label}`,
@@ -342,7 +330,6 @@ export default function WaitlistPage() {
             <Plus className="h-4 w-4" /> Add Guest
           </h2>
           <form onSubmit={handleAddGuest} className="space-y-3">
-            {/* Row 1: core fields */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="col-span-2 sm:col-span-1 space-y-1">
                 <Label className="text-xs">Guest Name *</Label>
@@ -389,7 +376,6 @@ export default function WaitlistPage() {
               </div>
             </div>
 
-            {/* Row 2: reservation fields */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 rounded-lg bg-muted/40 border border-dashed">
               <p className="col-span-full text-xs text-muted-foreground font-medium -mb-1">
                 Reservation details (for Book button)
@@ -444,7 +430,6 @@ export default function WaitlistPage() {
               </div>
             </div>
 
-            {/* Row 3: notes + submit */}
             <div className="flex gap-3 items-end">
               <div className="flex-1 space-y-1">
                 <Label className="text-xs">Notes</Label>
@@ -457,10 +442,11 @@ export default function WaitlistPage() {
               </div>
               <Button
                 type="submit"
+                disabled={addMutation.isPending}
                 className="bg-[#0D7377] text-white hover:bg-[#0a5f63] shrink-0"
                 data-testid="btn-add-waitlist"
               >
-                Add to Waitlist
+                {addMutation.isPending ? "Adding…" : "Add to Waitlist"}
               </Button>
             </div>
           </form>
@@ -472,14 +458,13 @@ export default function WaitlistPage() {
             <h2 className="text-sm font-semibold text-foreground">
               Waiting ({active.length})
             </h2>
-            {active.length === 0 && (
+            {active.length === 0 && !isLoading && (
               <span className="text-xs text-muted-foreground">— no guests waiting</span>
             )}
           </div>
 
           {active.length > 0 && (
             <div className="rounded-xl border overflow-hidden">
-              {/* Table header */}
               <div className="hidden sm:grid grid-cols-[2rem_1fr_5rem_6rem_6rem_7rem_1fr] gap-3 px-4 py-2 bg-muted/50 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 <span>#</span>
                 <span>Guest</span>
@@ -492,7 +477,6 @@ export default function WaitlistPage() {
 
               {active.map((entry, idx) => {
                 const isNotifying = notifyMutation.isPending && notifyMutation.variables?.entryId === entry.id;
-                const isBooking = bookMutation.isPending;
                 const rem = formatEstRemaining(entry);
                 const canBook = !!(entry.preferredDate && entry.preferredTime && entry.preferredTableId);
                 const tableLabel = entry.preferredTableId
@@ -505,10 +489,8 @@ export default function WaitlistPage() {
                     className="border-t first:border-t-0 px-4 py-3 sm:grid sm:grid-cols-[2rem_1fr_5rem_6rem_6rem_7rem_1fr] gap-3 items-center hover:bg-muted/20 transition-colors"
                     data-testid={`row-waitlist-${entry.id}`}
                   >
-                    {/* Position */}
                     <span className="hidden sm:block text-sm font-semibold text-muted-foreground">{idx + 1}</span>
 
-                    {/* Name + phone + notes + reservation info */}
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm text-foreground truncate">{entry.guestName}</p>
                       {entry.phone && (
@@ -519,7 +501,6 @@ export default function WaitlistPage() {
                       {entry.notes && (
                         <p className="text-xs text-muted-foreground italic truncate mt-0.5">{entry.notes}</p>
                       )}
-                      {/* Reservation details badge */}
                       {(entry.preferredDate || tableLabel) && (
                         <p className="text-xs text-[#0D7377] mt-1 flex items-center gap-1 flex-wrap">
                           {entry.preferredDate && <span>{entry.preferredDate}</span>}
@@ -527,101 +508,69 @@ export default function WaitlistPage() {
                           {tableLabel && <span>· {tableLabel}</span>}
                         </p>
                       )}
-                      {entry.notifyError && (
-                        <p className="text-xs text-rose-500 mt-0.5">{entry.notifyError}</p>
-                      )}
                     </div>
 
-                    {/* Party */}
                     <div className="hidden sm:flex items-center gap-1 text-sm text-foreground">
                       <Users className="h-3.5 w-3.5 text-muted-foreground" />
                       {entry.partySize}
                     </div>
 
-                    {/* Waited */}
                     <div className="hidden sm:flex items-center gap-1 text-sm text-foreground">
                       <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                       {formatElapsed(entry.joinedAt)}
                     </div>
 
-                    {/* Est remaining */}
                     <div className={`hidden sm:block text-sm font-medium ${rem === "Ready" ? "text-green-600" : "text-foreground"}`}>
                       {rem}
                     </div>
 
-                    {/* Status badge */}
                     <div className="hidden sm:block">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${statusConfig[entry.status].className}`}>
                         {statusConfig[entry.status].label}
                       </span>
-                      {entry.notifiedAt && (
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {format(entry.notifiedAt, "h:mm a")}
-                        </p>
-                      )}
                     </div>
 
-                    {/* Mobile summary row */}
-                    <div className="sm:hidden flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><Users className="h-3 w-3" />{entry.partySize}</span>
-                      <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatElapsed(entry.joinedAt)}</span>
-                      <span className={`font-medium ${rem === "Ready" ? "text-green-600" : ""}`}>{rem} left</span>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${statusConfig[entry.status].className}`}>
-                        {statusConfig[entry.status].label}
-                      </span>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center justify-end gap-1 mt-2 sm:mt-0 flex-wrap">
-                      {/* Book button */}
+                    <div className="mt-2 sm:mt-0 flex items-center gap-1.5 justify-end flex-wrap">
                       <Button
                         size="sm"
                         variant="outline"
-                        disabled={!canBook || isBooking}
-                        onClick={() => handleBook(entry)}
-                        title={canBook ? `Book for ${entry.preferredDate} at ${entry.preferredTime}` : "Set date, time & table to enable booking"}
-                        className={`text-xs h-7 px-2 ${canBook ? "text-green-700 border-green-400 hover:bg-green-50" : "text-muted-foreground"}`}
-                        data-testid={`btn-book-${entry.id}`}
+                        className="h-7 px-2 text-xs"
+                        disabled={isNotifying || !entry.phone}
+                        onClick={() => notifyMutation.mutate({ entryId: entry.id, guestName: entry.guestName, phone: entry.phone })}
+                        title={!entry.phone ? "No phone number" : "Send WhatsApp notification"}
+                        data-testid={`btn-notify-${entry.id}`}
                       >
-                        <BookCheck className="h-3.5 w-3.5 mr-1" /> Book
+                        {isNotifying ? "…" : <CheckCheck className="h-3.5 w-3.5" />}
                       </Button>
 
-                      {/* Notify */}
-                      {!entry.notified ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => setSeatEntry(entry)}
+                        data-testid={`btn-seat-${entry.id}`}
+                      >
+                        <Armchair className="h-3.5 w-3.5" />
+                      </Button>
+
+                      {canBook && (
                         <Button
                           size="sm"
                           variant="outline"
-                          disabled={isNotifying || !entry.phone}
-                          title={!entry.phone ? "No phone number" : "Send WhatsApp notification"}
-                          onClick={() => notifyMutation.mutate({ entryId: entry.id, guestName: entry.guestName, phone: entry.phone })}
-                          className="text-xs h-7 px-2"
-                          data-testid={`btn-notify-${entry.id}`}
+                          className="h-7 px-2 text-xs text-[#0D7377] border-[#0D7377]"
+                          disabled={bookMutation.isPending}
+                          onClick={() => handleBook(entry)}
+                          data-testid={`btn-book-${entry.id}`}
                         >
-                          {isNotifying ? "…" : "Notify"}
+                          <BookCheck className="h-3.5 w-3.5" />
                         </Button>
-                      ) : (
-                        <span className="text-xs text-blue-600 flex items-center gap-1 px-1">
-                          <CheckCheck className="h-3.5 w-3.5" /> Notified
-                        </span>
                       )}
 
-                      {/* Seat */}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setSeatEntry(entry)}
-                        className="text-xs h-7 px-2 text-[#4A5D23] border-[#4A5D23]/30 hover:bg-[#4A5D23]/10"
-                        data-testid={`btn-seat-${entry.id}`}
-                      >
-                        <Armchair className="h-3.5 w-3.5 mr-1" /> Seat
-                      </Button>
-
-                      {/* Remove */}
                       <Button
                         size="sm"
                         variant="ghost"
+                        className="h-7 px-2 text-xs text-rose-500 hover:text-rose-700 hover:bg-rose-50"
                         onClick={() => handleRemove(entry.id)}
-                        className="text-xs h-7 w-7 p-0 text-muted-foreground hover:text-rose-500"
                         data-testid={`btn-remove-${entry.id}`}
                       >
                         <X className="h-3.5 w-3.5" />
@@ -634,42 +583,52 @@ export default function WaitlistPage() {
           )}
         </div>
 
-        {/* Done section */}
+        {/* Done / history */}
         {done.length > 0 && (
           <div className="space-y-2">
-            <h2 className="text-sm font-semibold text-muted-foreground">Completed / Left ({done.length})</h2>
-            <div className="rounded-xl border overflow-hidden opacity-60">
-              {done.map(entry => (
-                <div
-                  key={entry.id}
-                  className="border-t first:border-t-0 px-4 py-2.5 flex items-center gap-3"
-                  data-testid={`row-done-${entry.id}`}
-                >
-                  <span className="text-sm text-foreground font-medium truncate flex-1">{entry.guestName}</span>
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Users className="h-3 w-3" />{entry.partySize}
-                  </span>
-                  {entry.preferredDate && (
-                    <span className="text-xs text-muted-foreground hidden sm:block">{entry.preferredDate}</span>
-                  )}
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${statusConfig[entry.status].className}`}>
-                    {statusConfig[entry.status].label}
-                  </span>
-                </div>
-              ))}
+            <h2 className="text-sm font-semibold text-foreground text-muted-foreground">
+              History ({done.length})
+            </h2>
+            <div className="rounded-xl border overflow-hidden divide-y">
+              {done.map(entry => {
+                const tableLabel = entry.preferredTableId
+                  ? allTables.find(t => t.id === entry.preferredTableId)?.label
+                  : null;
+                return (
+                  <div
+                    key={entry.id}
+                    className="px-4 py-3 flex items-center gap-3 opacity-70"
+                    data-testid={`row-done-${entry.id}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm text-foreground truncate">{entry.guestName}</p>
+                      {(entry.preferredDate || tableLabel) && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {entry.preferredDate}{entry.preferredTime ? ` · ${entry.preferredTime}` : ""}{tableLabel ? ` · ${tableLabel}` : ""}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
+                      <Users className="h-3 w-3" />{entry.partySize}
+                    </div>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${statusConfig[entry.status as WaitlistStatus]?.className ?? ""}`}>
+                      {statusConfig[entry.status as WaitlistStatus]?.label ?? entry.status}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
-      </div>
 
-      {/* Seat modal */}
-      {seatEntry && (
-        <SeatModal
-          entry={seatEntry}
-          onClose={() => setSeatEntry(null)}
-          onSeated={handleSeated}
-        />
-      )}
+        {seatEntry && (
+          <SeatModal
+            entry={seatEntry}
+            onClose={() => setSeatEntry(null)}
+            onSeated={handleSeated}
+          />
+        )}
+      </div>
     </div>
   );
 }

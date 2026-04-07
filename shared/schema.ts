@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -104,6 +104,31 @@ export const insertCallSchema = createInsertSchema(calls).omit({
 
 export type InsertCall = z.infer<typeof insertCallSchema>;
 export type Call = typeof calls.$inferSelect;
+
+export const waitlistEntries = pgTable("waitlist_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  guestName: text("guest_name").notNull(),
+  phone: text("phone").notNull().default(""),
+  partySize: integer("party_size").notNull(),
+  notes: text("notes").notNull().default(""),
+  joinedAt: integer("joined_at").notNull(),
+  estimatedWaitMins: integer("estimated_wait_mins").notNull().default(20),
+  notified: boolean("notified").notNull().default(false),
+  notifiedAt: integer("notified_at"),
+  status: text("status").notNull().default("waiting"),
+  preferredDate: text("preferred_date").notNull().default(""),
+  preferredTime: text("preferred_time").notNull().default(""),
+  preferredTableId: integer("preferred_table_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertWaitlistSchema = createInsertSchema(waitlistEntries).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertWaitlistEntry = z.infer<typeof insertWaitlistSchema>;
+export type WaitlistEntry = typeof waitlistEntries.$inferSelect;
 
 export const insertOrderSchema = createInsertSchema(orders).omit({
   id: true,

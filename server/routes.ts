@@ -404,6 +404,43 @@ export async function registerRoutes(
     res.json({ favouriteItems, totalOrders, totalItemsOrdered, avgItemsPerOrder });
   });
 
+  app.get("/api/waitlist", async (_req, res) => {
+    const entries = await storage.getWaitlistEntries();
+    res.json(entries);
+  });
+
+  app.post("/api/waitlist", async (req, res) => {
+    const { guestName, phone, partySize, notes, joinedAt, estimatedWaitMins, preferredDate, preferredTime, preferredTableId } = req.body;
+    if (!guestName || !partySize) return res.status(400).json({ error: "guestName and partySize are required" });
+    const entry = await storage.createWaitlistEntry({
+      guestName,
+      phone: phone || "",
+      partySize: parseInt(partySize),
+      notes: notes || "",
+      joinedAt: joinedAt || Date.now(),
+      estimatedWaitMins: estimatedWaitMins || 20,
+      notified: false,
+      notifiedAt: null,
+      status: "waiting",
+      preferredDate: preferredDate || "",
+      preferredTime: preferredTime || "",
+      preferredTableId: preferredTableId || null,
+    });
+    res.status(201).json(entry);
+  });
+
+  app.patch("/api/waitlist/:id", async (req, res) => {
+    const updated = await storage.updateWaitlistEntry(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ error: "Entry not found" });
+    res.json(updated);
+  });
+
+  app.delete("/api/waitlist/:id", async (req, res) => {
+    const deleted = await storage.deleteWaitlistEntry(req.params.id);
+    if (!deleted) return res.status(404).json({ error: "Entry not found" });
+    res.status(204).send();
+  });
+
   app.post("/api/waitlist/notify", async (req, res) => {
     const { guestName, phone } = req.body;
     if (!phone || !guestName) {

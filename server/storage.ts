@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Reservation, type InsertReservation, type Guest, type InsertGuest, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type DbMenuItem, type InsertMenuItem, type Call, type InsertCall, users, reservations, guests, orders, orderItems, menuItems, calls } from "@shared/schema";
+import { type User, type InsertUser, type Reservation, type InsertReservation, type Guest, type InsertGuest, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type DbMenuItem, type InsertMenuItem, type Call, type InsertCall, type WaitlistEntry, type InsertWaitlistEntry, users, reservations, guests, orders, orderItems, menuItems, calls, waitlistEntries } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and } from "drizzle-orm";
 
@@ -40,6 +40,11 @@ export interface IStorage {
 
   getCalls(): Promise<Call[]>;
   createCall(call: InsertCall): Promise<Call>;
+
+  getWaitlistEntries(): Promise<WaitlistEntry[]>;
+  createWaitlistEntry(entry: InsertWaitlistEntry): Promise<WaitlistEntry>;
+  updateWaitlistEntry(id: string, updates: Partial<WaitlistEntry>): Promise<WaitlistEntry | undefined>;
+  deleteWaitlistEntry(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -310,6 +315,26 @@ export class DatabaseStorage implements IStorage {
   async createCall(call: InsertCall): Promise<Call> {
     const [newCall] = await db.insert(calls).values(call).returning();
     return newCall;
+  }
+
+  async getWaitlistEntries(): Promise<WaitlistEntry[]> {
+    return db.select().from(waitlistEntries).orderBy(waitlistEntries.joinedAt);
+  }
+
+  async createWaitlistEntry(entry: InsertWaitlistEntry): Promise<WaitlistEntry> {
+    const [newEntry] = await db.insert(waitlistEntries).values(entry).returning();
+    return newEntry;
+  }
+
+  async updateWaitlistEntry(id: string, updates: Partial<WaitlistEntry>): Promise<WaitlistEntry | undefined> {
+    const { id: _id, createdAt: _c, ...safeUpdates } = updates as any;
+    const [updated] = await db.update(waitlistEntries).set(safeUpdates).where(eq(waitlistEntries.id, id)).returning();
+    return updated;
+  }
+
+  async deleteWaitlistEntry(id: string): Promise<boolean> {
+    const result = await db.delete(waitlistEntries).where(eq(waitlistEntries.id, id)).returning();
+    return result.length > 0;
   }
 }
 
