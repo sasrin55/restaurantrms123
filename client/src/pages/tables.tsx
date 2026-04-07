@@ -28,7 +28,7 @@ export default function TablesPage() {
 
   const activeReservations = reservations.filter((r) => {
     if (r.date !== dateStr) return false;
-    if (r.status === "complete" || r.status === "cancelled") return false;
+    if (r.status === "complete" || r.status === "cancelled" || r.status === "no-show") return false;
     if (selectedSlot && r.time !== selectedSlot) return false;
     return true;
   });
