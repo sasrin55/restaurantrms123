@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, bigint } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -111,10 +111,10 @@ export const waitlistEntries = pgTable("waitlist_entries", {
   phone: text("phone").notNull().default(""),
   partySize: integer("party_size").notNull(),
   notes: text("notes").notNull().default(""),
-  joinedAt: integer("joined_at").notNull(),
+  joinedAt: bigint("joined_at", { mode: "number" }).notNull(),
   estimatedWaitMins: integer("estimated_wait_mins").notNull().default(20),
   notified: boolean("notified").notNull().default(false),
-  notifiedAt: integer("notified_at"),
+  notifiedAt: bigint("notified_at", { mode: "number" }),
   status: text("status").notNull().default("waiting"),
   preferredDate: text("preferred_date").notNull().default(""),
   preferredTime: text("preferred_time").notNull().default(""),
