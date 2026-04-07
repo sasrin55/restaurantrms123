@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -6,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ProtectedRoute } from "@/components/protected-route";
+import LoginPage from "@/pages/login";
 import ReservationsPage from "@/pages/reservations";
 import NewCustomerPage from "@/pages/new-reservation";
 import GuestListPage from "@/pages/guest-list";
@@ -21,13 +23,13 @@ import NotFound from "@/pages/not-found";
 function Router() {
   return (
     <Switch>
-      {/* Open — no password required */}
+      {/* Open inside the app — no secondary password */}
       <Route path="/" component={ReservationsPage} />
       <Route path="/new-reservation" component={NewCustomerPage} />
       <Route path="/tables" component={TablesPage} />
       <Route path="/waitlist" component={WaitlistPage} />
 
-      {/* Protected — requires password "Seated" */}
+      {/* Protected inside the app — requires password "Seated" */}
       <Route path="/guests">
         <ProtectedRoute><GuestListPage /></ProtectedRoute>
       </Route>
@@ -53,6 +55,27 @@ function Router() {
 }
 
 function App() {
+  const [authed, setAuthed] = useState(
+    () => sessionStorage.getItem("seated_auth") === "1"
+  );
+
+  function handleLogout() {
+    sessionStorage.removeItem("seated_auth");
+    sessionStorage.removeItem("seated_admin");
+    setAuthed(false);
+  }
+
+  if (!authed) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <LoginPage onLogin={() => setAuthed(true)} />
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
+  }
+
   const style = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "4rem",
@@ -63,7 +86,7 @@ function App() {
       <TooltipProvider>
         <SidebarProvider style={style as React.CSSProperties}>
           <div className="flex h-screen w-full bg-background">
-            <AppSidebar />
+            <AppSidebar onLogout={handleLogout} />
             <main className="flex-1 overflow-auto">
               <div className="md:hidden sticky top-0 z-30 flex items-center gap-2 border-b bg-background px-4 py-2">
                 <SidebarTrigger data-testid="button-mobile-menu" />

@@ -85,7 +85,7 @@ const generalItems = [
   },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({ onLogout }: { onLogout?: () => void }) {
   const [location] = useLocation();
 
   return (
@@ -237,10 +237,7 @@ export function AppSidebar() {
       <SidebarFooter className="p-3 border-t border-sidebar-border">
         <button
           data-testid="button-logout"
-          onClick={() => {
-            sessionStorage.removeItem("seated_admin");
-            window.location.reload();
-          }}
+          onClick={() => onLogout?.()}
           className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
         >
           <LogOut className="h-4 w-4 flex-shrink-0" />
