@@ -36,7 +36,7 @@ export default function TablesPage() {
   const getTableStatus = (tableId: number) => {
     const reservation = activeReservations.find((r) => r.tableId === tableId);
     if (!reservation) return { status: "available" as const, reservation: null };
-    return { status: reservation.status as "booked" | "confirmed" | "seated" | "pending", reservation };
+    return { status: reservation.status as "booked" | "confirmed" | "seated" | "no-show", reservation };
   };
 
   const availableCount = restaurantTables.filter(

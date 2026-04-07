@@ -176,9 +176,6 @@ export default function ReservationsPage() {
         case "confirmed":
           updateStatusMutation.mutate({ id, status: "seated" });
           break;
-        case "pending":
-          updateStatusMutation.mutate({ id, status: "confirmed" });
-          break;
         case "complete":
           deleteReservationMutation.mutate(id);
           break;
@@ -399,7 +396,7 @@ export default function ReservationsPage() {
               <SelectItem value="booked">Booked</SelectItem>
               <SelectItem value="confirmed">Confirmed</SelectItem>
               <SelectItem value="seated">Seated</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="no-show">No Show</SelectItem>
               <SelectItem value="complete">Complete</SelectItem>
               <SelectItem value="cancelled">Cancelled</SelectItem>
             </SelectContent>

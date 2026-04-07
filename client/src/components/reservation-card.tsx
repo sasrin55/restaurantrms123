@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Clock, Users, Phone, MessageSquare, Pencil } from "lucide-react";
 
-export type ReservationStatus = "booked" | "seated" | "confirmed" | "pending" | "complete" | "cancelled" | "no-show";
+export type ReservationStatus = "booked" | "seated" | "confirmed" | "no-show" | "complete" | "cancelled";
 
 interface ReservationCardProps {
   id: string;
@@ -31,10 +31,6 @@ const statusConfig: Record<ReservationStatus, { label: string; className: string
   confirmed: {
     label: "Confirmed",
     className: "bg-green-600 text-white",
-  },
-  pending: {
-    label: "Pending",
-    className: "bg-[#D4A72C] text-white",
   },
   complete: {
     label: "Complete",
@@ -67,12 +63,6 @@ function getActionButtons(status: ReservationStatus) {
     case "confirmed":
       return {
         primary: { label: "Mark As Seated", className: "bg-[#0D7377] text-white" },
-        secondary: { label: "Cancel", className: "bg-rose-100 text-rose-700 border-rose-200" },
-        tertiary: null,
-      };
-    case "pending":
-      return {
-        primary: { label: "Confirm", className: "bg-[#0D7377] text-white" },
         secondary: { label: "Cancel", className: "bg-rose-100 text-rose-700 border-rose-200" },
         tertiary: null,
       };
