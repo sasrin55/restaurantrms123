@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
+import { useState, useMemo } from "react";
+import { useLocation, useSearch } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,13 +27,31 @@ type CustomerMode = "reservation" | "walkin";
 
 export default function NewCustomerPage() {
   const [, navigate] = useLocation();
+  const searchStr = useSearch();
+  const params = useMemo(() => new URLSearchParams(searchStr), [searchStr]);
+
+  const preTableId = params.get("tableId") ? parseInt(params.get("tableId")!) : null;
+  const preTableNumber = params.get("tableNumber") || null;
+  const preDateStr = params.get("date") || null;
+
   const [mode, setMode] = useState<CustomerMode>("reservation");
   const [confirmed, setConfirmed] = useState(false);
 
-  const [date, setDate] = useState<Date | undefined>(() => new Date());
+  const [date, setDate] = useState<Date | undefined>(() => {
+    if (preDateStr) {
+      const [y, m, d] = preDateStr.split("-").map(Number);
+      return new Date(y, m - 1, d);
+    }
+    return new Date();
+  });
   const [time, setTime] = useState("");
   const [partySize, setPartySize] = useState("2");
-  const [selectedTables, setSelectedTables] = useState<{ id: number; number: string }[]>([]);
+  const [selectedTables, setSelectedTables] = useState<{ id: number; number: string }[]>(() => {
+    if (preTableId && preTableNumber) {
+      return [{ id: preTableId, number: preTableNumber }];
+    }
+    return [];
+  });
   const [customerName, setCustomerName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [comments, setComments] = useState("");

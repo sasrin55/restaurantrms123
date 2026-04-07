@@ -123,16 +123,18 @@ export default function TablesPage() {
             const handleCardClick = () => {
               if (!isAvailable && reservation) {
                 navigate(`/?date=${dateStr}&slot=${encodeURIComponent(reservation.time)}`);
+              } else if (isAvailable) {
+                navigate(`/new-reservation?tableId=${table.id}&tableNumber=${encodeURIComponent(table.number)}&date=${dateStr}`);
               }
             };
 
             return (
               <Card
                 key={table.id}
-                className={`p-4 flex flex-col items-center justify-center transition-colors ${
+                className={`p-4 flex flex-col items-center justify-center transition-colors cursor-pointer ${
                   isAvailable
-                    ? "bg-white"
-                    : "bg-[#0D7377]/5 ring-1 ring-[#0D7377]/20 cursor-pointer hover:bg-[#0D7377]/10"
+                    ? "bg-white hover:bg-green-50 hover:ring-1 hover:ring-green-300"
+                    : "bg-[#0D7377]/5 ring-1 ring-[#0D7377]/20 hover:bg-[#0D7377]/10"
                 }`}
                 onClick={handleCardClick}
                 data-testid={`table-card-${table.id}`}
@@ -153,9 +155,12 @@ export default function TablesPage() {
                     : `${table.minCapacity} to ${table.maxCapacity} seats`}
                 </span>
                 {isAvailable ? (
-                  <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50" data-testid={`badge-status-${table.id}`}>
-                    Available
-                  </Badge>
+                  <div className="flex flex-col items-center gap-1">
+                    <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50" data-testid={`badge-status-${table.id}`}>
+                      Available
+                    </Badge>
+                    <span className="text-[10px] text-muted-foreground/60">Tap to book</span>
+                  </div>
                 ) : (
                   <div className="flex flex-col items-center gap-1">
                     <Badge className="bg-[#0D7377] text-white" data-testid={`badge-status-${table.id}`}>
