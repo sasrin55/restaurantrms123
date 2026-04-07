@@ -13,6 +13,7 @@ interface ReservationCardProps {
   tableNumber: string;
   phone: string;
   comments?: string;
+  disabled?: boolean;
   onEdit?: () => void;
   onPrimaryAction?: () => void;
   onSecondaryAction?: () => void;
@@ -98,6 +99,7 @@ export function ReservationCard({
   tableNumber,
   phone,
   comments,
+  disabled,
   onEdit,
   onPrimaryAction,
   onSecondaryAction,
@@ -166,6 +168,7 @@ export function ReservationCard({
           <Button
             size="sm"
             onClick={onPrimaryAction}
+            disabled={disabled}
             className={actions.primary.className}
             data-testid={`button-primary-${id}`}
           >
@@ -177,6 +180,7 @@ export function ReservationCard({
             size="sm"
             variant="outline"
             onClick={onTertiaryAction}
+            disabled={disabled}
             className={actions.tertiary.className}
             data-testid={`button-tertiary-${id}`}
           >
@@ -188,6 +192,7 @@ export function ReservationCard({
             size="sm"
             variant="outline"
             onClick={onSecondaryAction}
+            disabled={disabled}
             className={actions.secondary.className}
             data-testid={`button-secondary-${id}`}
           >
@@ -208,6 +213,7 @@ interface ReservationRowProps {
   tableNumber: string;
   phone: string;
   comments?: string;
+  disabled?: boolean;
   onEdit?: () => void;
   onPrimaryAction?: () => void;
   onSecondaryAction?: () => void;
@@ -223,6 +229,7 @@ export function ReservationRow({
   tableNumber,
   phone,
   comments,
+  disabled,
   onEdit,
   onPrimaryAction,
   onSecondaryAction,
@@ -249,6 +256,7 @@ export function ReservationRow({
             <Button
               size="sm"
               onClick={onPrimaryAction}
+              disabled={disabled}
               className={`${actions.primary.className} whitespace-nowrap`}
               data-testid={`button-primary-row-${id}`}
             >
@@ -269,6 +277,7 @@ export function ReservationRow({
               size="sm"
               variant="outline"
               onClick={onTertiaryAction}
+              disabled={disabled}
               className={`${actions.tertiary.className} whitespace-nowrap`}
               data-testid={`button-tertiary-row-${id}`}
             >
@@ -280,6 +289,7 @@ export function ReservationRow({
               size="sm"
               variant="outline"
               onClick={onSecondaryAction}
+              disabled={disabled}
               className={`${actions.secondary.className} whitespace-nowrap`}
               data-testid={`button-secondary-row-${id}`}
             >

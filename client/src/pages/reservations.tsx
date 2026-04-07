@@ -135,12 +135,21 @@ export default function ReservationsPage() {
     },
   });
 
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+
   const deleteReservationMutation = useMutation({
     mutationFn: async (id: string) => {
+      setDeletingIds(prev => new Set(prev).add(id));
       return apiRequest("DELETE", `/api/reservations/${id}`);
     },
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
+      setDeletingIds(prev => { const next = new Set(prev); next.delete(id); return next; });
       queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
+      toast({ title: "Reservation removed" });
+    },
+    onError: (_err, id) => {
+      setDeletingIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+      toast({ title: "Could not remove reservation", description: "It may have already been deleted.", variant: "destructive" });
     },
   });
 
@@ -524,6 +533,7 @@ export default function ReservationsPage() {
                           tableNumber={group.tableNames.join(" + ")}
                           phone={group.phoneNumber}
                           comments={group.comments}
+                          disabled={group.ids.some(id => deletingIds.has(id))}
                           onEdit={() => handleEdit(group.reservations[0], group.reservations)}
                           onPrimaryAction={() => handleGroupPrimaryAction(group)}
                           onSecondaryAction={() => handleGroupSecondaryAction(group)}
@@ -580,6 +590,7 @@ export default function ReservationsPage() {
                               tableNumber={group.tableNames.join(" + ")}
                               phone={group.phoneNumber}
                               comments={group.comments}
+                              disabled={group.ids.some(id => deletingIds.has(id))}
                               onEdit={() => handleEdit(group.reservations[0], group.reservations)}
                               onPrimaryAction={() => handleGroupPrimaryAction(group)}
                               onSecondaryAction={() => handleGroupSecondaryAction(group)}
