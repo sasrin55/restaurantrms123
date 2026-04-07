@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Reservation } from "@shared/schema";
-import { restaurantTables, tepanyakiSeats } from "@/lib/tables";
+import { restaurantTables } from "@/lib/tables";
 import { ALL_SLOTS, getPeriodLabel } from "@/lib/timeSlots";
 
 interface EditReservationDialogProps {
@@ -135,11 +135,8 @@ export function EditReservationDialog({
 
       for (const r of (groupReservations || [reservation])) {
         if (tablesToKeep.includes(r.tableId)) {
-          const table = restaurantTables.find(t => t.id === r.tableId) ||
-                        tepanyakiSeats.find(t => t.id === r.tableId);
-          const tableName = table
-            ? (r.tableId >= 1001 ? `Tepanyaki Seat ${table.number}` : `Table ${table.number}`)
-            : r.tableName;
+          const table = restaurantTables.find(t => t.id === r.tableId);
+          const tableName = table ? `Table ${table.number}` : r.tableName;
           promises.push(
             apiRequest("PATCH", `/api/reservations/${r.id}`, {
               ...commonFields,
@@ -151,11 +148,8 @@ export function EditReservationDialog({
       }
 
       for (const tid of tablesToAdd) {
-        const table = restaurantTables.find(t => t.id === tid) ||
-                      tepanyakiSeats.find(t => t.id === tid);
-        const tableName = table
-          ? (tid >= 1001 ? `Tepanyaki Seat ${table.number}` : `Table ${table.number}`)
-          : `Table ${tid}`;
+        const table = restaurantTables.find(t => t.id === tid);
+        const tableName = table ? `Table ${table.number}` : `Table ${tid}`;
         promises.push(
           apiRequest("POST", "/api/reservations", {
             ...commonFields,
@@ -280,41 +274,11 @@ export function EditReservationDialog({
                 );
               })}
             </div>
-            <div className="mt-1">
-              <Label className="text-xs text-muted-foreground">Tepanyaki</Label>
-              <div className="grid grid-cols-8 gap-1.5 mt-1">
-                {tepanyakiSeats.map((seat) => {
-                  const isOccupied = occupiedTableIds.has(seat.id);
-                  const isSelected = selectedSet.has(seat.id);
-                  return (
-                    <button
-                      key={seat.id}
-                      type="button"
-                      onClick={() => toggleTable(seat.id)}
-                      disabled={isOccupied}
-                      className={`h-10 rounded-md border text-sm font-medium transition-colors ${
-                        isSelected
-                          ? "bg-[#0D7377] text-white border-[#0D7377]"
-                          : isOccupied
-                            ? "bg-muted text-muted-foreground/40 border-border cursor-not-allowed line-through"
-                            : "bg-background text-foreground border-border hover:bg-muted"
-                      }`}
-                      data-testid={`button-edit-tep-${seat.id}`}
-                    >
-                      T{seat.number}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
             {selectedTableIds.length > 0 && (
               <p className="text-xs text-muted-foreground mt-1" data-testid="text-selected-tables">
                 Selected: {selectedTableIds.map(tid => {
                   const t = restaurantTables.find(t => t.id === tid);
-                  if (t) return `Table ${t.number}`;
-                  const s = tepanyakiSeats.find(s => s.id === tid);
-                  if (s) return `Tep ${s.number}`;
-                  return `#${tid}`;
+                  return t ? `Table ${t.number}` : `#${tid}`;
                 }).join(", ")}
               </p>
             )}
