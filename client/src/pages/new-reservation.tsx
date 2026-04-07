@@ -33,6 +33,7 @@ export default function NewCustomerPage() {
   const preTableId = params.get("tableId") ? parseInt(params.get("tableId")!) : null;
   const preTableNumber = params.get("tableNumber") || null;
   const preDateStr = params.get("date") || null;
+  const preSlot = params.get("slot") || null;
 
   const [mode, setMode] = useState<CustomerMode>("reservation");
   const [confirmed, setConfirmed] = useState(false);
@@ -44,7 +45,7 @@ export default function NewCustomerPage() {
     }
     return new Date();
   });
-  const [time, setTime] = useState("");
+  const [time, setTime] = useState(preSlot || "");
   const [partySize, setPartySize] = useState("2");
   const [selectedTables, setSelectedTables] = useState<{ id: number; number: string }[]>(() => {
     if (preTableId && preTableNumber) {

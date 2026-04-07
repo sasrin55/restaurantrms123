@@ -124,7 +124,8 @@ export default function TablesPage() {
               if (!isAvailable && reservation) {
                 navigate(`/?date=${dateStr}&slot=${encodeURIComponent(reservation.time)}`);
               } else if (isAvailable) {
-                navigate(`/new-reservation?tableId=${table.id}&tableNumber=${encodeURIComponent(table.number)}&date=${dateStr}`);
+                const slotParam = selectedSlot ? `&slot=${encodeURIComponent(selectedSlot)}` : "";
+                navigate(`/new-reservation?tableId=${table.id}&tableNumber=${encodeURIComponent(table.number)}&date=${dateStr}${slotParam}`);
               }
             };
 
