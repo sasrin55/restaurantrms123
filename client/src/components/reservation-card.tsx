@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Clock, Users, Phone, MessageSquare, ShoppingCart, Check, Pencil } from "lucide-react";
+import { Clock, Users, Phone, MessageSquare, Pencil } from "lucide-react";
 
 export type ReservationStatus = "booked" | "seated" | "confirmed" | "pending" | "complete" | "cancelled" | "no-show";
 
@@ -13,12 +13,10 @@ interface ReservationCardProps {
   tableNumber: string;
   phone: string;
   comments?: string;
-  orderConfirmed?: boolean;
   onEdit?: () => void;
   onPrimaryAction?: () => void;
   onSecondaryAction?: () => void;
   onTertiaryAction?: () => void;
-  onTakeOrder?: () => void;
 }
 
 const statusConfig: Record<ReservationStatus, { label: string; className: string }> = {
@@ -90,6 +88,12 @@ function getActionButtons(status: ReservationStatus) {
         secondary: { label: "Remove Reservation", className: "bg-rose-100 text-rose-700 border-rose-200" },
         tertiary: null,
       };
+    case "no-show":
+      return {
+        primary: { label: "Remove Reservation", className: "bg-rose-100 text-rose-700 border-rose-200" },
+        secondary: null,
+        tertiary: null,
+      };
     default:
       return { primary: null, secondary: null, tertiary: null };
   }
@@ -104,12 +108,10 @@ export function ReservationCard({
   tableNumber,
   phone,
   comments,
-  orderConfirmed,
   onEdit,
   onPrimaryAction,
   onSecondaryAction,
   onTertiaryAction,
-  onTakeOrder,
 }: ReservationCardProps) {
   const statusStyle = statusConfig[status] ?? { label: status, className: "bg-gray-400 text-white" };
   const actions = getActionButtons(status);
@@ -180,29 +182,6 @@ export function ReservationCard({
             {actions.primary.label}
           </Button>
         )}
-        {onTakeOrder && (
-          orderConfirmed ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 pointer-events-none"
-              data-testid={`button-order-confirmed-${id}`}
-            >
-              <Check className="h-3.5 w-3.5 mr-1.5" />
-              Paid
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onTakeOrder}
-              data-testid={`button-take-order-${id}`}
-            >
-              <ShoppingCart className="h-3.5 w-3.5 mr-1.5" />
-              Take Order
-            </Button>
-          )
-        )}
         {actions.tertiary && (
           <Button
             size="sm"
@@ -239,12 +218,10 @@ interface ReservationRowProps {
   tableNumber: string;
   phone: string;
   comments?: string;
-  orderConfirmed?: boolean;
   onEdit?: () => void;
   onPrimaryAction?: () => void;
   onSecondaryAction?: () => void;
   onTertiaryAction?: () => void;
-  onTakeOrder?: () => void;
 }
 
 export function ReservationRow({
@@ -256,12 +233,10 @@ export function ReservationRow({
   tableNumber,
   phone,
   comments,
-  orderConfirmed,
   onEdit,
   onPrimaryAction,
   onSecondaryAction,
   onTertiaryAction,
-  onTakeOrder,
 }: ReservationRowProps) {
   const statusStyle = statusConfig[status] ?? { label: status, className: "bg-gray-400 text-white" };
   const actions = getActionButtons(status);
@@ -289,30 +264,6 @@ export function ReservationRow({
             >
               {actions.primary.label}
             </Button>
-          )}
-          {onTakeOrder && (
-            orderConfirmed ? (
-              <Button
-                size="sm"
-                variant="outline"
-                className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 pointer-events-none whitespace-nowrap"
-                data-testid={`button-order-confirmed-row-${id}`}
-              >
-                <Check className="h-3.5 w-3.5 mr-1" />
-                Paid
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={onTakeOrder}
-                className="whitespace-nowrap"
-                data-testid={`button-take-order-row-${id}`}
-              >
-                <ShoppingCart className="h-3.5 w-3.5 mr-1" />
-                Take Order
-              </Button>
-            )
           )}
           <Button
             variant="outline"

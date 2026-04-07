@@ -22,7 +22,7 @@ import { Plus, Search, Calendar, LayoutGrid, List, Loader2, Upload } from "lucid
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format, addDays, startOfWeek, endOfWeek, isWithinInterval, parseISO, isToday, isTomorrow } from "date-fns";
-import type { Reservation, Order } from "@shared/schema";
+import type { Reservation } from "@shared/schema";
 import { getTimeSlotsForDate, getPeriodLabel, ALL_SLOTS, type MealPeriod } from "@/lib/timeSlots";
 
 type DateFilter = "today" | "tomorrow" | "this-week" | "custom";
@@ -126,32 +126,6 @@ export default function ReservationsPage() {
     queryKey: ["/api/reservations"],
   });
 
-  const { data: allOrders = [] } = useQuery<Order[]>({
-    queryKey: ["/api/orders"],
-  });
-
-  const reservationOrderMap = new Map<string, Order>();
-  for (const order of allOrders) {
-    if (order.reservationId) {
-      const existing = reservationOrderMap.get(order.reservationId);
-      if (!existing || order.status === "closed") {
-        reservationOrderMap.set(order.reservationId, order);
-      }
-    }
-  }
-
-  const isOrderConfirmedForGroup = (group: GroupedReservation) => {
-    return group.ids.some((id) => {
-      const order = reservationOrderMap.get(id);
-      return order && order.status === "closed";
-    });
-  };
-
-  const handleTakeOrder = (group: GroupedReservation) => {
-    const primaryReservation = group.reservations[0];
-    navigate(`/orders?reservationId=${primaryReservation.id}&tableId=${primaryReservation.tableId}&tableName=${encodeURIComponent(primaryReservation.tableName)}&guestName=${encodeURIComponent(primaryReservation.customerName)}`);
-  };
-
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       return apiRequest("PATCH", `/api/reservations/${id}/status`, { status });
@@ -210,6 +184,9 @@ export default function ReservationsPage() {
           break;
         case "cancelled":
           updateStatusMutation.mutate({ id, status: "booked" });
+          break;
+        case "no-show":
+          deleteReservationMutation.mutate(id);
           break;
       }
     }
@@ -550,12 +527,10 @@ export default function ReservationsPage() {
                           tableNumber={group.tableNames.join(" + ")}
                           phone={group.phoneNumber}
                           comments={group.comments}
-                          orderConfirmed={isOrderConfirmedForGroup(group)}
                           onEdit={() => handleEdit(group.reservations[0], group.reservations)}
                           onPrimaryAction={() => handleGroupPrimaryAction(group)}
                           onSecondaryAction={() => handleGroupSecondaryAction(group)}
                           onTertiaryAction={() => handleGroupTertiaryAction(group)}
-                          onTakeOrder={() => handleTakeOrder(group)}
                         />
                       ))}
                     </div>
@@ -608,12 +583,10 @@ export default function ReservationsPage() {
                               tableNumber={group.tableNames.join(" + ")}
                               phone={group.phoneNumber}
                               comments={group.comments}
-                              orderConfirmed={isOrderConfirmedForGroup(group)}
                               onEdit={() => handleEdit(group.reservations[0], group.reservations)}
                               onPrimaryAction={() => handleGroupPrimaryAction(group)}
                               onSecondaryAction={() => handleGroupSecondaryAction(group)}
                               onTertiaryAction={() => handleGroupTertiaryAction(group)}
-                              onTakeOrder={() => handleTakeOrder(group)}
                             />
                           ))}
                         </tbody>
