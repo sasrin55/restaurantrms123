@@ -585,43 +585,5 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/admin/seed-production", async (req, res) => {
-    const secret = req.headers["x-seed-secret"];
-    if (secret !== "paolas-seed-2026") {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-    try {
-      const { reservations: reservationRows } = req.body;
-      let reservationCount = 0;
-      let skipped = 0;
-
-      if (Array.isArray(reservationRows)) {
-        for (const r of reservationRows) {
-          try {
-            await storage.createReservation({
-              customerName: r.customer_name,
-              phoneNumber: r.phone_number,
-              date: r.date,
-              time: r.time,
-              partySize: r.party_size,
-              tableId: r.table_id,
-              tableName: r.table_name,
-              comments: r.comments ?? "",
-              takenBy: r.taken_by ?? "",
-              status: r.status,
-            });
-            reservationCount++;
-          } catch { skipped++; }
-        }
-      }
-
-      await storage.rebuildGuestData();
-
-      res.json({ success: true, reservations: reservationCount, skipped });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
   return httpServer;
 }
