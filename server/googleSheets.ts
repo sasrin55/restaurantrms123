@@ -3,24 +3,21 @@ import { google } from 'googleapis';
 const SPREADSHEET_ID = '1HgLRHFG7E80H5W0P-S5Qo--kOXxGRttbvanLKnMC4sQ';
 
 const RESTAURANT_TABLES = [
-  { number: "1", seating: "4 to 6" },
-  { number: "2", seating: "4 to 6" },
-  { number: "25", seating: "2 to 3" },
-  { number: "3", seating: "2" },
-  { number: "4", seating: "2" },
-  { number: "5", seating: "5 to 6" },
-  { number: "20", seating: "5 to 6" },
-  { number: "6", seating: "3 to 4" },
-  { number: "7", seating: "4" },
-  { number: "8", seating: "2 to 3" },
-  { number: "9", seating: "2" },
-  { number: "10", seating: "2" },
-  { number: "11", seating: "8 to 10" },
-  { number: "12", seating: "3 to 4" },
-  { number: "13", seating: "3 to 4" },
-  { number: "14", seating: "4 to 6" },
-  { number: "15", seating: "2 to 3" },
-  { number: "15a", seating: "2 to 3" },
+  { number: "11 Outdoor", seating: "5 to 6" },
+  { number: "12 Outdoor", seating: "7 to 8" },
+  { number: "13 Outdoor", seating: "3 to 4" },
+  { number: "17", seating: "4" },
+  { number: "18", seating: "3" },
+  { number: "19", seating: "6" },
+  { number: "19A", seating: "3 to 4" },
+  { number: "20", seating: "10" },
+  { number: "21", seating: "3" },
+  { number: "22", seating: "4" },
+  { number: "23", seating: "6" },
+  { number: "24", seating: "5" },
+  { number: "25", seating: "10" },
+  { number: "26", seating: "2" },
+  { number: "27", seating: "2" },
 ];
 
 const TABLE_COUNT = RESTAURANT_TABLES.length;
@@ -89,49 +86,43 @@ function formatDateForTab(dateStr: string): string {
   return `${days[date.getDay()]} ${d}${ordinalSuffix(d)} ${months[m - 1]}`;
 }
 
-function isRamadanDate(dateStr: string): boolean {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const date = new Date(y, m - 1, d);
-  date.setHours(0, 0, 0, 0);
-  const start = new Date(y, 1, 18);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(y, 2, 20);
-  end.setHours(23, 59, 59, 999);
-  return date >= start && date <= end;
-}
-
 interface TimeSlotSection {
   label: string;
   timeKey: string;
 }
 
 function getSectionsForDate(dateStr: string): TimeSlotSection[] {
-  if (isRamadanDate(dateStr)) {
-    return [
-      { label: "Iftar — 5:00 PM", timeKey: "5:00 PM" },
-      { label: "Dinner — 8:00 PM", timeKey: "8:00 PM" },
-      { label: "Dinner — 10:00 PM", timeKey: "10:00 PM" },
-      { label: "Sehri — 12:00 AM", timeKey: "12:00 AM" },
-      { label: "Sehri — 2:00 AM", timeKey: "2:00 AM" },
-    ];
-  }
   const [y, m, d] = dateStr.split('-').map(Number);
   const dow = new Date(y, m - 1, d).getDay();
+  if (dow === 5) {
+    return [
+      { label: "Breakfast — 9:00 AM - 10:30 AM",  timeKey: "9:00 AM - 10:30 AM" },
+      { label: "Brunch — 10:45 AM - 12:15 PM",     timeKey: "10:45 AM - 12:15 PM" },
+      { label: "Lunch — 12:30 PM - 2:30 PM",       timeKey: "12:30 PM - 2:30 PM" },
+      { label: "Lunch — 2:30 PM - 4:30 PM",        timeKey: "2:30 PM - 4:30 PM" },
+      { label: "Tea — 5:00 PM - 7:00 PM",          timeKey: "5:00 PM - 7:00 PM" },
+      { label: "Dinner — 7:30 PM - 9:30 PM",       timeKey: "7:30 PM - 9:30 PM" },
+      { label: "Dinner — 9:45 PM - 11:45 PM",      timeKey: "9:45 PM - 11:45 PM" },
+    ];
+  }
   if (dow === 0 || dow === 6) {
     return [
-      { label: "Breakfast — 10:00 AM to 12:00 PM", timeKey: "10:00 AM - 12:00 PM" },
-      { label: "Breakfast — 12:00 PM to 2:00 PM", timeKey: "12:00 PM - 2:00 PM" },
-      { label: "Lunch — 2:30 PM to 4:30 PM", timeKey: "2:30 PM - 4:30 PM" },
-      { label: "Lunch — 5:00 PM to 7:00 PM", timeKey: "5:00 PM - 7:00 PM" },
-      { label: "Dinner — 7:30 PM to 9:30 PM", timeKey: "7:30 PM - 9:30 PM" },
-      { label: "Dinner — 9:30 PM to 11:30 PM", timeKey: "9:30 PM - 11:30 PM" },
+      { label: "Breakfast — 10:00 AM - 12:00 PM",  timeKey: "10:00 AM - 12:00 PM" },
+      { label: "Brunch — 12:15 PM - 2:15 PM",      timeKey: "12:15 PM - 2:15 PM" },
+      { label: "Lunch — 2:30 PM - 4:30 PM",        timeKey: "2:30 PM - 4:30 PM" },
+      { label: "Tea — 5:00 PM - 7:00 PM",          timeKey: "5:00 PM - 7:00 PM" },
+      { label: "Dinner — 7:30 PM - 9:30 PM",       timeKey: "7:30 PM - 9:30 PM" },
+      { label: "Dinner — 9:45 PM - 11:45 PM",      timeKey: "9:45 PM - 11:45 PM" },
     ];
   }
   return [
-    { label: "Lunch — 2:00 PM to 4:00 PM", timeKey: "2:00 PM - 4:00 PM" },
-    { label: "Lunch — 4:30 PM to 6:30 PM", timeKey: "4:30 PM - 6:30 PM" },
-    { label: "Dinner — 7:00 PM to 9:00 PM", timeKey: "7:00 PM - 9:00 PM" },
-    { label: "Dinner — 9:15 PM to 11:15 PM", timeKey: "9:15 PM - 11:15 PM" },
+    { label: "Breakfast — 9:00 AM - 10:30 AM",    timeKey: "9:00 AM - 10:30 AM" },
+    { label: "Brunch — 10:45 AM - 12:15 PM",      timeKey: "10:45 AM - 12:15 PM" },
+    { label: "Lunch — 12:30 PM - 2:30 PM",        timeKey: "12:30 PM - 2:30 PM" },
+    { label: "Lunch — 2:30 PM - 4:30 PM",         timeKey: "2:30 PM - 4:30 PM" },
+    { label: "Tea — 5:00 PM - 7:00 PM",           timeKey: "5:00 PM - 7:00 PM" },
+    { label: "Dinner — 7:00 PM - 9:00 PM",        timeKey: "7:00 PM - 9:00 PM" },
+    { label: "Dinner — 9:00 PM - 11:00 PM",       timeKey: "9:00 PM - 11:00 PM" },
   ];
 }
 
@@ -230,7 +221,7 @@ async function formatTab(sheets: any, tabName: string, dateStr: string) {
   const layouts = computeTabLayout(dateStr);
   const requests: any[] = [];
 
-  const columnWidths = [45, 160, 50, 80, 70, 80, 120, 160];
+  const columnWidths = [45, 160, 50, 80, 90, 80, 120, 160];
   for (let i = 0; i < columnWidths.length; i++) {
     requests.push({
       updateDimensionProperties: {
@@ -967,9 +958,21 @@ function reverseTableLookup(tableNum: string, isTeppanyaki: boolean): { tableId:
     return null;
   }
   const tableMap: Record<string, number> = {
-    '1': 1, '2': 2, '25': 25, '3': 3, '4': 4, '5': 5, '20': 20,
-    '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, '11': 11,
-    '12': 12, '13': 13, '14': 14, '15': 15, '15a': 150,
+    '11 Outdoor': 11,
+    '12 Outdoor': 12,
+    '13 Outdoor': 13,
+    '17': 17,
+    '18': 18,
+    '19': 19,
+    '19A': 190,
+    '20': 20,
+    '21': 21,
+    '22': 22,
+    '23': 23,
+    '24': 24,
+    '25': 25,
+    '26': 26,
+    '27': 27,
   };
   const id = tableMap[tableNum];
   if (!id) return null;
