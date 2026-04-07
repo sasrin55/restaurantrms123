@@ -289,7 +289,9 @@ export default function ReservationsPage() {
   });
 
   const groupedReservations = groupReservations(filteredReservations).sort((a, b) => {
-    return parseTimeTo24(a.time) - parseTimeTo24(b.time);
+    const timeDiff = parseTimeTo24(a.time) - parseTimeTo24(b.time);
+    if (timeDiff !== 0) return timeDiff;
+    return a.customerName.localeCompare(b.customerName);
   });
 
   return (
