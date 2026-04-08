@@ -71,7 +71,7 @@ export default function NewCustomerPage() {
     .filter((r: any) => {
       if (!effectiveDate) return false;
       const selectedDate = format(effectiveDate, "yyyy-MM-dd");
-      return r.date === selectedDate && r.time === time && r.status !== "complete" && r.status !== "cancelled";
+      return r.date === selectedDate && r.time === time && r.status !== "complete" && r.status !== "cancelled" && r.status !== "no-show";
     })
     .reduce((acc: Record<number, any>, r: any) => {
       acc[r.tableId] = r;
@@ -471,6 +471,11 @@ export default function NewCustomerPage() {
                               ? `${table.minCapacity} seats`
                               : `${table.minCapacity}–${table.maxCapacity}`}
                           </span>
+                          {isBooked && bookedRes && (
+                            <span className="text-[10px] text-red-400 font-medium mt-1 text-center leading-tight max-w-[72px] truncate z-20 relative">
+                              {bookedRes.customerName.split(" ")[0]}
+                            </span>
+                          )}
                         </div>
                       );
                     })}
