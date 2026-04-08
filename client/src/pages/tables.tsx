@@ -8,7 +8,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Reservation } from "@shared/schema";
 import { format, addDays, subDays, isToday } from "date-fns";
 import { restaurantTables } from "@/lib/tables";
-import { getTimeSlotsForDate } from "@/lib/timeSlots";
+import { getTimeSlotsForDate, getPeriodLabel } from "@/lib/timeSlots";
 
 export default function TablesPage() {
   const [, navigate] = useLocation();
@@ -94,14 +94,6 @@ export default function TablesPage() {
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-2 mb-6 scrollbar-hide">
-          <Badge
-            variant={selectedSlot === null ? "default" : "outline"}
-            className={`cursor-pointer whitespace-nowrap px-3 py-1.5 text-xs shrink-0 ${selectedSlot === null ? "bg-[#0D7377] text-white" : ""}`}
-            onClick={() => setSelectedSlot(null)}
-            data-testid="slot-filter-all"
-          >
-            Any Time
-          </Badge>
           {slots.map((slot) => (
             <Badge
               key={slot.label}
@@ -110,7 +102,7 @@ export default function TablesPage() {
               onClick={() => setSelectedSlot(slot.label === selectedSlot ? null : slot.label)}
               data-testid={`slot-filter-${slot.label.replace(/[\s:]/g, "-")}`}
             >
-              {slot.label}
+              {getPeriodLabel(slot.period)} · {slot.label}
             </Badge>
           ))}
         </div>
