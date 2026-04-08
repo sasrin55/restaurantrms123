@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Reservation, type InsertReservation, type Guest, type InsertGuest, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type DbMenuItem, type InsertMenuItem, type Call, type InsertCall, type WaitlistEntry, type InsertWaitlistEntry, users, reservations, guests, orders, orderItems, menuItems, calls, waitlistEntries } from "@shared/schema";
+import { type User, type InsertUser, type Reservation, type InsertReservation, type Guest, type InsertGuest, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type DbMenuItem, type InsertMenuItem, type Call, type InsertCall, type WaitlistEntry, type InsertWaitlistEntry, type StaffMember, type InsertStaffMember, users, reservations, guests, orders, orderItems, menuItems, calls, waitlistEntries, staffMembers } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and } from "drizzle-orm";
 
@@ -45,6 +45,10 @@ export interface IStorage {
   createWaitlistEntry(entry: InsertWaitlistEntry): Promise<WaitlistEntry>;
   updateWaitlistEntry(id: string, updates: Partial<WaitlistEntry>): Promise<WaitlistEntry | undefined>;
   deleteWaitlistEntry(id: string): Promise<boolean>;
+
+  getStaffMembers(): Promise<StaffMember[]>;
+  addStaffMember(name: string): Promise<StaffMember>;
+  deleteStaffMember(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -334,6 +338,20 @@ export class DatabaseStorage implements IStorage {
 
   async deleteWaitlistEntry(id: string): Promise<boolean> {
     const result = await db.delete(waitlistEntries).where(eq(waitlistEntries.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async getStaffMembers(): Promise<StaffMember[]> {
+    return db.select().from(staffMembers).orderBy(staffMembers.name);
+  }
+
+  async addStaffMember(name: string): Promise<StaffMember> {
+    const [member] = await db.insert(staffMembers).values({ name }).returning();
+    return member;
+  }
+
+  async deleteStaffMember(id: number): Promise<boolean> {
+    const result = await db.delete(staffMembers).where(eq(staffMembers.id, id)).returning();
     return result.length > 0;
   }
 }

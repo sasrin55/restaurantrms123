@@ -11,6 +11,14 @@ export async function registerRoutes(
 ): Promise<Server> {
   storage.rebuildGuestData().catch(err => console.error("Failed to rebuild guest data:", err));
 
+  // Seed default staff members if none exist
+  storage.getStaffMembers().then(existing => {
+    if (existing.length === 0) {
+      const defaults = ["Aqsa", "Arslan", "Feroz", "Angelica", "Aleezy", "Fiza"];
+      Promise.all(defaults.map(n => storage.addStaffMember(n))).catch(console.error);
+    }
+  }).catch(console.error);
+
   app.get("/api/reservations", async (req, res) => {
     const reservations = await storage.getReservations();
     res.json(reservations);
@@ -620,6 +628,33 @@ export async function registerRoutes(
       console.error(err);
       res.status(500).json({ error: "Failed" });
     }
+  });
+
+  // ── Staff Members ─────────────────────────────────────────────────────────
+  app.get("/api/staff", async (_req, res) => {
+    const members = await storage.getStaffMembers();
+    res.json(members);
+  });
+
+  app.post("/api/staff", async (req, res) => {
+    const { name } = req.body;
+    if (!name || typeof name !== "string" || !name.trim()) {
+      return res.status(400).json({ error: "Name is required" });
+    }
+    try {
+      const member = await storage.addStaffMember(name.trim());
+      res.status(201).json(member);
+    } catch (err: any) {
+      res.status(409).json({ error: "Name already exists" });
+    }
+  });
+
+  app.delete("/api/staff/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+    const ok = await storage.deleteStaffMember(id);
+    if (!ok) return res.status(404).json({ error: "Not found" });
+    res.status(204).end();
   });
 
   return httpServer;

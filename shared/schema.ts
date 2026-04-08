@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, bigint } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, bigint, serial } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -129,6 +129,16 @@ export const insertWaitlistSchema = createInsertSchema(waitlistEntries).omit({
 
 export type InsertWaitlistEntry = z.infer<typeof insertWaitlistSchema>;
 export type WaitlistEntry = typeof waitlistEntries.$inferSelect;
+
+// ── Staff Members ────────────────────────────────────────────────────────────
+export const staffMembers = pgTable("staff_members", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+});
+
+export const insertStaffMemberSchema = createInsertSchema(staffMembers).omit({ id: true });
+export type InsertStaffMember = z.infer<typeof insertStaffMemberSchema>;
+export type StaffMember = typeof staffMembers.$inferSelect;
 
 export const insertOrderSchema = createInsertSchema(orders).omit({
   id: true,

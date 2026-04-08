@@ -21,6 +21,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Reservation } from "@shared/schema";
 import { restaurantTables } from "@/lib/tables";
 import { ALL_SLOTS, getPeriodLabel } from "@/lib/timeSlots";
+import { StaffSelect } from "@/components/staff-select";
 
 interface EditReservationDialogProps {
   reservation: Reservation | null;
@@ -306,12 +307,11 @@ export function EditReservationDialog({
           </div>
           <div className="grid gap-2">
             <Label htmlFor="taken-by">Taken by staff member</Label>
-            <Input
-              id="taken-by"
-              placeholder="Staff member name"
+            <StaffSelect
               value={takenBy}
-              onChange={(e) => setTakenBy(e.target.value)}
-              data-testid="input-edit-taken-by"
+              onChange={setTakenBy}
+              placeholder="Select staff member"
+              testId="input-edit-taken-by"
             />
           </div>
         </div>

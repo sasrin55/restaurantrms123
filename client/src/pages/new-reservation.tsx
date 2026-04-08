@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar as CalendarIcon, Check, Send, X } from "lucide-react";
+import { StaffSelect } from "@/components/staff-select";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { restaurantTables } from "@/lib/tables";
@@ -503,11 +504,11 @@ export default function NewCustomerPage() {
           {mode === "reservation" && (
             <div className="space-y-2 mb-4">
               <Label className="text-muted-foreground text-sm">Taken by staff member <span className="text-xs">(optional)</span></Label>
-              <Input
-                placeholder="Staff member name"
+              <StaffSelect
                 value={takenBy}
-                onChange={(e) => setTakenBy(e.target.value)}
-                data-testid="input-taken-by"
+                onChange={setTakenBy}
+                placeholder="Select staff member"
+                testId="input-taken-by"
               />
             </div>
           )}
