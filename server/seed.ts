@@ -78,7 +78,7 @@ export async function seedV5IfNeeded(): Promise<void> {
     const check = await client.query(
       `SELECT 1 FROM reservations WHERE time IN (
         '7:00 PM - 9:00 PM','9:00 PM - 11:00 PM','5:00 PM - 7:00 PM',
-        '9:00 AM - 10:30 AM','9:45 PM - 11:45 PM','9:00 AM - 12:00 PM'
+        '9:45 PM - 11:45 PM','9:00 AM - 12:00 PM'
       ) LIMIT 1`
     );
     if (check.rows.length === 0) {
@@ -122,8 +122,26 @@ export async function seedV5IfNeeded(): Promise<void> {
       inserted++;
     }
     console.log(`[seed] Done. Inserted: ${inserted}, Skipped: ${skipped}`);
+
+    // Fix any wildly wrong party sizes (e.g. year entered instead of pax)
+    await client.query(`UPDATE reservations SET party_size = 2 WHERE party_size > 30`);
+    console.log("[seed] Party size sanity check done.");
   } catch (err) {
     console.error("[seed] Error during seeding:", err);
+  } finally {
+    client.release();
+  }
+}
+
+export async function fixDataIssues(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    const r = await client.query(`UPDATE reservations SET party_size = 2 WHERE party_size > 30`);
+    if (r.rowCount && r.rowCount > 0) {
+      console.log(`[seed] Fixed ${r.rowCount} record(s) with invalid party size.`);
+    }
+  } catch (err) {
+    console.error("[seed] fixDataIssues error:", err);
   } finally {
     client.release();
   }
