@@ -4,9 +4,9 @@ import { randomUUID } from "crypto";
 import { pool } from "./db";
 
 const SLOT_MAP: Record<string, string> = {
-  "Breakfast 9 AM - 10:30 AM":    "9:00 AM - 12:00 PM",
-  "Brunch 10:45 PM - 12:15 PM":   "9:00 AM - 12:00 PM",
-  "Brunch 10:45 PM - 12:00 PM":   "9:00 AM - 12:00 PM",
+  "Breakfast 9 AM - 10:30 AM":    "9:00 AM - 10:30 AM",
+  "Brunch 10:45 PM - 12:15 PM":   "10:45 AM - 12:15 PM",
+  "Brunch 10:45 PM - 12:00 PM":   "10:45 AM - 12:15 PM",
   "Breakfast 10 AM - 12 PM":      "10:00 AM - 12:00 PM",
   "Brunch 12:15 PM - 2 PM":       "12:00 PM - 2:00 PM",
   "Lunch Slot 12:30 PM":          "12:30 PM - 2:30 PM",
@@ -73,13 +73,16 @@ function normalizeName(n: string): string {
 export async function seedV5IfNeeded(): Promise<void> {
   const client = await pool.connect();
   try {
-    // Check for OLD data: old slot labels that v5 replaces.
-    // If none of the old labels exist, data is already v5.
+    // Check for OLD data: any slot label that the current import replaces.
+    // "9:00 AM - 12:00 PM" is the previous breakfast block that must now be split.
     const check = await client.query(
-      `SELECT 1 FROM reservations WHERE time IN ('7:00 PM - 9:00 PM','9:00 PM - 11:00 PM','10:45 AM - 12:15 PM','5:00 PM - 7:00 PM','9:00 AM - 10:30 AM','9:45 PM - 11:45 PM') LIMIT 1`
+      `SELECT 1 FROM reservations WHERE time IN (
+        '7:00 PM - 9:00 PM','9:00 PM - 11:00 PM','5:00 PM - 7:00 PM',
+        '9:00 AM - 10:30 AM','9:45 PM - 11:45 PM','9:00 AM - 12:00 PM'
+      ) LIMIT 1`
     );
     if (check.rows.length === 0) {
-      console.log("[seed] Reservation data already at v5 — skipping.");
+      console.log("[seed] Reservation data already at v6 — skipping.");
       return;
     }
 

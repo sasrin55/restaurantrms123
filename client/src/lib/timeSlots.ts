@@ -6,7 +6,8 @@ export interface TimeSlot {
 }
 
 const WEEKDAY_SLOTS: TimeSlot[] = [
-  { label: "9:00 AM - 12:00 PM",  period: "breakfast" },
+  { label: "9:00 AM - 10:30 AM",  period: "breakfast" },
+  { label: "10:45 AM - 12:15 PM", period: "brunch" },
   { label: "12:30 PM - 2:30 PM",  period: "lunch" },
   { label: "2:30 PM - 4:30 PM",   period: "lunch" },
   { label: "4:30 PM - 6:30 PM",   period: "tea" },
@@ -35,6 +36,8 @@ export const ALL_SLOTS: TimeSlot[] = [
   // Weekend-only slots not in weekday list
   { label: "10:00 AM - 12:00 PM", period: "breakfast" },
   { label: "12:00 PM - 2:00 PM",  period: "brunch" },
+  // Legacy label (mapped to breakfast for any old records)
+  { label: "9:00 AM - 12:00 PM",  period: "breakfast" },
 ];
 
 export function getTimePeriodForLabel(timeLabel: string): MealPeriod | null {
