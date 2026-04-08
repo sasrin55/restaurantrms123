@@ -117,15 +117,9 @@ export default function ReservationsPage() {
     return d ? new Date(d + "T12:00:00") : new Date();
   });
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [slotFilter, setSlotFilter] = useState<"all" | MealPeriod>(() => {
+  const [slotFilter, setSlotFilter] = useState<"all" | string>(() => {
     const p = new URLSearchParams(searchString);
-    const slot = p.get("slot");
-    if (!slot) return "all";
-    // Convert an incoming time label (e.g. from tables nav) to its period
-    const dateParam = p.get("date");
-    const date = dateParam ? new Date(dateParam + "T12:00:00") : new Date();
-    const period = getTimePeriod(slot, date);
-    return (period as MealPeriod) || "all";
+    return p.get("slot") || "all";
   });
 
   const { data: reservations = [], isLoading } = useQuery<Reservation[]>({
@@ -454,30 +448,22 @@ export default function ReservationsPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 mb-4 sm:mb-6 overflow-x-auto pb-1" data-testid="period-tabs">
-          {Array.from(
-            new Map(
-              groupedReservations
-                .map(g => [getTimePeriod(g.time, selectedDate), getTimePeriod(g.time, selectedDate)] as const)
-            )
-          )
-            .sort(([a], [b]) => {
-              const order: MealPeriod[] = ["breakfast", "brunch", "lunch", "tea", "dinner"];
-              return order.indexOf(a as MealPeriod) - order.indexOf(b as MealPeriod);
-            })
-            .map(([period]) => {
-              const count = groupedReservations.filter(g => getTimePeriod(g.time, selectedDate) === period).length;
-              const isActive = slotFilter === period;
+        <div className="flex items-center gap-2 mb-4 sm:mb-6 overflow-x-auto pb-1" data-testid="slot-tabs">
+          {getTimeSlotsForDate(selectedDate)
+            .filter(slot => groupedReservations.some(g => g.time === slot.label))
+            .map(slot => {
+              const count = groupedReservations.filter(g => g.time === slot.label).length;
+              const isActive = slotFilter === slot.label;
               return (
                 <button
-                  key={period}
-                  onClick={() => setSlotFilter(isActive ? "all" : period as MealPeriod)}
+                  key={slot.label}
+                  onClick={() => setSlotFilter(isActive ? "all" : slot.label)}
                   className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
                     isActive ? "bg-[#0D7377] text-white" : "bg-muted text-muted-foreground hover-elevate"
                   }`}
-                  data-testid={`button-period-${period}`}
+                  data-testid={`button-slot-${slot.label}`}
                 >
-                  {getPeriodLabel(period as MealPeriod)} ({count})
+                  {slot.label} ({count})
                 </button>
               );
             })}
@@ -511,13 +497,13 @@ export default function ReservationsPage() {
         ) : viewMode === "grid" ? (
           <div className="space-y-8">
             {Array.from(new Set(
-              (slotFilter === "all" ? groupedReservations : groupedReservations.filter(g => getTimePeriod(g.time, selectedDate) === slotFilter))
+              (slotFilter === "all" ? groupedReservations : groupedReservations.filter(g => g.time === slotFilter))
                 .map(g => g.time)
             ))
               .sort((a, b) => parseTimeTo24(a) - parseTimeTo24(b))
               .map(time => {
                 const slotGroups = groupedReservations.filter(g =>
-                  (slotFilter === "all" || getTimePeriod(g.time, selectedDate) === slotFilter) && g.time === time
+                  (slotFilter === "all" || g.time === slotFilter) && g.time === time
                 );
                 if (slotGroups.length === 0) return null;
                 const period = getTimePeriod(time, selectedDate);
@@ -553,13 +539,13 @@ export default function ReservationsPage() {
         ) : (
           <div className="space-y-8">
             {Array.from(new Set(
-              (slotFilter === "all" ? groupedReservations : groupedReservations.filter(g => getTimePeriod(g.time, selectedDate) === slotFilter))
+              (slotFilter === "all" ? groupedReservations : groupedReservations.filter(g => g.time === slotFilter))
                 .map(g => g.time)
             ))
               .sort((a, b) => parseTimeTo24(a) - parseTimeTo24(b))
               .map(time => {
                 const slotGroups = groupedReservations.filter(g =>
-                  (slotFilter === "all" || getTimePeriod(g.time, selectedDate) === slotFilter) && g.time === time
+                  (slotFilter === "all" || g.time === slotFilter) && g.time === time
                 );
                 if (slotGroups.length === 0) return null;
                 const period = getTimePeriod(time, selectedDate);
