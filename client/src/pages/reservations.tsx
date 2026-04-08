@@ -449,26 +449,18 @@ export default function ReservationsPage() {
         </div>
 
         <div className="flex items-center gap-2 mb-4 sm:mb-6 overflow-x-auto pb-1" data-testid="period-tabs">
-          <button
-            onClick={() => setSlotFilter("all")}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
-              slotFilter === "all" ? "bg-[#0D7377] text-white" : "bg-muted text-muted-foreground hover-elevate"
-            }`}
-            data-testid="button-period-all"
-          >
-            All ({groupedReservations.length})
-          </button>
           {Array.from(new Set(groupedReservations.map(g => g.time)))
             .sort((a, b) => parseTimeTo24(a) - parseTimeTo24(b))
             .map(time => {
               const period = getTimePeriod(time, selectedDate);
               const count = groupedReservations.filter(g => g.time === time).length;
+              const isActive = slotFilter === time;
               return (
                 <button
                   key={time}
-                  onClick={() => setSlotFilter(time)}
+                  onClick={() => setSlotFilter(isActive ? "all" : time)}
                   className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
-                    slotFilter === time ? "bg-[#0D7377] text-white" : "bg-muted text-muted-foreground hover-elevate"
+                    isActive ? "bg-[#0D7377] text-white" : "bg-muted text-muted-foreground hover-elevate"
                   }`}
                   data-testid={`button-slot-${time}`}
                 >
