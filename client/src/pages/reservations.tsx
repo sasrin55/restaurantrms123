@@ -463,7 +463,7 @@ export default function ReservationsPage() {
                   }`}
                   data-testid={`button-slot-${slot.label}`}
                 >
-                  {slot.label} ({count})
+                  {getPeriodLabel(slot.period)} · {slot.label} ({count})
                 </button>
               );
             })}
