@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { restaurantTables } from "@/lib/tables";
 import { format } from "date-fns";
-import { Users, Clock, Phone, Plus, X, Check } from "lucide-react";
+import { Users, Clock, Phone, Plus, X, Check, Trash2 } from "lucide-react";
 import type { Reservation } from "@shared/schema";
 
 type WaitlistStatus = "waiting" | "notified" | "seated" | "cancelled" | "booked";
@@ -195,6 +195,12 @@ export default function WaitlistPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/waitlist"] }),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/waitlist/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/waitlist"] }),
+    onError: () => toast({ title: "Failed to delete entry", variant: "destructive" }),
+  });
+
   function handleAddGuest(e: React.FormEvent) {
     e.preventDefault();
     if (!guestName.trim() || !partySize) return;
@@ -354,6 +360,15 @@ export default function WaitlistPage() {
                     >
                       <X className="h-6 w-6 text-white stroke-[3]" />
                     </button>
+                    <button
+                      onClick={() => deleteMutation.mutate(entry.id)}
+                      disabled={deleteMutation.isPending}
+                      data-testid={`btn-delete-${entry.id}`}
+                      className="w-9 h-9 rounded-lg border border-gray-200 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-500 text-muted-foreground active:scale-95 transition-all flex items-center justify-center"
+                      title="Delete from waitlist"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -378,9 +393,20 @@ export default function WaitlistPage() {
                       <Users className="h-3 w-3" />{entry.partySize}
                     </span>
                   </div>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusConfig[entry.status as WaitlistStatus]?.className ?? ""}`}>
-                    {statusConfig[entry.status as WaitlistStatus]?.label ?? entry.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusConfig[entry.status as WaitlistStatus]?.className ?? ""}`}>
+                      {statusConfig[entry.status as WaitlistStatus]?.label ?? entry.status}
+                    </span>
+                    <button
+                      onClick={() => deleteMutation.mutate(entry.id)}
+                      disabled={deleteMutation.isPending}
+                      data-testid={`btn-delete-done-${entry.id}`}
+                      className="p-1.5 rounded-lg hover:bg-rose-50 hover:text-rose-500 text-muted-foreground transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
