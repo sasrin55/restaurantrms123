@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Reservation } from "@shared/schema";
-import { restaurantTables } from "@/lib/tables";
+import { restaurantTables, TABLE_SECTIONS, getTablesBySection } from "@/lib/tables";
 import { ALL_SLOTS, getPeriodLabel } from "@/lib/timeSlots";
 import { StaffSelect } from "@/components/staff-select";
 
@@ -251,29 +251,39 @@ export function EditReservationDialog({
           </div>
           <div className="grid gap-2">
             <Label>Tables</Label>
-            <div className="grid grid-cols-6 gap-1.5">
-              {restaurantTables.map((table) => {
-                const isOccupied = occupiedTableIds.has(table.id);
-                const isSelected = selectedSet.has(table.id);
-                return (
-                  <button
-                    key={table.id}
-                    type="button"
-                    onClick={() => toggleTable(table.id)}
-                    disabled={isOccupied}
-                    className={`h-10 rounded-md border text-sm font-medium transition-colors ${
-                      isSelected
-                        ? "bg-[#0D7377] text-white border-[#0D7377]"
-                        : isOccupied
-                          ? "bg-muted text-muted-foreground/40 border-border cursor-not-allowed line-through"
-                          : "bg-background text-foreground border-border hover:bg-muted"
-                    }`}
-                    data-testid={`button-edit-table-${table.id}`}
-                  >
-                    {table.number}
-                  </button>
-                );
-              })}
+            <div className="space-y-3">
+              {TABLE_SECTIONS.map((section) => (
+                <div key={section}>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest whitespace-nowrap">{section}</span>
+                    <div className="h-px bg-border flex-1" />
+                  </div>
+                  <div className="grid grid-cols-6 gap-1.5">
+                    {getTablesBySection(section).map((table) => {
+                      const isOccupied = occupiedTableIds.has(table.id);
+                      const isSelected = selectedSet.has(table.id);
+                      return (
+                        <button
+                          key={table.id}
+                          type="button"
+                          onClick={() => toggleTable(table.id)}
+                          disabled={isOccupied}
+                          className={`h-10 rounded-md border text-sm font-medium transition-colors ${
+                            isSelected
+                              ? "bg-[#0D7377] text-white border-[#0D7377]"
+                              : isOccupied
+                                ? "bg-muted text-muted-foreground/40 border-border cursor-not-allowed line-through"
+                                : "bg-background text-foreground border-border hover:bg-muted"
+                          }`}
+                          data-testid={`button-edit-table-${table.id}`}
+                        >
+                          {table.number}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
             {selectedTableIds.length > 0 && (
               <p className="text-xs text-muted-foreground mt-1" data-testid="text-selected-tables">

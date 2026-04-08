@@ -20,7 +20,7 @@ import { Calendar as CalendarIcon, Check, Send, X } from "lucide-react";
 import { StaffSelect } from "@/components/staff-select";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { restaurantTables } from "@/lib/tables";
+import { restaurantTables, TABLE_SECTIONS, getTablesBySection } from "@/lib/tables";
 import { getTimeSlotsForDate, isMonday, getPeriodLabel, type MealPeriod } from "@/lib/timeSlots";
 import restaurantBg from "@/assets/images/restaurant-bg.jpg";
 
@@ -423,50 +423,60 @@ export default function NewCustomerPage() {
           <div className="mb-6">
             <Label className="text-muted-foreground text-sm mb-2 block">Select Seating</Label>
 
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-                {restaurantTables.map((table) => {
-                  const bookedRes = bookedTableMap[table.id];
-                  const isBooked = !!bookedRes;
-                  const isSelected = selectedTables.some((t) => t.id === table.id);
-                  return (
-                    <div
-                      key={table.id}
-                      className={`relative flex flex-col items-center justify-center p-3 rounded-md border transition-colors ${
-                        isBooked
-                          ? "border-border opacity-50 cursor-not-allowed"
-                          : isSelected
-                          ? "border-[#0D7377] bg-[#0D7377]/10 cursor-pointer"
-                          : "border-border hover-elevate cursor-pointer"
-                      }`}
-                      onClick={() => toggleTable({ id: table.id, number: table.number })}
-                      data-testid={`table-card-${table.id}`}
-                    >
-                      {isBooked && (
-                        <>
-                          <div className="absolute inset-0 flex items-center justify-center z-10">
-                            <X className="h-10 w-10 text-red-400 stroke-[2.5]" />
-                          </div>
-                          <div className="absolute top-1.5 right-1.5 z-20 flex items-center bg-red-50 border border-red-200 rounded pl-[4px] pr-[4px] pt-[2px] pb-[2px]" data-testid={`text-booked-pax-${table.id}`}>
-                            <span className="font-semibold text-[12px] text-[#ff0000]">{bookedRes.partySize}</span>
-                          </div>
-                        </>
-                      )}
-                      <svg width="36" height="24" viewBox="0 0 48 32" fill="none" className="mb-1">
-                        <rect x="8" y="12" width="32" height="4" fill={isBooked ? "#9CA3AF" : "#0D7377"} rx="1" />
-                        <rect x="10" y="16" width="2" height="12" fill={isBooked ? "#9CA3AF" : "#0D7377"} />
-                        <rect x="36" y="16" width="2" height="12" fill={isBooked ? "#9CA3AF" : "#0D7377"} />
-                        <rect x="2" y="8" width="8" height="16" rx="2" stroke={isBooked ? "#9CA3AF" : "#0D7377"} strokeWidth="1.5" fill="none" />
-                        <rect x="38" y="8" width="8" height="16" rx="2" stroke={isBooked ? "#9CA3AF" : "#0D7377"} strokeWidth="1.5" fill="none" />
-                      </svg>
-                      <span className="font-medium text-sm text-foreground text-center mt-[5px] mb-[5px]">Table {table.number}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {table.minCapacity === table.maxCapacity
-                          ? `${table.minCapacity} seats`
-                          : `${table.minCapacity}-${table.maxCapacity}`}
-                      </span>
-                    </div>
-                  );
-                })}
+            <div className="space-y-5">
+              {TABLE_SECTIONS.map((section) => (
+                <div key={section}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest whitespace-nowrap">{section}</span>
+                    <div className="h-px bg-border flex-1" />
+                  </div>
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                    {getTablesBySection(section).map((table) => {
+                      const bookedRes = bookedTableMap[table.id];
+                      const isBooked = !!bookedRes;
+                      const isSelected = selectedTables.some((t) => t.id === table.id);
+                      return (
+                        <div
+                          key={table.id}
+                          className={`relative flex flex-col items-center justify-center p-3 rounded-md border transition-colors ${
+                            isBooked
+                              ? "border-border opacity-50 cursor-not-allowed"
+                              : isSelected
+                              ? "border-[#0D7377] bg-[#0D7377]/10 cursor-pointer"
+                              : "border-border hover-elevate cursor-pointer"
+                          }`}
+                          onClick={() => toggleTable({ id: table.id, number: table.number })}
+                          data-testid={`table-card-${table.id}`}
+                        >
+                          {isBooked && (
+                            <>
+                              <div className="absolute inset-0 flex items-center justify-center z-10">
+                                <X className="h-10 w-10 text-red-400 stroke-[2.5]" />
+                              </div>
+                              <div className="absolute top-1.5 right-1.5 z-20 flex items-center bg-red-50 border border-red-200 rounded pl-[4px] pr-[4px] pt-[2px] pb-[2px]" data-testid={`text-booked-pax-${table.id}`}>
+                                <span className="font-semibold text-[12px] text-[#ff0000]">{bookedRes.partySize}</span>
+                              </div>
+                            </>
+                          )}
+                          <svg width="36" height="24" viewBox="0 0 48 32" fill="none" className="mb-1">
+                            <rect x="8" y="12" width="32" height="4" fill={isBooked ? "#9CA3AF" : "#0D7377"} rx="1" />
+                            <rect x="10" y="16" width="2" height="12" fill={isBooked ? "#9CA3AF" : "#0D7377"} />
+                            <rect x="36" y="16" width="2" height="12" fill={isBooked ? "#9CA3AF" : "#0D7377"} />
+                            <rect x="2" y="8" width="8" height="16" rx="2" stroke={isBooked ? "#9CA3AF" : "#0D7377"} strokeWidth="1.5" fill="none" />
+                            <rect x="38" y="8" width="8" height="16" rx="2" stroke={isBooked ? "#9CA3AF" : "#0D7377"} strokeWidth="1.5" fill="none" />
+                          </svg>
+                          <span className="font-medium text-sm text-foreground text-center mt-[5px] mb-[5px]">Table {table.number}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {table.minCapacity === table.maxCapacity
+                              ? `${table.minCapacity} seats`
+                              : `${table.minCapacity}–${table.maxCapacity}`}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
 
             {selectedTables.length > 0 && (

@@ -13,6 +13,7 @@ import {
   BarChart, Bar, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
+import { restaurantTables } from "@/lib/tables";
 
 // ── Palette ─────────────────────────────────────────────────────────────────
 const C = {
@@ -175,7 +176,7 @@ function computeDbAnalytics(reservations: Reservation[]) {
       label: (() => { try { return format(parseISO(date), "MMM d"); } catch { return date; } })(),
       covers: v.covers, resos: v.resos,
       tablesUsed: v.tables.size,
-      utilPct: Math.round(v.tables.size / 18 * 100),
+      utilPct: Math.round(v.tables.size / restaurantTables.length * 100),
       dow: v.dow,
     }))
     .sort((a, b) => a.date.localeCompare(b.date));
@@ -415,7 +416,7 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
         <SectionHeader label="Operations" />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
           <KpiCard value={`${avgUtilPct}%`} label="Avg table utilisation"
-            sub="booked tables vs 18 available" accent={C.blue} />
+            sub={`booked tables vs ${restaurantTables.length} available`} accent={C.blue} />
           <KpiCard
             value={tableData[0]?.table ?? "—"}
             label="Most used table"
