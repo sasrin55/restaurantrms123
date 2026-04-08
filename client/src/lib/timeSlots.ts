@@ -38,7 +38,7 @@ const LEGACY_WEEKEND_SLOTS: TimeSlot[] = [
 // ── Current slots (from April 8 2026 onward) ────────────────────────────────
 const NEW_WEEKDAY_SLOTS: TimeSlot[] = [
   { label: "9:00 AM - 12:00 PM",  period: "breakfast" },
-  { label: "12:30 PM - 2:30 PM",  period: "brunch" },
+  { label: "12:30 PM - 2:30 PM",  period: "lunch" },
   { label: "2:30 PM - 4:30 PM",   period: "lunch" },
   { label: "4:30 PM - 6:30 PM",   period: "tea" },
   { label: "6:45 PM - 8:15 PM",   period: "dinner" },
@@ -89,7 +89,7 @@ export const ALL_SLOTS: TimeSlot[] = [
   { label: "7:30 PM - 9:30 PM",   period: "dinner" },
   { label: "9:00 PM - 11:00 PM",  period: "dinner" },
   { label: "9:45 PM - 11:45 PM",  period: "dinner" },
-  // New
+  // New (post-cutover)
   { label: "12:00 PM - 2:00 PM",  period: "breakfast" },
   { label: "4:30 PM - 6:30 PM",   period: "tea" },
   { label: "6:45 PM - 8:15 PM",   period: "dinner" },
