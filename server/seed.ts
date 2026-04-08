@@ -73,11 +73,12 @@ function normalizeName(n: string): string {
 export async function seedV5IfNeeded(): Promise<void> {
   const client = await pool.connect();
   try {
-    // Check if v5 data already exists (a record that only exists in the new import)
+    // Check for OLD data: old slot labels that v5 replaces.
+    // If none of the old labels exist, data is already v5.
     const check = await client.query(
-      `SELECT 1 FROM reservations WHERE date='2026-04-01' AND time='12:30 PM - 2:30 PM' LIMIT 1`
+      `SELECT 1 FROM reservations WHERE time IN ('7:00 PM - 9:00 PM','9:00 PM - 11:00 PM','10:45 AM - 12:15 PM','5:00 PM - 7:00 PM','9:00 AM - 10:30 AM','9:45 PM - 11:45 PM') LIMIT 1`
     );
-    if (check.rows.length > 0) {
+    if (check.rows.length === 0) {
       console.log("[seed] Reservation data already at v5 — skipping.");
       return;
     }
