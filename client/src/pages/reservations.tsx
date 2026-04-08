@@ -69,7 +69,12 @@ function groupReservations(reservations: Reservation[]): GroupedReservation[] {
   const groups = new Map<string, Reservation[]>();
 
   for (const r of reservations) {
-    const key = `${r.customerName}|${r.date}|${r.time}|${r.phoneNumber}`;
+    const phone = (r.phoneNumber || "").trim().toLowerCase();
+    const isAnonymous = !phone || phone === "n/a" || phone === "na" || phone === "any";
+    // Anonymous / walk-in guests should never be grouped together — use unique ID
+    const key = isAnonymous
+      ? r.id
+      : `${r.customerName}|${r.date}|${r.time}|${r.phoneNumber}`;
     const existing = groups.get(key);
     if (existing) {
       existing.push(r);
