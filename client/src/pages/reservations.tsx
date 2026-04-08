@@ -117,9 +117,15 @@ export default function ReservationsPage() {
     return d ? new Date(d + "T12:00:00") : new Date();
   });
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [slotFilter, setSlotFilter] = useState<"all" | string>(() => {
+  const [slotFilter, setSlotFilter] = useState<"all" | MealPeriod>(() => {
     const p = new URLSearchParams(searchString);
-    return p.get("slot") || "all";
+    const slot = p.get("slot");
+    if (!slot) return "all";
+    // Convert an incoming time label (e.g. from tables nav) to its period
+    const dateParam = p.get("date");
+    const date = dateParam ? new Date(dateParam + "T12:00:00") : new Date();
+    const period = getTimePeriod(slot, date);
+    return (period as MealPeriod) || "all";
   });
 
   const { data: reservations = [], isLoading } = useQuery<Reservation[]>({
@@ -449,22 +455,29 @@ export default function ReservationsPage() {
         </div>
 
         <div className="flex items-center gap-2 mb-4 sm:mb-6 overflow-x-auto pb-1" data-testid="period-tabs">
-          {Array.from(new Set(groupedReservations.map(g => g.time)))
-            .sort((a, b) => parseTimeTo24(a) - parseTimeTo24(b))
-            .map(time => {
-              const period = getTimePeriod(time, selectedDate);
-              const count = groupedReservations.filter(g => g.time === time).length;
-              const isActive = slotFilter === time;
+          {Array.from(
+            new Map(
+              groupedReservations
+                .map(g => [getTimePeriod(g.time, selectedDate), getTimePeriod(g.time, selectedDate)] as const)
+            )
+          )
+            .sort(([a], [b]) => {
+              const order: MealPeriod[] = ["breakfast", "brunch", "lunch", "tea", "dinner"];
+              return order.indexOf(a as MealPeriod) - order.indexOf(b as MealPeriod);
+            })
+            .map(([period]) => {
+              const count = groupedReservations.filter(g => getTimePeriod(g.time, selectedDate) === period).length;
+              const isActive = slotFilter === period;
               return (
                 <button
-                  key={time}
-                  onClick={() => setSlotFilter(isActive ? "all" : time)}
+                  key={period}
+                  onClick={() => setSlotFilter(isActive ? "all" : period as MealPeriod)}
                   className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
                     isActive ? "bg-[#0D7377] text-white" : "bg-muted text-muted-foreground hover-elevate"
                   }`}
-                  data-testid={`button-slot-${time}`}
+                  data-testid={`button-period-${period}`}
                 >
-                  {getPeriodLabel(period)} · {time} ({count})
+                  {getPeriodLabel(period as MealPeriod)} ({count})
                 </button>
               );
             })}
@@ -498,23 +511,21 @@ export default function ReservationsPage() {
         ) : viewMode === "grid" ? (
           <div className="space-y-8">
             {Array.from(new Set(
-              (slotFilter === "all" ? groupedReservations : groupedReservations.filter(g => g.time === slotFilter))
+              (slotFilter === "all" ? groupedReservations : groupedReservations.filter(g => getTimePeriod(g.time, selectedDate) === slotFilter))
                 .map(g => g.time)
             ))
               .sort((a, b) => parseTimeTo24(a) - parseTimeTo24(b))
               .map(time => {
                 const slotGroups = groupedReservations.filter(g =>
-                  (slotFilter === "all" || g.time === slotFilter) && g.time === time
+                  (slotFilter === "all" || getTimePeriod(g.time, selectedDate) === slotFilter) && g.time === time
                 );
                 if (slotGroups.length === 0) return null;
                 const period = getTimePeriod(time, selectedDate);
                 return (
                   <div key={time}>
-                    {slotFilter === "all" && (
-                      <h2 className="text-lg font-semibold text-foreground mb-4" data-testid={`text-slot-${time}`}>
-                        {getPeriodLabel(period)} · {time}
-                      </h2>
-                    )}
+                    <h2 className="text-lg font-semibold text-foreground mb-4" data-testid={`text-slot-${time}`}>
+                      {getPeriodLabel(period)} · {time}
+                    </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                       {slotGroups.map((group) => (
                         <ReservationCard
@@ -542,23 +553,21 @@ export default function ReservationsPage() {
         ) : (
           <div className="space-y-8">
             {Array.from(new Set(
-              (slotFilter === "all" ? groupedReservations : groupedReservations.filter(g => g.time === slotFilter))
+              (slotFilter === "all" ? groupedReservations : groupedReservations.filter(g => getTimePeriod(g.time, selectedDate) === slotFilter))
                 .map(g => g.time)
             ))
               .sort((a, b) => parseTimeTo24(a) - parseTimeTo24(b))
               .map(time => {
                 const slotGroups = groupedReservations.filter(g =>
-                  (slotFilter === "all" || g.time === slotFilter) && g.time === time
+                  (slotFilter === "all" || getTimePeriod(g.time, selectedDate) === slotFilter) && g.time === time
                 );
                 if (slotGroups.length === 0) return null;
                 const period = getTimePeriod(time, selectedDate);
                 return (
                   <div key={time}>
-                    {slotFilter === "all" && (
-                      <h2 className="text-lg font-semibold text-foreground mb-4" data-testid={`text-slot-list-${time}`}>
-                        {getPeriodLabel(period)} · {time}
-                      </h2>
-                    )}
+                    <h2 className="text-lg font-semibold text-foreground mb-4" data-testid={`text-slot-list-${time}`}>
+                      {getPeriodLabel(period)} · {time}
+                    </h2>
                     <div className="border rounded-md overflow-hidden">
                       <table className="w-full">
                         <thead className="bg-muted/50">
