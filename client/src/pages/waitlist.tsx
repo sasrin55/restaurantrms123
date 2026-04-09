@@ -390,12 +390,12 @@ export default function WaitlistPage() {
               </div>
               <div className="col-span-2 sm:col-span-2 space-y-1">
                 <Label className="text-xs">Time Slot</Label>
-                <Select value={preferredTime} onValueChange={setPreferredTime}>
+                <Select value={preferredTime || "any"} onValueChange={v => setPreferredTime(v === "any" ? "" : v)}>
                   <SelectTrigger data-testid="select-preferred-time">
                     <SelectValue placeholder="Any slot" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Any slot</SelectItem>
+                    <SelectItem value="any">Any slot</SelectItem>
                     {todaySlots.map(slot => (
                       <SelectItem key={slot.label} value={slot.label}>
                         {getPeriodLabel(slot.period)} · {slot.label}
