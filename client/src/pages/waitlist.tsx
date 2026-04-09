@@ -22,7 +22,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { restaurantTables } from "@/lib/tables";
 import { getTimeSlotsForDate, getPeriodLabel } from "@/lib/timeSlots";
 import { format } from "date-fns";
-import { Users, Clock, Phone, Plus, X, Check, Trash2 } from "lucide-react";
+import { Users, Clock, Phone, Plus, X, Check, Trash2, Calendar } from "lucide-react";
 import type { Reservation } from "@shared/schema";
 
 type WaitlistStatus = "waiting" | "notified" | "seated" | "cancelled" | "booked";
@@ -74,7 +74,7 @@ interface SeatModalProps {
 function SeatModal({ entry, onClose, onSeated }: SeatModalProps) {
   const { toast } = useToast();
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
-  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const reservationDate = entry.preferredDate || format(new Date(), "yyyy-MM-dd");
   const reservationTime = entry.preferredTime || format(new Date(), "h:mm a");
 
   const { data: allReservations = [] } = useQuery<Reservation[]>({
@@ -84,7 +84,7 @@ function SeatModal({ entry, onClose, onSeated }: SeatModalProps) {
   const occupiedTableIds = new Set(
     allReservations
       .filter(r => {
-        if (r.date !== todayStr) return false;
+        if (r.date !== reservationDate) return false;
         if (r.status === "complete" || r.status === "cancelled" || r.status === "no-show") return false;
         if (entry.preferredTime) return r.time === entry.preferredTime;
         return r.status === "seated" || r.status === "booked" || r.status === "confirmed";
@@ -106,7 +106,7 @@ function SeatModal({ entry, onClose, onSeated }: SeatModalProps) {
       await createReservation.mutateAsync({
         customerName: entry.guestName,
         phoneNumber: entry.phone || "0",
-        date: todayStr,
+        date: reservationDate,
         time: reservationTime,
         partySize: entry.partySize,
         tableId: table.id,
@@ -129,6 +129,9 @@ function SeatModal({ entry, onClose, onSeated }: SeatModalProps) {
           <DialogTitle>Seat {entry.guestName}</DialogTitle>
           <p className="text-sm text-muted-foreground mt-0.5">
             Party of {entry.partySize}
+            {entry.preferredDate && entry.preferredDate !== format(new Date(), "yyyy-MM-dd") && (
+              <> · <span className="font-medium">{format(new Date(entry.preferredDate + "T00:00:00"), "EEE d MMM")}</span></>
+            )}
             {entry.preferredTime && <> · <span className="font-medium">{entry.preferredTime}</span></>}
             {" "}— select an available table
           </p>
@@ -262,8 +265,10 @@ export default function WaitlistPage() {
   const [partySize, setPartySize] = useState("");
   const [notes, setNotes] = useState("");
   const [preferredTime, setPreferredTime] = useState("");
+  const [preferredDate, setPreferredDate] = useState(format(new Date(), "yyyy-MM-dd"));
 
-  const todaySlots = getTimeSlotsForDate(new Date());
+  const formDate = preferredDate ? new Date(preferredDate + "T00:00:00") : new Date();
+  const formSlots = getTimeSlotsForDate(formDate);
 
   const { data: waitlist = [], isLoading } = useQuery<WaitlistEntry[]>({
     queryKey: ["/api/waitlist"],
@@ -297,10 +302,11 @@ export default function WaitlistPage() {
       joinedAt: Date.now(),
       estimatedWaitMins: 20,
       preferredTime: preferredTime || "",
-      preferredDate: format(new Date(), "yyyy-MM-dd"),
+      preferredDate: preferredDate || format(new Date(), "yyyy-MM-dd"),
     }, {
       onSuccess: () => {
         setGuestName(""); setPhone(""); setPartySize(""); setNotes(""); setPreferredTime("");
+        setPreferredDate(format(new Date(), "yyyy-MM-dd"));
         toast({ title: `${guestName.trim()} added to waitlist` });
       },
     });
@@ -317,23 +323,42 @@ export default function WaitlistPage() {
   const active = waitlist.filter(e => e.status === "waiting" || e.status === "notified");
   const done   = waitlist.filter(e => e.status !== "waiting" && e.status !== "notified");
 
-  // Group active entries by preferredTime slot (in slot order), then "No time" at end
-  const slotGroups: Array<{ slotLabel: string; period: string; entries: WaitlistEntry[] }> = [];
-  const noTimeEntries: WaitlistEntry[] = [];
+  const todayStr = format(new Date(), "yyyy-MM-dd");
 
-  for (const slot of todaySlots) {
-    const entries = active.filter(e => e.preferredTime === slot.label);
-    if (entries.length > 0) {
-      slotGroups.push({ slotLabel: slot.label, period: getPeriodLabel(slot.period), entries });
+  // Get sorted unique dates across active entries
+  const activeDates = [...new Set(active.map(e => e.preferredDate || todayStr))].sort();
+
+  // Build date+slot groups
+  type DateGroup = {
+    dateStr: string;
+    dateLabel: string;
+    slotGroups: Array<{ slotLabel: string; period: string; entries: WaitlistEntry[] }>;
+    noTimeEntries: WaitlistEntry[];
+  };
+
+  const dateGroups: DateGroup[] = activeDates.map(dateStr => {
+    const dateEntries = active.filter(e => (e.preferredDate || todayStr) === dateStr);
+    const dateObj = new Date(dateStr + "T00:00:00");
+    const slotsForDate = getTimeSlotsForDate(dateObj);
+
+    const slotGroups: Array<{ slotLabel: string; period: string; entries: WaitlistEntry[] }> = [];
+    for (const slot of slotsForDate) {
+      const entries = dateEntries.filter(e => e.preferredTime === slot.label);
+      if (entries.length > 0) {
+        slotGroups.push({ slotLabel: slot.label, period: getPeriodLabel(slot.period), entries });
+      }
     }
-  }
 
-  for (const entry of active) {
-    const inASlot = todaySlots.some(s => s.label === entry.preferredTime);
-    if (!inASlot) noTimeEntries.push(entry);
-  }
+    const noTimeEntries = dateEntries.filter(e => !slotsForDate.some(s => s.label === e.preferredTime));
 
-  const hasSlots = slotGroups.length > 0;
+    const dateLabel = dateStr === todayStr
+      ? "Today"
+      : dateStr === format(new Date(Date.now() + 86400000), "yyyy-MM-dd")
+      ? "Tomorrow"
+      : format(dateObj, "EEEE, d MMM");
+
+    return { dateStr, dateLabel, slotGroups, noTimeEntries };
+  });
 
   return (
     <div className="flex-1 overflow-auto">
@@ -355,7 +380,7 @@ export default function WaitlistPage() {
             <Plus className="h-4 w-4" /> Add Guest
           </h2>
           <form onSubmit={handleAddGuest}>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
               <div className="col-span-2 sm:col-span-1 space-y-1">
                 <Label className="text-xs">Guest Name *</Label>
                 <Input
@@ -388,6 +413,16 @@ export default function WaitlistPage() {
                   data-testid="input-party-size"
                 />
               </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Date</Label>
+                <Input
+                  type="date"
+                  value={preferredDate}
+                  min={format(new Date(), "yyyy-MM-dd")}
+                  onChange={e => { setPreferredDate(e.target.value); setPreferredTime(""); }}
+                  data-testid="input-preferred-date"
+                />
+              </div>
               <div className="col-span-2 sm:col-span-2 space-y-1">
                 <Label className="text-xs">Time Slot</Label>
                 <Select value={preferredTime || "any"} onValueChange={v => setPreferredTime(v === "any" ? "" : v)}>
@@ -396,7 +431,7 @@ export default function WaitlistPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="any">Any slot</SelectItem>
-                    {todaySlots.map(slot => (
+                    {formSlots.map(slot => (
                       <SelectItem key={slot.label} value={slot.label}>
                         {getPeriodLabel(slot.period)} · {slot.label}
                       </SelectItem>
@@ -404,7 +439,7 @@ export default function WaitlistPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="col-span-2 sm:col-span-1 space-y-1">
+              <div className="col-span-2 sm:col-span-2 space-y-1">
                 <Label className="text-xs">Notes</Label>
                 <Input
                   value={notes}
@@ -425,63 +460,78 @@ export default function WaitlistPage() {
           </form>
         </div>
 
-        {/* Active waitlist — grouped by time slot */}
-        <div className="space-y-4">
+        {/* Active waitlist — grouped by date then time slot */}
+        <div className="space-y-6">
           <h2 className="text-sm font-semibold text-foreground">
             Waiting ({active.length}){active.length === 0 && !isLoading && <span className="ml-2 text-xs font-normal text-muted-foreground">— no guests waiting</span>}
           </h2>
 
-          {/* Slot groups */}
-          {slotGroups.map(({ slotLabel, period, entries }) => (
-            <div key={slotLabel} className="space-y-1">
+          {dateGroups.map(({ dateStr, dateLabel, slotGroups, noTimeEntries }) => (
+            <div key={dateStr} className="space-y-3">
+              {/* Date header */}
               <div className="flex items-center gap-3">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest whitespace-nowrap">
-                  {period} · {slotLabel}
+                <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground whitespace-nowrap">
+                  <Calendar className="h-4 w-4 text-[#0D7377]" />
+                  {dateLabel}
                 </span>
                 <div className="h-px bg-border flex-1" />
-                <span className="text-xs text-muted-foreground shrink-0">{entries.length} waiting</span>
               </div>
-              <div className="rounded-xl border overflow-hidden divide-y">
-                {entries.map((entry, idx) => (
-                  <WaitlistRow
-                    key={entry.id}
-                    entry={entry}
-                    idx={idx}
-                    onSeat={() => setSeatEntry(entry)}
-                    onCantSeat={() => handleCantSeat(entry.id)}
-                    onDelete={() => deleteMutation.mutate(entry.id)}
-                    isDeleting={deleteMutation.isPending}
-                  />
+
+              {/* Slot groups for this date */}
+              <div className="space-y-3 pl-1">
+                {slotGroups.map(({ slotLabel, period, entries }) => (
+                  <div key={slotLabel} className="space-y-1">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest whitespace-nowrap">
+                        {period} · {slotLabel}
+                      </span>
+                      <div className="h-px bg-border flex-1" />
+                      <span className="text-xs text-muted-foreground shrink-0">{entries.length} waiting</span>
+                    </div>
+                    <div className="rounded-xl border overflow-hidden divide-y">
+                      {entries.map((entry, idx) => (
+                        <WaitlistRow
+                          key={entry.id}
+                          entry={entry}
+                          idx={idx}
+                          onSeat={() => setSeatEntry(entry)}
+                          onCantSeat={() => handleCantSeat(entry.id)}
+                          onDelete={() => deleteMutation.mutate(entry.id)}
+                          isDeleting={deleteMutation.isPending}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 ))}
+
+                {/* Entries with no preferred slot for this date */}
+                {noTimeEntries.length > 0 && (
+                  <div className="space-y-1">
+                    {slotGroups.length > 0 && (
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest whitespace-nowrap">No specific slot</span>
+                        <div className="h-px bg-border flex-1" />
+                        <span className="text-xs text-muted-foreground shrink-0">{noTimeEntries.length} waiting</span>
+                      </div>
+                    )}
+                    <div className="rounded-xl border overflow-hidden divide-y">
+                      {noTimeEntries.map((entry, idx) => (
+                        <WaitlistRow
+                          key={entry.id}
+                          entry={entry}
+                          idx={idx}
+                          onSeat={() => setSeatEntry(entry)}
+                          onCantSeat={() => handleCantSeat(entry.id)}
+                          onDelete={() => deleteMutation.mutate(entry.id)}
+                          isDeleting={deleteMutation.isPending}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ))}
-
-          {/* Entries with no preferred slot */}
-          {noTimeEntries.length > 0 && (
-            <div className="space-y-1">
-              {hasSlots && (
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest whitespace-nowrap">No specific slot</span>
-                  <div className="h-px bg-border flex-1" />
-                  <span className="text-xs text-muted-foreground shrink-0">{noTimeEntries.length} waiting</span>
-                </div>
-              )}
-              <div className="rounded-xl border overflow-hidden divide-y">
-                {noTimeEntries.map((entry, idx) => (
-                  <WaitlistRow
-                    key={entry.id}
-                    entry={entry}
-                    idx={idx}
-                    onSeat={() => setSeatEntry(entry)}
-                    onCantSeat={() => handleCantSeat(entry.id)}
-                    onDelete={() => deleteMutation.mutate(entry.id)}
-                    isDeleting={deleteMutation.isPending}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* History */}
