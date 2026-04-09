@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Clock, Users, Phone, MessageSquare, Pencil } from "lucide-react";
+import { Clock, Users, Phone, MessageSquare, Pencil, UserCheck } from "lucide-react";
 
 export type ReservationStatus = "booked" | "seated" | "confirmed" | "no-show" | "complete" | "cancelled";
 
@@ -13,6 +13,7 @@ interface ReservationCardProps {
   tableNumber: string;
   phone: string;
   comments?: string;
+  takenBy?: string;
   disabled?: boolean;
   onEdit?: () => void;
   onPrimaryAction?: () => void;
@@ -99,6 +100,7 @@ export function ReservationCard({
   tableNumber,
   phone,
   comments,
+  takenBy,
   disabled,
   onEdit,
   onPrimaryAction,
@@ -161,6 +163,12 @@ export function ReservationCard({
             <span className="text-foreground/80 italic" data-testid={`text-comments-${id}`}>{comments}</span>
           </div>
         )}
+        {takenBy && (
+          <div className="flex items-center gap-2 mt-1">
+            <UserCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+            <span className="text-xs sm:text-sm" data-testid={`text-takenby-${id}`}>{takenBy}</span>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
@@ -213,6 +221,7 @@ interface ReservationRowProps {
   tableNumber: string;
   phone: string;
   comments?: string;
+  takenBy?: string;
   disabled?: boolean;
   onEdit?: () => void;
   onPrimaryAction?: () => void;
@@ -229,6 +238,7 @@ export function ReservationRow({
   tableNumber,
   phone,
   comments,
+  takenBy,
   disabled,
   onEdit,
   onPrimaryAction,
@@ -245,6 +255,7 @@ export function ReservationRow({
       <td className="py-3 px-3 text-muted-foreground whitespace-nowrap">{partySize}</td>
       <td className="py-3 px-3 text-muted-foreground whitespace-nowrap">{tableNumber}</td>
       <td className="py-3 px-3 text-muted-foreground whitespace-nowrap">{phone}</td>
+      <td className="py-3 px-3 text-muted-foreground whitespace-nowrap">{takenBy || "—"}</td>
       <td className="py-3 px-3">
         <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${statusStyle.className}`}>
           {statusStyle.label}

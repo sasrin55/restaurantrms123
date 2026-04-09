@@ -49,9 +49,22 @@ export default function TablesPage() {
     ? "Today"
     : format(selectedDate, "EEEE, MMM d, yyyy");
 
+  const STATUS_STYLE: Record<string, { badge: string; card: string; icon: string }> = {
+    booked:    { badge: "bg-blue-500 text-white",    card: "bg-blue-50 ring-1 ring-blue-200 hover:bg-blue-100",       icon: "#3b82f6" },
+    confirmed: { badge: "bg-green-600 text-white",   card: "bg-green-50 ring-1 ring-green-300 hover:bg-green-100",    icon: "#16a34a" },
+    seated:    { badge: "bg-[#4A5D23] text-white",   card: "bg-[#4A5D23]/5 ring-1 ring-[#4A5D23]/30 hover:bg-[#4A5D23]/10", icon: "#4A5D23" },
+    "no-show": { badge: "bg-orange-500 text-white",  card: "bg-orange-50 ring-1 ring-orange-200 hover:bg-orange-100", icon: "#f97316" },
+  };
+
+  const STATUS_LABEL: Record<string, string> = {
+    booked: "Booked", confirmed: "Confirmed", seated: "Seated", "no-show": "No Show",
+  };
+
   const renderTableCard = (table: ReturnType<typeof getTablesBySection>[0]) => {
     const { status, reservation } = getTableStatus(table.id);
     const isAvailable = status === "available";
+    const style = STATUS_STYLE[status] ?? STATUS_STYLE["booked"];
+    const iconColor = isAvailable ? "#94a3b8" : style.icon;
 
     const handleCardClick = () => {
       if (!isAvailable && reservation) {
@@ -68,17 +81,17 @@ export default function TablesPage() {
         className={`p-4 flex flex-col items-center justify-center transition-colors cursor-pointer ${
           isAvailable
             ? "bg-white hover:bg-green-50 hover:ring-1 hover:ring-green-300"
-            : "bg-[#0D7377]/5 ring-1 ring-[#0D7377]/20 hover:bg-[#0D7377]/10"
+            : style.card
         }`}
         onClick={handleCardClick}
         data-testid={`table-card-${table.id}`}
       >
         <svg width="48" height="32" viewBox="0 0 48 32" fill="none" className="mb-3">
-          <rect x="8" y="12" width="32" height="4" fill={isAvailable ? "#94a3b8" : "#0D7377"} rx="1" />
-          <rect x="10" y="16" width="2" height="12" fill={isAvailable ? "#94a3b8" : "#0D7377"} />
-          <rect x="36" y="16" width="2" height="12" fill={isAvailable ? "#94a3b8" : "#0D7377"} />
-          <rect x="2" y="8" width="8" height="16" rx="2" stroke={isAvailable ? "#94a3b8" : "#0D7377"} strokeWidth="1.5" fill="none" />
-          <rect x="38" y="8" width="8" height="16" rx="2" stroke={isAvailable ? "#94a3b8" : "#0D7377"} strokeWidth="1.5" fill="none" />
+          <rect x="8" y="12" width="32" height="4" fill={iconColor} rx="1" />
+          <rect x="10" y="16" width="2" height="12" fill={iconColor} />
+          <rect x="36" y="16" width="2" height="12" fill={iconColor} />
+          <rect x="2" y="8" width="8" height="16" rx="2" stroke={iconColor} strokeWidth="1.5" fill="none" />
+          <rect x="38" y="8" width="8" height="16" rx="2" stroke={iconColor} strokeWidth="1.5" fill="none" />
         </svg>
         <span className="font-medium text-foreground text-center" data-testid={`text-table-number-${table.id}`}>
           Table {table.number}
@@ -97,13 +110,16 @@ export default function TablesPage() {
           </div>
         ) : (
           <div className="flex flex-col items-center gap-1">
-            <Badge className="bg-[#0D7377] text-white" data-testid={`badge-status-${table.id}`}>
-              {status === "seated" ? "Seated" : status === "confirmed" ? "Confirmed" : status === "booked" ? "Booked" : "Pending"}
+            <Badge className={style.badge} data-testid={`badge-status-${table.id}`}>
+              {STATUS_LABEL[status] ?? status}
             </Badge>
             {reservation && (
-              <span className="text-xs text-muted-foreground mt-1 text-center" data-testid={`text-guest-${table.id}`}>
-                {reservation.customerName} · {reservation.time}
-              </span>
+              <>
+                <span className="font-medium text-foreground text-center mt-1 text-sm leading-tight" data-testid={`text-guest-${table.id}`}>
+                  {reservation.customerName}
+                </span>
+                <span className="text-[11px] text-muted-foreground text-center">{reservation.time}</span>
+              </>
             )}
           </div>
         )}

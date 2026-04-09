@@ -38,6 +38,7 @@ interface GroupedReservation {
   phoneNumber: string;
   comments: string;
   date: string;
+  takenBy: string;
 }
 
 function parseTimeTo24(time: string): number {
@@ -96,6 +97,7 @@ function groupReservations(reservations: Reservation[]): GroupedReservation[] {
       phoneNumber: first.phoneNumber,
       comments: first.comments || "",
       date: first.date,
+      takenBy: (first as any).takenBy || "",
     };
   });
 }
@@ -529,6 +531,7 @@ export default function ReservationsPage() {
                           tableNumber={group.tableNames.join(" + ")}
                           phone={group.phoneNumber}
                           comments={group.comments}
+                          takenBy={group.takenBy}
                           disabled={group.ids.some(id => deletingIds.has(id))}
                           onEdit={() => handleEdit(group.reservations[0], group.reservations)}
                           onPrimaryAction={() => handleGroupPrimaryAction(group)}
@@ -568,6 +571,7 @@ export default function ReservationsPage() {
                             <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Pax</th>
                             <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Table</th>
                             <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Phone</th>
+                            <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Server</th>
                             <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Status</th>
                             <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Actions</th>
                           </tr>
@@ -584,6 +588,7 @@ export default function ReservationsPage() {
                               tableNumber={group.tableNames.join(" + ")}
                               phone={group.phoneNumber}
                               comments={group.comments}
+                              takenBy={group.takenBy}
                               disabled={group.ids.some(id => deletingIds.has(id))}
                               onEdit={() => handleEdit(group.reservations[0], group.reservations)}
                               onPrimaryAction={() => handleGroupPrimaryAction(group)}
