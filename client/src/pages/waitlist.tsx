@@ -22,7 +22,9 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { restaurantTables } from "@/lib/tables";
 import { getTimeSlotsForDate, getPeriodLabel } from "@/lib/timeSlots";
 import { format } from "date-fns";
-import { Users, Clock, Phone, Plus, X, Check, Trash2, Calendar } from "lucide-react";
+import { Users, Clock, Phone, Plus, X, Check, Trash2, Calendar, ChevronDown } from "lucide-react";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { Reservation } from "@shared/schema";
 
 type WaitlistStatus = "waiting" | "notified" | "seated" | "cancelled" | "booked";
@@ -415,13 +417,37 @@ export default function WaitlistPage() {
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Date</Label>
-                <Input
-                  type="date"
-                  value={preferredDate}
-                  min={format(new Date(), "yyyy-MM-dd")}
-                  onChange={e => { setPreferredDate(e.target.value); setPreferredTime(""); }}
-                  data-testid="input-preferred-date"
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between font-normal text-left"
+                      data-testid="input-preferred-date"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        {preferredDate
+                          ? format(new Date(preferredDate + "T00:00:00"), "EEE d MMM")
+                          : "Pick a date"}
+                      </span>
+                      <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarPicker
+                      mode="single"
+                      selected={preferredDate ? new Date(preferredDate + "T00:00:00") : undefined}
+                      onSelect={day => {
+                        if (day) {
+                          setPreferredDate(format(day, "yyyy-MM-dd"));
+                          setPreferredTime("");
+                        }
+                      }}
+                      disabled={{ before: new Date(new Date().setHours(0, 0, 0, 0)) }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="col-span-2 sm:col-span-2 space-y-1">
                 <Label className="text-xs">Time Slot</Label>
