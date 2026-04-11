@@ -22,7 +22,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { restaurantTables } from "@/lib/tables";
 import { getTimeSlotsForDate, getPeriodLabel } from "@/lib/timeSlots";
 import { format } from "date-fns";
-import { Users, Clock, Phone, Plus, X, Check, Trash2, Calendar, ChevronDown } from "lucide-react";
+import { Users, Clock, Phone, Plus, X, Check, Trash2, Calendar, ChevronDown, ChevronLeft, ChevronRight, Archive } from "lucide-react";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { Reservation } from "@shared/schema";
@@ -268,6 +268,8 @@ export default function WaitlistPage() {
   const [notes, setNotes] = useState("");
   const [preferredTime, setPreferredTime] = useState("");
   const [preferredDate, setPreferredDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [historyDate, setHistoryDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [archiveConfirm, setArchiveConfirm] = useState(false);
 
   const formDate = preferredDate ? new Date(preferredDate + "T00:00:00") : new Date();
   const formSlots = getTimeSlotsForDate(formDate);
@@ -291,6 +293,16 @@ export default function WaitlistPage() {
     mutationFn: (id: string) => apiRequest("DELETE", `/api/waitlist/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/waitlist"] }),
     onError: () => toast({ title: "Failed to delete entry", variant: "destructive" }),
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: (date: string) => apiRequest("DELETE", `/api/waitlist/archive/${date}`),
+    onSuccess: (_data, date) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/waitlist"] });
+      setArchiveConfirm(false);
+      toast({ title: `History for ${format(new Date(date + "T00:00:00"), "EEE d MMM")} archived` });
+    },
+    onError: () => toast({ title: "Failed to archive history", variant: "destructive" }),
   });
 
   function handleAddGuest(e: React.FormEvent) {
@@ -325,7 +337,34 @@ export default function WaitlistPage() {
   const active = waitlist.filter(e => e.status === "waiting" || e.status === "notified");
   const done   = waitlist.filter(e => e.status !== "waiting" && e.status !== "notified");
 
-  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const todayStr     = format(new Date(), "yyyy-MM-dd");
+  const yesterdayStr = format(new Date(Date.now() - 86400000), "yyyy-MM-dd");
+  const tomorrowStr  = format(new Date(Date.now() + 86400000), "yyyy-MM-dd");
+
+  // All unique dates that appear in done entries, plus today and yesterday
+  const doneDates = [...new Set([
+    yesterdayStr,
+    todayStr,
+    ...done.map(e => e.preferredDate || todayStr),
+  ])].sort();
+
+  const historyDateIdx = doneDates.indexOf(historyDate);
+  const canGoPrev = historyDateIdx > 0;
+  const canGoNext = historyDateIdx < doneDates.length - 1;
+
+  function navHistory(dir: -1 | 1) {
+    const newIdx = historyDateIdx + dir;
+    if (newIdx >= 0 && newIdx < doneDates.length) setHistoryDate(doneDates[newIdx]);
+  }
+
+  function historyDateLabel(d: string) {
+    if (d === todayStr) return "Today";
+    if (d === yesterdayStr) return "Yesterday";
+    if (d === tomorrowStr) return "Tomorrow";
+    return format(new Date(d + "T00:00:00"), "EEE d MMM");
+  }
+
+  const doneForDate = done.filter(e => (e.preferredDate || todayStr) === historyDate);
 
   // Get sorted unique dates across active entries
   const activeDates = [...new Set(active.map(e => e.preferredDate || todayStr))].sort();
@@ -561,11 +600,68 @@ export default function WaitlistPage() {
         </div>
 
         {/* History */}
-        {done.length > 0 && (
-          <div className="space-y-2">
-            <h2 className="text-sm font-semibold text-muted-foreground">History ({done.length})</h2>
+        <div className="space-y-3">
+          {/* History header + date navigator */}
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <h2 className="text-sm font-semibold text-muted-foreground">History</h2>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => navHistory(-1)}
+                disabled={!canGoPrev}
+                className="p-1.5 rounded-lg border bg-card hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                data-testid="btn-history-prev"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+
+              {/* Scrollable date pills */}
+              <div className="flex items-center gap-1 overflow-x-auto max-w-xs sm:max-w-sm scrollbar-none px-0.5">
+                {doneDates.map(d => (
+                  <button
+                    key={d}
+                    onClick={() => setHistoryDate(d)}
+                    data-testid={`btn-history-date-${d}`}
+                    className={[
+                      "px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors border",
+                      d === historyDate
+                        ? "bg-[#0D7377] text-white border-[#0D7377]"
+                        : "bg-card text-muted-foreground border-border hover:border-[#0D7377] hover:text-[#0D7377]",
+                    ].join(" ")}
+                  >
+                    {historyDateLabel(d)}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => navHistory(1)}
+                disabled={!canGoNext}
+                className="p-1.5 rounded-lg border bg-card hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                data-testid="btn-history-next"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+
+            {doneForDate.length > 0 && (
+              <button
+                onClick={() => setArchiveConfirm(true)}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-rose-500 transition-colors px-2 py-1 rounded-lg hover:bg-rose-50 border border-transparent hover:border-rose-200"
+                data-testid="btn-archive-history"
+              >
+                <Archive className="h-3.5 w-3.5" />
+                Archive
+              </button>
+            )}
+          </div>
+
+          {doneForDate.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-6">
+              No history for {historyDateLabel(historyDate)}
+            </p>
+          ) : (
             <div className="rounded-xl border overflow-hidden divide-y">
-              {done.map(entry => (
+              {doneForDate.map(entry => (
                 <div
                   key={entry.id}
                   className="flex items-center gap-3 px-4 py-3 opacity-60"
@@ -601,7 +697,32 @@ export default function WaitlistPage() {
                 </div>
               ))}
             </div>
-          </div>
+          )}
+        </div>
+
+        {/* Archive confirmation dialog */}
+        {archiveConfirm && (
+          <Dialog open onOpenChange={() => setArchiveConfirm(false)}>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Archive history for {historyDateLabel(historyDate)}?</DialogTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  This will permanently delete {doneForDate.length} completed / cancelled entr{doneForDate.length === 1 ? "y" : "ies"} for this date. This cannot be undone.
+                </p>
+              </DialogHeader>
+              <DialogFooter className="gap-2">
+                <Button variant="outline" onClick={() => setArchiveConfirm(false)}>Cancel</Button>
+                <Button
+                  variant="destructive"
+                  disabled={archiveMutation.isPending}
+                  onClick={() => archiveMutation.mutate(historyDate)}
+                  data-testid="btn-confirm-archive"
+                >
+                  {archiveMutation.isPending ? "Archiving…" : "Archive"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         )}
       </div>
 

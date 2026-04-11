@@ -45,6 +45,7 @@ export interface IStorage {
   createWaitlistEntry(entry: InsertWaitlistEntry): Promise<WaitlistEntry>;
   updateWaitlistEntry(id: string, updates: Partial<WaitlistEntry>): Promise<WaitlistEntry | undefined>;
   deleteWaitlistEntry(id: string): Promise<boolean>;
+  archiveWaitlistByDate(date: string): Promise<number>;
 
   getStaffMembers(): Promise<StaffMember[]>;
   addStaffMember(name: string): Promise<StaffMember>;
@@ -339,6 +340,16 @@ export class DatabaseStorage implements IStorage {
   async deleteWaitlistEntry(id: string): Promise<boolean> {
     const result = await db.delete(waitlistEntries).where(eq(waitlistEntries.id, id)).returning();
     return result.length > 0;
+  }
+
+  async archiveWaitlistByDate(date: string): Promise<number> {
+    const result = await db.delete(waitlistEntries).where(
+      and(
+        eq(waitlistEntries.preferredDate, date),
+        sql`${waitlistEntries.status} NOT IN ('waiting', 'notified')`
+      )
+    ).returning();
+    return result.length;
   }
 
   async getStaffMembers(): Promise<StaffMember[]> {

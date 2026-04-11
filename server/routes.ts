@@ -449,6 +449,12 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // Bulk-archive (delete) all done entries for a specific date
+  app.delete("/api/waitlist/archive/:date", async (req, res) => {
+    const count = await storage.archiveWaitlistByDate(req.params.date);
+    res.json({ deleted: count });
+  });
+
   app.post("/api/waitlist/notify", async (req, res) => {
     const { guestName, phone } = req.body;
     if (!phone || !guestName) {
