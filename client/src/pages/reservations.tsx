@@ -4,6 +4,16 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -144,6 +154,7 @@ export default function ReservationsPage() {
   });
 
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [pendingDeleteGroup, setPendingDeleteGroup] = useState<GroupedReservation | null>(null);
 
   const deleteReservationMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -180,8 +191,18 @@ export default function ReservationsPage() {
     setEditDialogOpen(true);
   };
 
+  const executeGroupDelete = (group: GroupedReservation) => {
+    for (const id of group.ids) {
+      deleteReservationMutation.mutate(id);
+    }
+  };
+
   const handleGroupPrimaryAction = (group: GroupedReservation) => {
     const status = group.status;
+    if (status === "complete" || status === "no-show") {
+      setPendingDeleteGroup(group);
+      return;
+    }
     for (const id of group.ids) {
       switch (status) {
         case "booked":
@@ -193,14 +214,8 @@ export default function ReservationsPage() {
         case "confirmed":
           updateStatusMutation.mutate({ id, status: "seated" });
           break;
-        case "complete":
-          deleteReservationMutation.mutate(id);
-          break;
         case "cancelled":
           updateStatusMutation.mutate({ id, status: "booked" });
-          break;
-        case "no-show":
-          deleteReservationMutation.mutate(id);
           break;
       }
     }
@@ -216,9 +231,7 @@ export default function ReservationsPage() {
 
   const handleGroupSecondaryAction = (group: GroupedReservation) => {
     if (group.status === "cancelled") {
-      for (const id of group.ids) {
-        deleteReservationMutation.mutate(id);
-      }
+      setPendingDeleteGroup(group);
     } else {
       for (const id of group.ids) {
         updateStatusMutation.mutate({ id, status: "cancelled" });
@@ -641,6 +654,37 @@ export default function ReservationsPage() {
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
       />
+
+      <AlertDialog
+        open={!!pendingDeleteGroup}
+        onOpenChange={(open) => { if (!open) setPendingDeleteGroup(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this reservation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This reservation and all associated customer data will be permanently deleted. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-delete-cancel">
+              No, go back
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="button-delete-confirm"
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+              onClick={() => {
+                if (pendingDeleteGroup) {
+                  executeGroupDelete(pendingDeleteGroup);
+                  setPendingDeleteGroup(null);
+                }
+              }}
+            >
+              Yes, remove it
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
