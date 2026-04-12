@@ -18,7 +18,7 @@ import {
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { ReservationCard, ReservationRow, type ReservationStatus } from "@/components/reservation-card";
 import { EditReservationDialog } from "@/components/edit-reservation-dialog";
-import { Plus, Search, Calendar, LayoutGrid, List, Loader2, Upload } from "lucide-react";
+import { Plus, Search, Calendar, LayoutGrid, List, Loader2, Upload, Users, Clock, Phone, Table2, XCircle, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format, addDays, startOfWeek, endOfWeek, isWithinInterval, parseISO, isToday, isTomorrow } from "date-fns";
@@ -107,6 +107,7 @@ export default function ReservationsPage() {
   const searchString = useSearch();
   const [, navigate] = useLocation();
 
+  const [subTab, setSubTab] = useState<"active" | "completed" | "cancellations">("active");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [partySizeFilter, setPartySizeFilter] = useState("all");
@@ -274,6 +275,16 @@ export default function ReservationsPage() {
     }
   };
 
+  const ACTIVE_STATUSES = ["booked", "confirmed", "seated"];
+  const COMPLETED_STATUSES = ["complete"];
+  const CANCELLED_STATUSES = ["cancelled", "no-show"];
+
+  const subTabStatuses = subTab === "active"
+    ? ACTIVE_STATUSES
+    : subTab === "completed"
+    ? COMPLETED_STATUSES
+    : CANCELLED_STATUSES;
+
   const filteredReservations = reservations.filter((reservation) => {
     const matchesSearch =
       reservation.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -291,8 +302,9 @@ export default function ReservationsPage() {
       (partySizeFilter === "7+" && reservation.partySize >= 7);
 
     const matchesDate = matchesDateFilter(reservation.date);
+    const matchesSubTab = subTabStatuses.includes(reservation.status);
 
-    return matchesSearch && matchesStatus && matchesPartySize && matchesDate;
+    return matchesSearch && matchesStatus && matchesPartySize && matchesDate && matchesSubTab;
   });
 
   const groupedReservations = groupReservations(filteredReservations).sort((a, b) => {
@@ -335,6 +347,36 @@ export default function ReservationsPage() {
               </Button>
             </Link>
           </div>
+        </div>
+
+        {/* Sub-tabs */}
+        <div className="flex items-center gap-1 mb-5 border-b">
+          {([
+            { key: "active",        label: "Active",        count: reservations.filter(r => ACTIVE_STATUSES.includes(r.status) && matchesDateFilter(r.date)).length },
+            { key: "completed",     label: "Completed",     count: reservations.filter(r => COMPLETED_STATUSES.includes(r.status) && matchesDateFilter(r.date)).length },
+            { key: "cancellations", label: "Cancellations", count: reservations.filter(r => CANCELLED_STATUSES.includes(r.status) && matchesDateFilter(r.date)).length },
+          ] as const).map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setSubTab(tab.key)}
+              data-testid={`tab-${tab.key}`}
+              className={[
+                "px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap",
+                subTab === tab.key
+                  ? "border-[#0D7377] text-[#0D7377]"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              ].join(" ")}
+            >
+              {tab.label}
+              {tab.count > 0 && (
+                <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                  subTab === tab.key ? "bg-[#0D7377]/10 text-[#0D7377]" : "bg-muted text-muted-foreground"
+                }`}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6 flex-wrap">
@@ -405,20 +447,19 @@ export default function ReservationsPage() {
               </PopoverContent>
             </Popover>
 
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[120px] sm:w-[140px]" data-testid="select-status">
-              <SelectValue placeholder="All Statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="booked">Booked</SelectItem>
-              <SelectItem value="confirmed">Confirmed</SelectItem>
-              <SelectItem value="seated">Seated</SelectItem>
-              <SelectItem value="no-show">No Show</SelectItem>
-              <SelectItem value="complete">Complete</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
+          {subTab === "active" && (
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[120px] sm:w-[140px]" data-testid="select-status">
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="booked">Booked</SelectItem>
+                <SelectItem value="confirmed">Confirmed</SelectItem>
+                <SelectItem value="seated">Seated</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
 
           <Select value={partySizeFilter} onValueChange={setPartySizeFilter}>
             <SelectTrigger className="w-[120px] sm:w-[150px]" data-testid="select-party-size">
@@ -455,26 +496,28 @@ export default function ReservationsPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 mb-4 sm:mb-6 overflow-x-auto pb-1" data-testid="slot-tabs">
-          {getTimeSlotsForDate(selectedDate)
-            .filter(slot => groupedReservations.some(g => g.time === slot.label))
-            .map(slot => {
-              const count = groupedReservations.filter(g => g.time === slot.label).length;
-              const isActive = slotFilter === slot.label;
-              return (
-                <button
-                  key={slot.label}
-                  onClick={() => setSlotFilter(isActive ? "all" : slot.label)}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
-                    isActive ? "bg-[#0D7377] text-white" : "bg-muted text-muted-foreground hover-elevate"
-                  }`}
-                  data-testid={`button-slot-${slot.label}`}
-                >
-                  {getPeriodLabel(slot.period)} · {slot.label} ({count})
-                </button>
-              );
-            })}
-        </div>
+        {subTab === "active" && (
+          <div className="flex items-center gap-2 mb-4 sm:mb-6 overflow-x-auto pb-1" data-testid="slot-tabs">
+            {getTimeSlotsForDate(selectedDate)
+              .filter(slot => groupedReservations.some(g => g.time === slot.label))
+              .map(slot => {
+                const count = groupedReservations.filter(g => g.time === slot.label).length;
+                const isActive = slotFilter === slot.label;
+                return (
+                  <button
+                    key={slot.label}
+                    onClick={() => setSlotFilter(isActive ? "all" : slot.label)}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
+                      isActive ? "bg-[#0D7377] text-white" : "bg-muted text-muted-foreground hover-elevate"
+                    }`}
+                    data-testid={`button-slot-${slot.label}`}
+                  >
+                    {getPeriodLabel(slot.period)} · {slot.label} ({count})
+                  </button>
+                );
+              })}
+          </div>
+        )}
 
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
@@ -483,23 +526,37 @@ export default function ReservationsPage() {
         ) : groupedReservations.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
-              <Calendar className="h-8 w-8 text-muted-foreground" />
+              {subTab === "completed" ? (
+                <CheckCircle2 className="h-8 w-8 text-muted-foreground" />
+              ) : subTab === "cancellations" ? (
+                <XCircle className="h-8 w-8 text-muted-foreground" />
+              ) : (
+                <Calendar className="h-8 w-8 text-muted-foreground" />
+              )}
             </div>
             <h3 className="text-lg font-medium text-foreground mb-2" data-testid="text-empty-title">
-              No reservations {dateFilter === "today" ? "for today" : dateFilter === "tomorrow" ? "for tomorrow" : dateFilter === "this-week" ? "this week" : `for ${format(selectedDate, "MMM d")}`}
+              {subTab === "completed"
+                ? `No completed reservations ${dateFilter === "today" ? "today" : dateFilter === "tomorrow" ? "tomorrow" : dateFilter === "this-week" ? "this week" : `on ${format(selectedDate, "MMM d")}`}`
+                : subTab === "cancellations"
+                ? `No cancellations or no-shows ${dateFilter === "today" ? "today" : dateFilter === "tomorrow" ? "tomorrow" : dateFilter === "this-week" ? "this week" : `on ${format(selectedDate, "MMM d")}`}`
+                : `No reservations ${dateFilter === "today" ? "for today" : dateFilter === "tomorrow" ? "for tomorrow" : dateFilter === "this-week" ? "this week" : `for ${format(selectedDate, "MMM d")}`}`}
             </h3>
-            <p className="text-muted-foreground mb-4 max-w-sm" data-testid="text-empty-description">
-              Start by creating a reservation or try a different date filter.
-            </p>
-            <Link href="/new-reservation">
-              <Button 
-                className="bg-[#0D7377] text-white gap-2"
-                data-testid="button-create-first-reservation"
-              >
-                <Plus className="h-4 w-4" />
-                Create Reservation
-              </Button>
-            </Link>
+            {subTab === "active" && (
+              <>
+                <p className="text-muted-foreground mb-4 max-w-sm" data-testid="text-empty-description">
+                  Start by creating a reservation or try a different date filter.
+                </p>
+                <Link href="/new-reservation">
+                  <Button
+                    className="bg-[#0D7377] text-white gap-2"
+                    data-testid="button-create-first-reservation"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Create Reservation
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         ) : viewMode === "grid" ? (
           <div className="space-y-8">

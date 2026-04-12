@@ -26,7 +26,6 @@ import {
   Phone,
   ListOrdered,
   LogOut,
-  CalendarX,
 } from "lucide-react";
 import paolasLogo from "@/assets/images/paolas-logo.png";
 
@@ -50,11 +49,6 @@ const restaurantItems = [
     title: "Tables",
     url: "/tables",
     icon: LayoutGrid,
-  },
-  {
-    title: "Cancellations",
-    url: "/cancellations",
-    icon: CalendarX,
   },
 ];
 
