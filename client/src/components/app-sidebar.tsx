@@ -90,7 +90,7 @@ const generalItems = [
 ];
 
 export function AppSidebar({ onLogout }: { onLogout?: () => void }) {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const search = useSearch();
   const viewParam = new URLSearchParams(search).get("view") ?? "active";
 
@@ -132,31 +132,27 @@ export function AppSidebar({ onLogout }: { onLogout?: () => void }) {
                   return (
                     <SidebarMenuItem key={item.title}>
                       {/* Main Reservations row */}
-                      <div className="flex items-center w-full">
-                        <SidebarMenuButton
-                          asChild
-                          data-active={isActive}
-                          className={`flex-1 ${isActive ? "bg-sidebar-accent" : ""}`}
-                        >
-                          <Link
-                            href="/"
-                            data-testid="nav-reservations"
-                            onClick={() => setReservationsOpen(true)}
-                          >
-                            <item.icon className="h-4 w-4" />
-                            <span>Reservations</span>
-                          </Link>
-                        </SidebarMenuButton>
-                        <button
+                      <SidebarMenuButton
+                        data-active={isActive}
+                        data-testid="nav-reservations"
+                        className={`w-full ${isActive ? "bg-sidebar-accent" : ""}`}
+                        onClick={() => { navigate("/"); setReservationsOpen(true); }}
+                      >
+                        <item.icon className="h-4 w-4 flex-shrink-0" />
+                        <span className="flex-1">Reservations</span>
+                        <span
                           data-testid="button-reservations-expand"
-                          onClick={() => setReservationsOpen(o => !o)}
-                          className="mr-1 p-1 rounded hover:bg-sidebar-accent transition-colors text-muted-foreground"
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => { e.stopPropagation(); setReservationsOpen(o => !o); }}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); setReservationsOpen(o => !o); } }}
+                          className="p-0.5 rounded hover:bg-black/5 transition-colors text-muted-foreground ml-auto"
                         >
                           <ChevronDown
                             className={`h-3.5 w-3.5 transition-transform duration-200 ${reservationsOpen ? "" : "-rotate-90"}`}
                           />
-                        </button>
-                      </div>
+                        </span>
+                      </SidebarMenuButton>
 
                       {/* Sub-items */}
                       {reservationsOpen && (
