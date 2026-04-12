@@ -18,6 +18,7 @@ import MenuManagementPage from "@/pages/menu-management";
 import PastOrdersPage from "@/pages/past-orders";
 import CallsPage from "@/pages/calls";
 import WaitlistPage from "@/pages/waitlist";
+import CancellationsPage from "@/pages/cancellations";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -28,6 +29,7 @@ function Router() {
       <Route path="/new-reservation" component={NewCustomerPage} />
       <Route path="/tables" component={TablesPage} />
       <Route path="/waitlist" component={WaitlistPage} />
+      <Route path="/cancellations" component={CancellationsPage} />
 
       {/* Protected inside the app — requires password "Seated" */}
       <Route path="/guests">
