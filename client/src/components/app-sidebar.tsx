@@ -1,4 +1,5 @@
-import { Link, useLocation } from "wouter";
+import { useState } from "react";
+import { Link, useLocation, useSearch } from "wouter";
 import {
   Sidebar,
   SidebarContent,
@@ -26,6 +27,9 @@ import {
   Phone,
   ListOrdered,
   LogOut,
+  ChevronDown,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import paolasLogo from "@/assets/images/paolas-logo.png";
 
@@ -87,6 +91,16 @@ const generalItems = [
 
 export function AppSidebar({ onLogout }: { onLogout?: () => void }) {
   const [location] = useLocation();
+  const search = useSearch();
+  const viewParam = new URLSearchParams(search).get("view") ?? "active";
+
+  const isReservationsRoute = location === "/";
+  const [reservationsOpen, setReservationsOpen] = useState(isReservationsRoute);
+
+  const reservationsSubItems = [
+    { label: "Completed", view: "completed", icon: CheckCircle2 },
+    { label: "Cancellations & No-Shows", view: "cancellations", icon: XCircle },
+  ];
 
   return (
     <Sidebar className="border-r border-sidebar-border">
@@ -113,6 +127,65 @@ export function AppSidebar({ onLogout }: { onLogout?: () => void }) {
           <SidebarGroupContent>
             <SidebarMenu>
               {restaurantItems.map((item) => {
+                if (item.title === "Reservations") {
+                  const isActive = isReservationsRoute && viewParam === "active";
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      {/* Main Reservations row */}
+                      <div className="flex items-center w-full">
+                        <SidebarMenuButton
+                          asChild
+                          data-active={isActive}
+                          className={`flex-1 ${isActive ? "bg-sidebar-accent" : ""}`}
+                        >
+                          <Link
+                            href="/"
+                            data-testid="nav-reservations"
+                            onClick={() => setReservationsOpen(true)}
+                          >
+                            <item.icon className="h-4 w-4" />
+                            <span>Reservations</span>
+                          </Link>
+                        </SidebarMenuButton>
+                        <button
+                          data-testid="button-reservations-expand"
+                          onClick={() => setReservationsOpen(o => !o)}
+                          className="mr-1 p-1 rounded hover:bg-sidebar-accent transition-colors text-muted-foreground"
+                        >
+                          <ChevronDown
+                            className={`h-3.5 w-3.5 transition-transform duration-200 ${reservationsOpen ? "" : "-rotate-90"}`}
+                          />
+                        </button>
+                      </div>
+
+                      {/* Sub-items */}
+                      {reservationsOpen && (
+                        <div className="ml-4 mt-0.5 mb-1 border-l border-border pl-3 flex flex-col gap-0.5">
+                          {reservationsSubItems.map(sub => {
+                            const subActive = isReservationsRoute && viewParam === sub.view;
+                            return (
+                              <Link
+                                key={sub.view}
+                                href={`/?view=${sub.view}`}
+                                data-testid={`nav-reservations-${sub.view}`}
+                                className={[
+                                  "flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors",
+                                  subActive
+                                    ? "bg-sidebar-accent text-[#0D7377] font-medium"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent",
+                                ].join(" ")}
+                              >
+                                <sub.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                                <span>{sub.label}</span>
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </SidebarMenuItem>
+                  );
+                }
+
                 const isActive = location === item.url;
                 return (
                   <SidebarMenuItem key={item.title}>

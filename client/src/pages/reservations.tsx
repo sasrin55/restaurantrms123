@@ -104,10 +104,10 @@ function groupReservations(reservations: Reservation[]): GroupedReservation[] {
 
 export default function ReservationsPage() {
   const { toast } = useToast();
-  const searchString = useSearch();
+  const urlSearch = useSearch();
   const [, navigate] = useLocation();
 
-  const [subTab, setSubTab] = useState<"active" | "completed" | "cancellations">("active");
+  const subTab = (new URLSearchParams(urlSearch).get("view") ?? "active") as "active" | "completed" | "cancellations";
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [partySizeFilter, setPartySizeFilter] = useState("all");
@@ -116,17 +116,17 @@ export default function ReservationsPage() {
   const [editingGroupReservations, setEditingGroupReservations] = useState<Reservation[]>([]);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [dateFilter, setDateFilter] = useState<DateFilter>(() => {
-    const p = new URLSearchParams(searchString);
+    const p = new URLSearchParams(urlSearch);
     return p.get("date") ? "custom" : "today";
   });
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
-    const p = new URLSearchParams(searchString);
+    const p = new URLSearchParams(urlSearch);
     const d = p.get("date");
     return d ? new Date(d + "T12:00:00") : new Date();
   });
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [slotFilter, setSlotFilter] = useState<"all" | string>(() => {
-    const p = new URLSearchParams(searchString);
+    const p = new URLSearchParams(urlSearch);
     return p.get("slot") || "all";
   });
 
@@ -318,7 +318,9 @@ export default function ReservationsPage() {
       <div className="p-3 sm:p-6 max-w-7xl mx-auto">
         <div className="flex items-center justify-between gap-2 sm:gap-4 mb-4 sm:mb-6 border-b pb-4 sm:pb-6">
           <div className="min-w-0">
-            <h1 className="text-lg sm:text-2xl font-semibold text-foreground mb-0.5 sm:mb-1" data-testid="text-page-title">Reservations</h1>
+            <h1 className="text-lg sm:text-2xl font-semibold text-foreground mb-0.5 sm:mb-1" data-testid="text-page-title">
+              {subTab === "completed" ? "Completed Reservations" : subTab === "cancellations" ? "Cancellations & No-Shows" : "Reservations"}
+            </h1>
             <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block" data-testid="text-page-subtitle">Manage and view all of your reservations.</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -347,36 +349,6 @@ export default function ReservationsPage() {
               </Button>
             </Link>
           </div>
-        </div>
-
-        {/* Sub-tabs */}
-        <div className="flex items-center gap-1 mb-5 border-b">
-          {([
-            { key: "active",        label: "Active",        count: reservations.filter(r => ACTIVE_STATUSES.includes(r.status) && matchesDateFilter(r.date)).length },
-            { key: "completed",     label: "Completed",     count: reservations.filter(r => COMPLETED_STATUSES.includes(r.status) && matchesDateFilter(r.date)).length },
-            { key: "cancellations", label: "Cancellations", count: reservations.filter(r => CANCELLED_STATUSES.includes(r.status) && matchesDateFilter(r.date)).length },
-          ] as const).map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setSubTab(tab.key)}
-              data-testid={`tab-${tab.key}`}
-              className={[
-                "px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap",
-                subTab === tab.key
-                  ? "border-[#0D7377] text-[#0D7377]"
-                  : "border-transparent text-muted-foreground hover:text-foreground",
-              ].join(" ")}
-            >
-              {tab.label}
-              {tab.count > 0 && (
-                <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
-                  subTab === tab.key ? "bg-[#0D7377]/10 text-[#0D7377]" : "bg-muted text-muted-foreground"
-                }`}>
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6 flex-wrap">
