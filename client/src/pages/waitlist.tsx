@@ -22,7 +22,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { restaurantTables } from "@/lib/tables";
 import { getTimeSlotsForDate, getPeriodLabel } from "@/lib/timeSlots";
 import { format } from "date-fns";
-import { Users, Clock, Phone, Plus, X, Check, Trash2, Calendar, ChevronDown, ChevronLeft, ChevronRight, Archive } from "lucide-react";
+import { Users, Clock, Phone, Plus, X, Check, Trash2, Calendar, ChevronDown, Archive } from "lucide-react";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { Reservation } from "@shared/schema";
@@ -268,8 +268,9 @@ export default function WaitlistPage() {
   const [notes, setNotes] = useState("");
   const [preferredTime, setPreferredTime] = useState("");
   const [preferredDate, setPreferredDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [historyDate, setHistoryDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [archiveConfirm, setArchiveConfirm] = useState(false);
+  const [viewDate, setViewDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [archivingDate, setArchivingDate] = useState<string | null>(null);
+  const [pastExpanded, setPastExpanded] = useState(false);
 
   const formDate = preferredDate ? new Date(preferredDate + "T00:00:00") : new Date();
   const formSlots = getTimeSlotsForDate(formDate);
@@ -337,69 +338,47 @@ export default function WaitlistPage() {
   const active = waitlist.filter(e => e.status === "waiting" || e.status === "notified");
   const done   = waitlist.filter(e => e.status !== "waiting" && e.status !== "notified");
 
-  const todayStr     = format(new Date(), "yyyy-MM-dd");
-  const yesterdayStr = format(new Date(Date.now() - 86400000), "yyyy-MM-dd");
-  const tomorrowStr  = format(new Date(Date.now() + 86400000), "yyyy-MM-dd");
+  const todayStr    = format(new Date(), "yyyy-MM-dd");
+  const tomorrowStr = format(new Date(Date.now() + 86400000), "yyyy-MM-dd");
 
-  // All unique dates that appear in done entries, plus today and yesterday
-  const doneDates = [...new Set([
-    yesterdayStr,
-    todayStr,
-    ...done.map(e => e.preferredDate || todayStr),
-  ])].sort();
-
-  const historyDateIdx = doneDates.indexOf(historyDate);
-  const canGoPrev = historyDateIdx > 0;
-  const canGoNext = historyDateIdx < doneDates.length - 1;
-
-  function navHistory(dir: -1 | 1) {
-    const newIdx = historyDateIdx + dir;
-    if (newIdx >= 0 && newIdx < doneDates.length) setHistoryDate(doneDates[newIdx]);
-  }
-
-  function historyDateLabel(d: string) {
+  function dayLabel(d: string) {
     if (d === todayStr) return "Today";
-    if (d === yesterdayStr) return "Yesterday";
     if (d === tomorrowStr) return "Tomorrow";
     return format(new Date(d + "T00:00:00"), "EEE d MMM");
   }
 
-  const doneForDate = done.filter(e => (e.preferredDate || todayStr) === historyDate);
+  // All future/present dates that have any entry (active OR done), always include today
+  const presentFutureDates = [...new Set([
+    todayStr,
+    ...waitlist.map(e => e.preferredDate || todayStr),
+  ])].filter(d => d >= todayStr).sort();
 
-  // Get sorted unique dates across active entries
-  const activeDates = [...new Set(active.map(e => e.preferredDate || todayStr))].sort();
+  // Past dates that have done entries
+  const pastDates = [...new Set(
+    done.map(e => e.preferredDate || todayStr).filter(d => d < todayStr)
+  )].sort().reverse(); // newest first
 
-  // Build date+slot groups
-  type DateGroup = {
-    dateStr: string;
-    dateLabel: string;
-    slotGroups: Array<{ slotLabel: string; period: string; entries: WaitlistEntry[] }>;
-    noTimeEntries: WaitlistEntry[];
-  };
+  // If viewDate got stale (from a previous session), clamp to a valid tab
+  const safeViewDate = presentFutureDates.includes(viewDate) ? viewDate : todayStr;
 
-  const dateGroups: DateGroup[] = activeDates.map(dateStr => {
-    const dateEntries = active.filter(e => (e.preferredDate || todayStr) === dateStr);
-    const dateObj = new Date(dateStr + "T00:00:00");
-    const slotsForDate = getTimeSlotsForDate(dateObj);
+  // Entries for the selected day tab
+  const activeForView = active.filter(e => (e.preferredDate || todayStr) === safeViewDate);
+  const doneForView   = done.filter(e => (e.preferredDate || todayStr) === safeViewDate);
 
-    const slotGroups: Array<{ slotLabel: string; period: string; entries: WaitlistEntry[] }> = [];
-    for (const slot of slotsForDate) {
-      const entries = dateEntries.filter(e => e.preferredTime === slot.label);
-      if (entries.length > 0) {
-        slotGroups.push({ slotLabel: slot.label, period: getPeriodLabel(slot.period), entries });
-      }
-    }
+  // Build slot groups for the selected day
+  const viewDateObj = new Date(safeViewDate + "T00:00:00");
+  const viewSlots   = getTimeSlotsForDate(viewDateObj);
 
-    const noTimeEntries = dateEntries.filter(e => !slotsForDate.some(s => s.label === e.preferredTime));
+  type SlotGroup = { slotLabel: string; period: string; entries: WaitlistEntry[] };
+  const slotGroups: SlotGroup[] = viewSlots
+    .map(slot => ({
+      slotLabel: slot.label,
+      period: getPeriodLabel(slot.period),
+      entries: activeForView.filter(e => e.preferredTime === slot.label),
+    }))
+    .filter(g => g.entries.length > 0);
 
-    const dateLabel = dateStr === todayStr
-      ? "Today"
-      : dateStr === format(new Date(Date.now() + 86400000), "yyyy-MM-dd")
-      ? "Tomorrow"
-      : format(dateObj, "EEEE, d MMM");
-
-    return { dateStr, dateLabel, slotGroups, noTimeEntries };
-  });
+  const noSlotEntries = activeForView.filter(e => !viewSlots.some(s => s.label === e.preferredTime));
 
   return (
     <div className="flex-1 overflow-auto">
@@ -525,146 +504,112 @@ export default function WaitlistPage() {
           </form>
         </div>
 
-        {/* Active waitlist — grouped by date then time slot */}
-        <div className="space-y-6">
-          <h2 className="text-sm font-semibold text-foreground">
-            Waiting ({active.length}){active.length === 0 && !isLoading && <span className="ml-2 text-xs font-normal text-muted-foreground">— no guests waiting</span>}
-          </h2>
+        {/* ── Day tabs ── */}
+        <div className="flex items-center gap-1 border-b overflow-x-auto pb-0 scrollbar-none">
+          {presentFutureDates.map(d => {
+            const totalForDay = waitlist.filter(e => (e.preferredDate || todayStr) === d).length;
+            const activeForDay = active.filter(e => (e.preferredDate || todayStr) === d).length;
+            const isSelected = d === safeViewDate;
+            return (
+              <button
+                key={d}
+                onClick={() => setViewDate(d)}
+                data-testid={`tab-day-${d}`}
+                className={[
+                  "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0",
+                  isSelected
+                    ? "border-[#0D7377] text-[#0D7377]"
+                    : "border-transparent text-muted-foreground hover:text-foreground",
+                ].join(" ")}
+              >
+                {dayLabel(d)}
+                {totalForDay > 0 && (
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                    isSelected ? "bg-[#0D7377]/10 text-[#0D7377]" : "bg-muted text-muted-foreground"
+                  }`}>
+                    {activeForDay > 0 ? activeForDay : totalForDay}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
 
-          {dateGroups.map(({ dateStr, dateLabel, slotGroups, noTimeEntries }) => (
-            <div key={dateStr} className="space-y-3">
-              {/* Date header */}
+        {/* ── Active entries for selected day ── */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-foreground">
+              Waiting
+              {activeForView.length > 0
+                ? <span className="ml-1.5 text-xs font-normal text-muted-foreground">({activeForView.length} guest{activeForView.length !== 1 ? "s" : ""})</span>
+                : <span className="ml-1.5 text-xs font-normal text-muted-foreground">— no one waiting</span>
+              }
+            </h2>
+          </div>
+
+          {slotGroups.map(({ slotLabel, period, entries }) => (
+            <div key={slotLabel} className="space-y-1">
               <div className="flex items-center gap-3">
-                <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground whitespace-nowrap">
-                  <Calendar className="h-4 w-4 text-[#0D7377]" />
-                  {dateLabel}
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest whitespace-nowrap">
+                  {period} · {slotLabel}
                 </span>
                 <div className="h-px bg-border flex-1" />
+                <span className="text-xs text-muted-foreground shrink-0">{entries.length} waiting</span>
               </div>
-
-              {/* Slot groups for this date */}
-              <div className="space-y-3 pl-1">
-                {slotGroups.map(({ slotLabel, period, entries }) => (
-                  <div key={slotLabel} className="space-y-1">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest whitespace-nowrap">
-                        {period} · {slotLabel}
-                      </span>
-                      <div className="h-px bg-border flex-1" />
-                      <span className="text-xs text-muted-foreground shrink-0">{entries.length} waiting</span>
-                    </div>
-                    <div className="rounded-xl border overflow-hidden divide-y">
-                      {entries.map((entry, idx) => (
-                        <WaitlistRow
-                          key={entry.id}
-                          entry={entry}
-                          idx={idx}
-                          onSeat={() => setSeatEntry(entry)}
-                          onCantSeat={() => handleCantSeat(entry.id)}
-                          onDelete={() => deleteMutation.mutate(entry.id)}
-                          isDeleting={deleteMutation.isPending}
-                        />
-                      ))}
-                    </div>
-                  </div>
+              <div className="rounded-xl border overflow-hidden divide-y">
+                {entries.map((entry, idx) => (
+                  <WaitlistRow
+                    key={entry.id}
+                    entry={entry}
+                    idx={idx}
+                    onSeat={() => setSeatEntry(entry)}
+                    onCantSeat={() => handleCantSeat(entry.id)}
+                    onDelete={() => deleteMutation.mutate(entry.id)}
+                    isDeleting={deleteMutation.isPending}
+                  />
                 ))}
-
-                {/* Entries with no preferred slot for this date */}
-                {noTimeEntries.length > 0 && (
-                  <div className="space-y-1">
-                    {slotGroups.length > 0 && (
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest whitespace-nowrap">No specific slot</span>
-                        <div className="h-px bg-border flex-1" />
-                        <span className="text-xs text-muted-foreground shrink-0">{noTimeEntries.length} waiting</span>
-                      </div>
-                    )}
-                    <div className="rounded-xl border overflow-hidden divide-y">
-                      {noTimeEntries.map((entry, idx) => (
-                        <WaitlistRow
-                          key={entry.id}
-                          entry={entry}
-                          idx={idx}
-                          onSeat={() => setSeatEntry(entry)}
-                          onCantSeat={() => handleCantSeat(entry.id)}
-                          onDelete={() => deleteMutation.mutate(entry.id)}
-                          isDeleting={deleteMutation.isPending}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           ))}
-        </div>
 
-        {/* History */}
-        <div className="space-y-3">
-          {/* History header + date navigator */}
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <h2 className="text-sm font-semibold text-muted-foreground">History</h2>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => navHistory(-1)}
-                disabled={!canGoPrev}
-                className="p-1.5 rounded-lg border bg-card hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                data-testid="btn-history-prev"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-
-              {/* Scrollable date pills */}
-              <div className="flex items-center gap-1 overflow-x-auto max-w-xs sm:max-w-sm scrollbar-none px-0.5">
-                {doneDates.map(d => (
-                  <button
-                    key={d}
-                    onClick={() => setHistoryDate(d)}
-                    data-testid={`btn-history-date-${d}`}
-                    className={[
-                      "px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors border",
-                      d === historyDate
-                        ? "bg-[#0D7377] text-white border-[#0D7377]"
-                        : "bg-card text-muted-foreground border-border hover:border-[#0D7377] hover:text-[#0D7377]",
-                    ].join(" ")}
-                  >
-                    {historyDateLabel(d)}
-                  </button>
+          {noSlotEntries.length > 0 && (
+            <div className="space-y-1">
+              {slotGroups.length > 0 && (
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest whitespace-nowrap">No specific slot</span>
+                  <div className="h-px bg-border flex-1" />
+                  <span className="text-xs text-muted-foreground shrink-0">{noSlotEntries.length} waiting</span>
+                </div>
+              )}
+              <div className="rounded-xl border overflow-hidden divide-y">
+                {noSlotEntries.map((entry, idx) => (
+                  <WaitlistRow
+                    key={entry.id}
+                    entry={entry}
+                    idx={idx}
+                    onSeat={() => setSeatEntry(entry)}
+                    onCantSeat={() => handleCantSeat(entry.id)}
+                    onDelete={() => deleteMutation.mutate(entry.id)}
+                    isDeleting={deleteMutation.isPending}
+                  />
                 ))}
               </div>
-
-              <button
-                onClick={() => navHistory(1)}
-                disabled={!canGoNext}
-                className="p-1.5 rounded-lg border bg-card hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                data-testid="btn-history-next"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
             </div>
+          )}
+        </div>
 
-            {doneForDate.length > 0 && (
-              <button
-                onClick={() => setArchiveConfirm(true)}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-rose-500 transition-colors px-2 py-1 rounded-lg hover:bg-rose-50 border border-transparent hover:border-rose-200"
-                data-testid="btn-archive-history"
-              >
-                <Archive className="h-3.5 w-3.5" />
-                Archive
-              </button>
-            )}
-          </div>
-
-          {doneForDate.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-6">
-              No history for {historyDateLabel(historyDate)}
-            </p>
-          ) : (
-            <div className="rounded-xl border overflow-hidden divide-y">
-              {doneForDate.map(entry => (
+        {/* ── Seated / done entries for selected day ── */}
+        {doneForView.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Completed today</h2>
+              <div className="h-px bg-border flex-1" />
+            </div>
+            <div className="rounded-xl border overflow-hidden divide-y opacity-70">
+              {doneForView.map(entry => (
                 <div
                   key={entry.id}
-                  className="flex items-center gap-3 px-4 py-3 opacity-60"
+                  className="flex items-center gap-3 px-4 py-3"
                   data-testid={`row-done-${entry.id}`}
                 >
                   <div className="flex-1 min-w-0">
@@ -697,25 +642,92 @@ export default function WaitlistPage() {
                 </div>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* ── Previous Days ── */}
+        {pastDates.length > 0 && (
+          <div className="space-y-3">
+            <button
+              onClick={() => setPastExpanded(o => !o)}
+              className="flex items-center gap-2 w-full text-left"
+              data-testid="btn-toggle-past"
+            >
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Previous Days</span>
+              <div className="h-px bg-border flex-1" />
+              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${pastExpanded ? "" : "-rotate-90"}`} />
+            </button>
+
+            {pastExpanded && pastDates.map(d => {
+              const pastDone = done.filter(e => (e.preferredDate || todayStr) === d);
+              if (pastDone.length === 0) return null;
+              return (
+                <div key={d} className="space-y-2 pl-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">{dayLabel(d)}</span>
+                    <div className="h-px bg-border flex-1" />
+                    <button
+                      onClick={() => setArchivingDate(d)}
+                      className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-rose-500 transition-colors px-1.5 py-0.5 rounded hover:bg-rose-50"
+                      data-testid={`btn-archive-${d}`}
+                    >
+                      <Archive className="h-3 w-3" />
+                      Archive
+                    </button>
+                  </div>
+                  <div className="rounded-xl border overflow-hidden divide-y opacity-60">
+                    {pastDone.map(entry => (
+                      <div key={entry.id} className="flex items-center gap-3 px-4 py-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm text-foreground">{entry.guestName}</p>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Users className="h-3 w-3" />{entry.partySize}
+                            </span>
+                            {entry.preferredTime && (
+                              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Clock className="h-3 w-3" />{entry.preferredTime}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${statusConfig[entry.status as WaitlistStatus]?.className ?? ""}`}>
+                            {statusConfig[entry.status as WaitlistStatus]?.label ?? entry.status}
+                          </span>
+                          <button
+                            onClick={() => deleteMutation.mutate(entry.id)}
+                            disabled={deleteMutation.isPending}
+                            className="p-1.5 rounded-lg hover:bg-rose-50 hover:text-rose-500 text-muted-foreground transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Archive confirmation dialog */}
-        {archiveConfirm && (
-          <Dialog open onOpenChange={() => setArchiveConfirm(false)}>
+        {archivingDate && (
+          <Dialog open onOpenChange={() => setArchivingDate(null)}>
             <DialogContent className="max-w-sm">
               <DialogHeader>
-                <DialogTitle>Archive history for {historyDateLabel(historyDate)}?</DialogTitle>
+                <DialogTitle>Archive {dayLabel(archivingDate)}?</DialogTitle>
                 <p className="text-sm text-muted-foreground mt-1">
-                  This will permanently delete {doneForDate.length} completed / cancelled entr{doneForDate.length === 1 ? "y" : "ies"} for this date. This cannot be undone.
+                  This will permanently delete all completed / cancelled entries for this day. This cannot be undone.
                 </p>
               </DialogHeader>
               <DialogFooter className="gap-2">
-                <Button variant="outline" onClick={() => setArchiveConfirm(false)}>Cancel</Button>
+                <Button variant="outline" onClick={() => setArchivingDate(null)}>Cancel</Button>
                 <Button
                   variant="destructive"
                   disabled={archiveMutation.isPending}
-                  onClick={() => archiveMutation.mutate(historyDate)}
+                  onClick={() => archiveMutation.mutate(archivingDate)}
                   data-testid="btn-confirm-archive"
                 >
                   {archiveMutation.isPending ? "Archiving…" : "Archive"}
