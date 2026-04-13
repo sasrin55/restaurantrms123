@@ -347,11 +347,16 @@ export default function WaitlistPage() {
     return format(new Date(d + "T00:00:00"), "EEE d MMM");
   }
 
-  // All future/present dates that have any entry (active OR done), always include today
+  // Always show today + next 6 days as tabs, plus any further future dates that have entries
+  const next7Days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(todayStr + "T00:00:00");
+    d.setDate(d.getDate() + i);
+    return format(d, "yyyy-MM-dd");
+  });
   const presentFutureDates = [...new Set([
-    todayStr,
-    ...waitlist.map(e => e.preferredDate || todayStr),
-  ])].filter(d => d >= todayStr).sort();
+    ...next7Days,
+    ...waitlist.map(e => e.preferredDate || todayStr).filter(d => d >= todayStr),
+  ])].sort();
 
   // Past dates that have done entries
   const pastDates = [...new Set(
@@ -719,7 +724,7 @@ export default function WaitlistPage() {
               <DialogHeader>
                 <DialogTitle>Archive {dayLabel(archivingDate)}?</DialogTitle>
                 <p className="text-sm text-muted-foreground mt-1">
-                  This will permanently delete all completed / cancelled entries for this day. This cannot be undone.
+                  This permanently removes completed and cancelled entries for this day. <strong>Active (waiting) guests are never affected.</strong> This cannot be undone.
                 </p>
               </DialogHeader>
               <DialogFooter className="gap-2">
