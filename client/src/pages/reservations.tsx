@@ -232,6 +232,10 @@ export default function ReservationsPage() {
   const handleGroupSecondaryAction = (group: GroupedReservation) => {
     if (group.status === "cancelled") {
       setPendingDeleteGroup(group);
+    } else if (group.status === "complete") {
+      for (const id of group.ids) {
+        updateStatusMutation.mutate({ id, status: "seated" });
+      }
     } else {
       for (const id of group.ids) {
         updateStatusMutation.mutate({ id, status: "cancelled" });
