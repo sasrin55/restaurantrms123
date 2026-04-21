@@ -163,13 +163,13 @@ function computeDbAnalytics(reservations: Reservation[]) {
   const booked    = active.filter(r => !isWalkIn(r));   // proper reservations
   const walkIns   = active.filter(r =>  isWalkIn(r));   // walk-in guests
 
-  // ── Reservation-based metrics (exclude walk-ins) ──────────────────────────
-  const totalCovers = booked.reduce((s, r) => s + r.partySize, 0);
-  const totalResos  = booked.length;
+  // ── All-guest metrics (walk-ins included) ────────────────────────────────
+  const totalCovers = active.reduce((s, r) => s + r.partySize, 0);
+  const totalResos  = active.length;
   const avgParty    = totalResos ? +(totalCovers / totalResos).toFixed(1) : 0;
 
   const dayMap: Record<string, { covers: number; resos: number; tables: Set<number>; dow: string }> = {};
-  for (const r of booked) {
+  for (const r of active) {
     if (!dayMap[r.date]) {
       let dow = "";
       try { dow = format(parseISO(r.date), "EEEE"); } catch {}
@@ -194,7 +194,7 @@ function computeDbAnalytics(reservations: Reservation[]) {
   const avgPerDay  = activeDays ? Math.round(totalCovers / activeDays) : 0;
 
   const slotMap: Record<string, { covers: number; resos: number }> = {};
-  for (const r of booked) {
+  for (const r of active) {
     const slot = r.time;
     if (!slotMap[slot]) slotMap[slot] = { covers: 0, resos: 0 };
     slotMap[slot].covers += r.partySize;
@@ -209,7 +209,7 @@ function computeDbAnalytics(reservations: Reservation[]) {
     .sort((a, b) => b.covers - a.covers);
 
   const dowMap: Record<string, { covers: number; resos: number; days: Set<string> }> = {};
-  for (const r of booked) {
+  for (const r of active) {
     let dow = "Unknown";
     try { dow = format(parseISO(r.date), "EEEE"); } catch {}
     if (!dowMap[dow]) dowMap[dow] = { covers: 0, resos: 0, days: new Set() };
