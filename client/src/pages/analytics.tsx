@@ -501,6 +501,8 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
 }
 
 // ── Main page ────────────────────────────────────────────────────────────────
+type FilterMode = "all" | "date" | "range";
+
 export default function AnalyticsPage() {
   const { data: dbReservations = [] } = useQuery<Reservation[]>({
     queryKey: ["/api/reservations"],
@@ -508,34 +510,60 @@ export default function AnalyticsPage() {
     refetchOnMount: "always",
   });
 
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [mode, setMode]                   = useState<FilterMode>("all");
+  const [selectedDate, setSelectedDate]   = useState<Date | undefined>(undefined);
+  const [rangeFrom, setRangeFrom]         = useState<Date | undefined>(undefined);
+  const [rangeTo, setRangeTo]             = useState<Date | undefined>(undefined);
+  const [dateOpen, setDateOpen]           = useState(false);
+  const [rangeOpen, setRangeOpen]         = useState(false);
+
+  function clearAll() {
+    setMode("all");
+    setSelectedDate(undefined);
+    setRangeFrom(undefined);
+    setRangeTo(undefined);
+  }
 
   const filtered = useMemo(() => {
-    if (!selectedDate) return dbReservations;
-    const dateStr = format(selectedDate, "yyyy-MM-dd");
-    return dbReservations.filter(r => r.date === dateStr);
-  }, [dbReservations, selectedDate]);
+    if (mode === "date" && selectedDate) {
+      const dateStr = format(selectedDate, "yyyy-MM-dd");
+      return dbReservations.filter(r => r.date === dateStr);
+    }
+    if (mode === "range" && rangeFrom) {
+      const fromStr = format(rangeFrom, "yyyy-MM-dd");
+      const toStr   = rangeTo ? format(rangeTo, "yyyy-MM-dd") : fromStr;
+      return dbReservations.filter(r => r.date >= fromStr && r.date <= toStr);
+    }
+    return dbReservations;
+  }, [dbReservations, mode, selectedDate, rangeFrom, rangeTo]);
 
-  const dateLabel = selectedDate ? format(selectedDate, "MMM d, yyyy") : null;
+  const subtitle = useMemo(() => {
+    if (mode === "date" && selectedDate) return `Showing data for ${format(selectedDate, "MMM d, yyyy")}`;
+    if (mode === "range" && rangeFrom) {
+      const from = format(rangeFrom, "MMM d, yyyy");
+      const to   = rangeTo ? format(rangeTo, "MMM d, yyyy") : "…";
+      return `Showing ${from} — ${to}`;
+    }
+    return "Live data · all time";
+  }, [mode, selectedDate, rangeFrom, rangeTo]);
+
+  const hasFilter = mode !== "all";
 
   return (
     <div className="p-6 max-w-6xl mx-auto font-sans overflow-auto" data-testid="text-analytics-title">
       <div className="mb-8 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Analytics</h1>
-          <p className="text-sm text-gray-400 mt-0.5">
-            {dateLabel ? `Showing data for ${dateLabel}` : "Live data · all time"}
-          </p>
+          <p className="text-sm text-gray-400 mt-0.5">{subtitle}</p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          {/* All data button */}
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          {/* All time */}
           <button
-            onClick={() => setSelectedDate(undefined)}
+            onClick={clearAll}
             className={[
               "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border",
-              !selectedDate
+              mode === "all"
                 ? "bg-[#0D7377] text-white border-[#0D7377]"
                 : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700",
             ].join(" ")}
@@ -544,36 +572,74 @@ export default function AnalyticsPage() {
             All time
           </button>
 
-          {/* Date picker */}
-          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+          {/* Single date */}
+          <Popover open={dateOpen} onOpenChange={setDateOpen}>
             <PopoverTrigger asChild>
               <button
                 className={[
                   "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border",
-                  selectedDate
+                  mode === "date"
                     ? "bg-[#0D7377] text-white border-[#0D7377]"
                     : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700",
                 ].join(" ")}
                 data-testid="button-analytics-date"
               >
                 <CalendarIcon className="h-3.5 w-3.5" />
-                {dateLabel ?? "Pick a date"}
+                {mode === "date" && selectedDate ? format(selectedDate, "MMM d") : "Day"}
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="end">
               <Calendar
                 mode="single"
                 selected={selectedDate}
-                onSelect={(d) => { setSelectedDate(d); setCalendarOpen(false); }}
+                onSelect={(d) => {
+                  setSelectedDate(d);
+                  setMode("date");
+                  setDateOpen(false);
+                }}
                 initialFocus
               />
             </PopoverContent>
           </Popover>
 
-          {/* Clear date */}
-          {selectedDate && (
+          {/* Date range */}
+          <Popover open={rangeOpen} onOpenChange={setRangeOpen}>
+            <PopoverTrigger asChild>
+              <button
+                className={[
+                  "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border",
+                  mode === "range"
+                    ? "bg-[#0D7377] text-white border-[#0D7377]"
+                    : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700",
+                ].join(" ")}
+                data-testid="button-analytics-range"
+              >
+                <CalendarIcon className="h-3.5 w-3.5" />
+                {mode === "range" && rangeFrom
+                  ? `${format(rangeFrom, "MMM d")}${rangeTo ? ` – ${format(rangeTo, "MMM d")}` : " – …"}`
+                  : "Range"}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="range"
+                selected={{ from: rangeFrom, to: rangeTo }}
+                onSelect={(r) => {
+                  setRangeFrom(r?.from);
+                  setRangeTo(r?.to);
+                  setMode("range");
+                  if (r?.from && r?.to) setRangeOpen(false);
+                }}
+                numberOfMonths={2}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+
+          {/* Clear */}
+          {hasFilter && (
             <button
-              onClick={() => setSelectedDate(undefined)}
+              onClick={clearAll}
               className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
               data-testid="button-analytics-clear"
             >
