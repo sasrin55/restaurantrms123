@@ -45,7 +45,14 @@ function dayColor(dow = "") {
 
 // ── Walk-in detector ─────────────────────────────────────────────────────────
 function isWalkIn(r: Reservation) {
-  return (r.comments ?? "").toLowerCase().startsWith("walk-in");
+  const comments = (r.comments ?? "").toLowerCase();
+  const name     = (r.customerName ?? "").toLowerCase();
+  const phone    = (r.phoneNumber ?? "").toLowerCase();
+  return (
+    comments.startsWith("walk-in") ||
+    name.includes("walk-in") ||
+    phone === "n/a"
+  );
 }
 
 // ── Shared UI ───────────────────────────────────────────────────────────────

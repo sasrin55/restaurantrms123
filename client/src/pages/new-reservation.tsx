@@ -93,7 +93,9 @@ export default function NewCustomerPage() {
           partySize: parsedSize,
           tableId: table.id,
           tableName: isTepanyaki ? `Tepanyaki Seat ${table.number}` : `Table ${table.number}`,
-          comments: comments.trim(),
+          comments: mode === "walkin"
+            ? (comments.trim() ? `Walk-in — ${comments.trim()}` : "Walk-in")
+            : comments.trim(),
           takenBy: takenBy.trim(),
           status: mode === "walkin" ? "seated" : "booked",
         };
