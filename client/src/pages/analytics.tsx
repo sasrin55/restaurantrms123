@@ -152,18 +152,9 @@ function ReservationStatusCard({ total, counts, accent }: { total: number; count
   );
 }
 
-// ── Walk-in detector ─────────────────────────────────────────────────────────
-function isWalkIn(r: Reservation) {
-  return (r.comments ?? "").toLowerCase().startsWith("walk-in");
-}
-
 // ── DB analytics ─────────────────────────────────────────────────────────────
 function computeDbAnalytics(reservations: Reservation[]) {
-  const active    = reservations.filter(r => r.status !== "cancelled" && r.status !== "no-show");
-  const booked    = active.filter(r => !isWalkIn(r));   // proper reservations
-  const walkIns   = active.filter(r =>  isWalkIn(r));   // walk-in guests
-
-  // ── All-guest metrics (walk-ins included) ────────────────────────────────
+  const active = reservations.filter(r => r.status !== "cancelled" && r.status !== "no-show");
   const totalCovers = active.reduce((s, r) => s + r.partySize, 0);
   const totalResos  = active.length;
   const avgParty    = totalResos ? +(totalCovers / totalResos).toFixed(1) : 0;
@@ -236,10 +227,9 @@ function computeDbAnalytics(reservations: Reservation[]) {
     .map(([table, v]) => ({ table, ...v }))
     .sort((a, b) => b.bookings - a.bookings);
 
-  // Repeat guests: only from booked (non-walk-in) guests
   const nameMap: Record<string, { displayName: string; visits: number; covers: number }> = {};
-  for (const r of booked) {
-    const key = (r.phoneNumber && r.phoneNumber !== "0" ? r.phoneNumber : r.customerName).toLowerCase().trim();
+  for (const r of active) {
+    const key = (r.phoneNumber || r.customerName).toLowerCase().trim();
     if (!nameMap[key]) nameMap[key] = { displayName: r.customerName, visits: 0, covers: 0 };
     nameMap[key].visits += 1;
     nameMap[key].covers += r.partySize;
@@ -265,31 +255,6 @@ function computeDbAnalytics(reservations: Reservation[]) {
   const busiestDow    = dowData[0];
   const busiestSlot   = slotData[0];
 
-  // ── Walk-in analytics ─────────────────────────────────────────────────────
-  const walkInCovers = walkIns.reduce((s, r) => s + r.partySize, 0);
-  const walkInAvgParty = walkIns.length ? +(walkInCovers / walkIns.length).toFixed(1) : 0;
-
-  const wiSlotMap: Record<string, number> = {};
-  for (const r of walkIns) {
-    wiSlotMap[r.time] = (wiSlotMap[r.time] ?? 0) + 1;
-  }
-  const wiSlotData = Object.entries(wiSlotMap)
-    .map(([slot, count]) => ({ slot, count, color: slotColor(slot) }))
-    .sort((a, b) => b.count - a.count);
-
-  const wiDowMap: Record<string, number> = {};
-  for (const r of walkIns) {
-    let dow = "Unknown";
-    try { dow = format(parseISO(r.date), "EEEE"); } catch {}
-    wiDowMap[dow] = (wiDowMap[dow] ?? 0) + 1;
-  }
-  const wiDowData = Object.entries(wiDowMap)
-    .map(([dow, count]) => ({ dow, count }))
-    .sort((a, b) => b.count - a.count);
-
-  const wiPeakSlot = wiSlotData[0];
-  const wiPeakDow  = wiDowData[0];
-
   return {
     totalCovers, totalResos, avgParty, avgPerDay, activeDays,
     dayData, slotData, dowData, tableData,
@@ -297,8 +262,6 @@ function computeDbAnalytics(reservations: Reservation[]) {
     repeatGuests, repeatRate,
     statusCounts, noShowCount, cancelCount, noShowRate, cancelRate,
     avgUtilPct,
-    walkIns, walkInCovers, walkInAvgParty,
-    wiSlotData, wiDowData, wiPeakSlot, wiPeakDow,
   };
 }
 
@@ -311,8 +274,6 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
     repeatGuests, repeatRate,
     statusCounts, noShowCount, cancelCount, noShowRate, cancelRate,
     avgUtilPct,
-    walkIns, walkInCovers, walkInAvgParty,
-    wiSlotData, wiDowData, wiPeakSlot, wiPeakDow,
   } = stats;
 
   const maxDowCovers     = Math.max(...dowData.map(d => d.covers), 1);
@@ -449,61 +410,6 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
           </div>
         )}
       </div>
-
-      {/* Walk-ins */}
-      {walkIns.length > 0 && (
-        <div>
-          <SectionHeader label="Walk-ins" />
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-            <KpiCard
-              value={walkIns.length}
-              label="Walk-in visits"
-              sub="guests without a reservation"
-              accent={C.amber}
-            />
-            <KpiCard
-              value={walkInCovers}
-              label="Walk-in covers"
-              sub="total guests served"
-              accent={C.amber}
-            />
-            <KpiCard
-              value={walkInAvgParty}
-              label="Avg walk-in party"
-              sub="guests per walk-in"
-              accent={C.gray}
-            />
-            <div className="bg-gray-50 rounded-xl p-4">
-              <p className="text-xs text-gray-400 mb-1">Peak slot</p>
-              <p className="text-xl font-semibold text-gray-900 leading-tight">{wiPeakSlot?.slot ?? "—"}</p>
-              <p className="text-xs text-gray-400 mt-1">{wiPeakSlot?.count ?? 0} walk-ins</p>
-            </div>
-          </div>
-
-          {(wiSlotData.length > 0 || wiDowData.length > 0) && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {wiSlotData.length > 0 && (
-                <ChartCard title="Walk-ins by time slot">
-                  {wiSlotData.map(s => (
-                    <HorizBar key={s.slot} label={s.slot}
-                      value={s.count} maxValue={wiSlotData[0]?.count ?? 1}
-                      color={s.color} suffix=" visits" />
-                  ))}
-                </ChartCard>
-              )}
-              {wiDowData.length > 0 && (
-                <ChartCard title="Walk-ins by day of week">
-                  {wiDowData.map(d => (
-                    <HorizBar key={d.dow} label={d.dow}
-                      value={d.count} maxValue={wiDowData[0]?.count ?? 1}
-                      color={C.amber} suffix=" visits" />
-                  ))}
-                </ChartCard>
-              )}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Operations */}
       <div>
