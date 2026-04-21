@@ -7,7 +7,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Check } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { MoreHorizontal, Check, CalendarIcon, X } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import {
   BarChart, Bar, Cell,
@@ -39,6 +41,11 @@ function dayColor(dow = "") {
   if (dow === "Saturday") return C.teal;
   if (dow === "Friday")   return C.amber;
   return C.muted;
+}
+
+// ── Walk-in detector ─────────────────────────────────────────────────────────
+function isWalkIn(r: Reservation) {
+  return (r.comments ?? "").toLowerCase().startsWith("walk-in");
 }
 
 // ── Shared UI ───────────────────────────────────────────────────────────────
@@ -154,7 +161,10 @@ function ReservationStatusCard({ total, counts, accent }: { total: number; count
 
 // ── DB analytics ─────────────────────────────────────────────────────────────
 function computeDbAnalytics(reservations: Reservation[]) {
-  const active = reservations.filter(r => r.status !== "cancelled" && r.status !== "no-show");
+  const active   = reservations.filter(r => r.status !== "cancelled" && r.status !== "no-show");
+  const walkIns  = active.filter(r => isWalkIn(r));
+  const booked   = active.filter(r => !isWalkIn(r));
+
   const totalCovers = active.reduce((s, r) => s + r.partySize, 0);
   const totalResos  = active.length;
   const avgParty    = totalResos ? +(totalCovers / totalResos).toFixed(1) : 0;
@@ -227,9 +237,10 @@ function computeDbAnalytics(reservations: Reservation[]) {
     .map(([table, v]) => ({ table, ...v }))
     .sort((a, b) => b.bookings - a.bookings);
 
+  // Repeat guests: exclude walk-ins so "Walk-in" entries don't appear as one massive repeat guest
   const nameMap: Record<string, { displayName: string; visits: number; covers: number }> = {};
-  for (const r of active) {
-    const key = (r.phoneNumber || r.customerName).toLowerCase().trim();
+  for (const r of booked) {
+    const key = (r.phoneNumber && r.phoneNumber !== "0" ? r.phoneNumber : r.customerName).toLowerCase().trim();
     if (!nameMap[key]) nameMap[key] = { displayName: r.customerName, visits: 0, covers: 0 };
     nameMap[key].visits += 1;
     nameMap[key].covers += r.partySize;
@@ -238,7 +249,7 @@ function computeDbAnalytics(reservations: Reservation[]) {
     .filter(g => g.visits > 1)
     .sort((a, b) => b.visits - a.visits);
   const repeatResos = repeatGuests.reduce((s, g) => s + g.visits, 0);
-  const repeatRate  = totalResos ? Math.round(repeatResos / totalResos * 100) : 0;
+  const repeatRate  = booked.length ? Math.round(repeatResos / booked.length * 100) : 0;
 
   const statusCounts: Partial<Record<KnownStatus, number>> = {};
   for (const r of reservations) {
@@ -246,14 +257,29 @@ function computeDbAnalytics(reservations: Reservation[]) {
     if (s in STATUS_CONFIG) statusCounts[s] = (statusCounts[s] ?? 0) + 1;
   }
 
-  const noShowCount   = reservations.filter(r => r.status === "no-show").length;
-  const cancelCount   = reservations.filter(r => r.status === "cancelled").length;
-  const noShowRate    = reservations.length ? Math.round(noShowCount / reservations.length * 100) : 0;
-  const cancelRate    = reservations.length ? Math.round(cancelCount / reservations.length * 100) : 0;
-  const avgUtilPct    = dayData.length ? Math.round(dayData.reduce((s, d) => s + d.utilPct, 0) / dayData.length) : 0;
-  const busiestDay    = [...dayData].sort((a, b) => b.covers - a.covers)[0];
-  const busiestDow    = dowData[0];
-  const busiestSlot   = slotData[0];
+  const noShowCount = reservations.filter(r => r.status === "no-show").length;
+  const cancelCount = reservations.filter(r => r.status === "cancelled").length;
+  const noShowRate  = reservations.length ? Math.round(noShowCount / reservations.length * 100) : 0;
+  const cancelRate  = reservations.length ? Math.round(cancelCount / reservations.length * 100) : 0;
+  const avgUtilPct  = dayData.length ? Math.round(dayData.reduce((s, d) => s + d.utilPct, 0) / dayData.length) : 0;
+  const busiestDay  = [...dayData].sort((a, b) => b.covers - a.covers)[0];
+  const busiestDow  = dowData[0];
+  const busiestSlot = slotData[0];
+
+  // Walk-in analytics
+  const walkInCovers  = walkIns.reduce((s, r) => s + r.partySize, 0);
+  const walkInPct     = totalResos ? Math.round(walkIns.length / totalResos * 100) : 0;
+  const walkInAvgParty = walkIns.length ? +(walkInCovers / walkIns.length).toFixed(1) : 0;
+
+  const wiSlotMap: Record<string, number> = {};
+  for (const r of walkIns) {
+    wiSlotMap[r.time] = (wiSlotMap[r.time] ?? 0) + 1;
+  }
+  const wiSlotData = Object.entries(wiSlotMap)
+    .map(([slot, count]) => ({ slot, count, color: slotColor(slot) }))
+    .sort((a, b) => b.count - a.count);
+
+  const wiPeakSlot = wiSlotData[0];
 
   return {
     totalCovers, totalResos, avgParty, avgPerDay, activeDays,
@@ -262,6 +288,8 @@ function computeDbAnalytics(reservations: Reservation[]) {
     repeatGuests, repeatRate,
     statusCounts, noShowCount, cancelCount, noShowRate, cancelRate,
     avgUtilPct,
+    walkIns, walkInCovers, walkInPct, walkInAvgParty,
+    wiSlotData, wiPeakSlot,
   };
 }
 
@@ -274,6 +302,8 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
     repeatGuests, repeatRate,
     statusCounts, noShowCount, cancelCount, noShowRate, cancelRate,
     avgUtilPct,
+    walkIns, walkInCovers, walkInPct, walkInAvgParty,
+    wiSlotData, wiPeakSlot,
   } = stats;
 
   const maxDowCovers     = Math.max(...dowData.map(d => d.covers), 1);
@@ -289,9 +319,9 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
               d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
         </div>
-        <h3 className="text-lg font-medium text-gray-700 mb-1">Ready for your first booking</h3>
+        <h3 className="text-lg font-medium text-gray-700 mb-1">No data for this date</h3>
         <p className="text-sm text-gray-400 max-w-sm">
-          Analytics will appear here as reservations come in. All your data builds up automatically.
+          Try selecting a different date or switch to all-time view.
         </p>
       </div>
     );
@@ -331,7 +361,7 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
           </div>
         </div>
 
-        {dayData.length > 0 && (
+        {dayData.length > 1 && (
           <ChartCard title="Covers by day" className="mb-4">
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={dayData} margin={{ top: 16, right: 8, left: -16, bottom: 0 }}>
@@ -411,6 +441,33 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
         )}
       </div>
 
+      {/* Walk-ins */}
+      {walkIns.length > 0 && (
+        <div>
+          <SectionHeader label="Walk-ins" />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <KpiCard value={walkIns.length}    label="Walk-in visits"   sub="guests without a reservation" accent={C.amber} />
+            <KpiCard value={walkInCovers}      label="Walk-in covers"   sub="total guests"                 accent={C.amber} />
+            <KpiCard value={`${walkInPct}%`}   label="% of all visits"  sub="share of total bookings"      accent={C.gray}  />
+            <div className="bg-gray-50 rounded-xl p-4">
+              <p className="text-xs text-gray-400 mb-1">Peak walk-in slot</p>
+              <p className="text-lg font-semibold text-gray-900 leading-tight">{wiPeakSlot?.slot ?? "—"}</p>
+              <p className="text-xs text-gray-400 mt-1">{wiPeakSlot?.count ?? 0} walk-ins</p>
+            </div>
+          </div>
+
+          {wiSlotData.length > 0 && (
+            <ChartCard title="Walk-ins by time slot">
+              {wiSlotData.map(s => (
+                <HorizBar key={s.slot} label={s.slot}
+                  value={s.count} maxValue={wiSlotData[0]?.count ?? 1}
+                  color={s.color} suffix=" walk-ins" />
+              ))}
+            </ChartCard>
+          )}
+        </div>
+      )}
+
       {/* Operations */}
       <div>
         <SectionHeader label="Operations" />
@@ -451,15 +508,82 @@ export default function AnalyticsPage() {
     refetchOnMount: "always",
   });
 
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+
+  const filtered = useMemo(() => {
+    if (!selectedDate) return dbReservations;
+    const dateStr = format(selectedDate, "yyyy-MM-dd");
+    return dbReservations.filter(r => r.date === dateStr);
+  }, [dbReservations, selectedDate]);
+
+  const dateLabel = selectedDate ? format(selectedDate, "MMM d, yyyy") : null;
+
   return (
     <div className="p-6 max-w-6xl mx-auto font-sans overflow-auto" data-testid="text-analytics-title">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-gray-900">Analytics</h1>
-        <p className="text-sm text-gray-400 mt-0.5">
-          Live data · starting April 2026
-        </p>
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Analytics</h1>
+          <p className="text-sm text-gray-400 mt-0.5">
+            {dateLabel ? `Showing data for ${dateLabel}` : "Live data · all time"}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          {/* All data button */}
+          <button
+            onClick={() => setSelectedDate(undefined)}
+            className={[
+              "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border",
+              !selectedDate
+                ? "bg-[#0D7377] text-white border-[#0D7377]"
+                : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700",
+            ].join(" ")}
+            data-testid="button-analytics-all"
+          >
+            All time
+          </button>
+
+          {/* Date picker */}
+          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+            <PopoverTrigger asChild>
+              <button
+                className={[
+                  "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border",
+                  selectedDate
+                    ? "bg-[#0D7377] text-white border-[#0D7377]"
+                    : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700",
+                ].join(" ")}
+                data-testid="button-analytics-date"
+              >
+                <CalendarIcon className="h-3.5 w-3.5" />
+                {dateLabel ?? "Pick a date"}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(d) => { setSelectedDate(d); setCalendarOpen(false); }}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+
+          {/* Clear date */}
+          {selectedDate && (
+            <button
+              onClick={() => setSelectedDate(undefined)}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              data-testid="button-analytics-clear"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
-      <LiveAnalytics reservations={dbReservations} />
+
+      <LiveAnalytics reservations={filtered} />
     </div>
   );
 }
