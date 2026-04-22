@@ -270,11 +270,38 @@ function computeDbAnalytics(reservations: Reservation[]) {
     if (s in STATUS_CONFIG) statusCounts[s] = (statusCounts[s] ?? 0) + 1;
   }
 
-  const noShowCount = reservations.filter(r => r.status === "no-show").length;
+  const noShows     = reservations.filter(r => r.status === "no-show");
+  const noShowCount = noShows.length;
   const cancelCount = reservations.filter(r => r.status === "cancelled").length;
   const noShowRate  = reservations.length ? Math.round(noShowCount / reservations.length * 100) : 0;
   const cancelRate  = reservations.length ? Math.round(cancelCount / reservations.length * 100) : 0;
   const avgUtilPct  = dayData.length ? Math.round(dayData.reduce((s, d) => s + d.utilPct, 0) / dayData.length) : 0;
+
+  // No-show deep analytics
+  const nsFromConfirmed = noShows.filter(r => r.previousStatus === "confirmed").length;
+  const nsFromBooked    = noShows.filter(r => r.previousStatus === "booked").length;
+
+  // No-show by time slot
+  const nsSlotMap: Record<string, number> = {};
+  for (const r of noShows) {
+    nsSlotMap[r.time] = (nsSlotMap[r.time] ?? 0) + 1;
+  }
+  const nsSlotData = Object.entries(nsSlotMap)
+    .map(([slot, count]) => ({ slot, count, color: slotColor(slot) }))
+    .sort((a, b) => b.count - a.count);
+
+  // Top no-show guests (deduplicated by phone)
+  const nsGuestMap: Record<string, { displayName: string; count: number; covers: number }> = {};
+  for (const r of noShows) {
+    if (isWalkIn(r)) continue;
+    const key = (r.phoneNumber && r.phoneNumber !== "0" ? r.phoneNumber : r.customerName).toLowerCase().trim();
+    if (!nsGuestMap[key]) nsGuestMap[key] = { displayName: r.customerName, count: 0, covers: 0 };
+    nsGuestMap[key].count  += 1;
+    nsGuestMap[key].covers += r.partySize;
+  }
+  const nsTopGuests = Object.values(nsGuestMap)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
   const busiestDay  = [...dayData].sort((a, b) => b.covers - a.covers)[0];
   const busiestDow  = dowData[0];
   const busiestSlot = slotData[0];
@@ -303,6 +330,7 @@ function computeDbAnalytics(reservations: Reservation[]) {
     avgUtilPct,
     walkIns, walkInCovers, walkInPct, walkInAvgParty,
     wiSlotData, wiPeakSlot,
+    noShows, nsFromConfirmed, nsFromBooked, nsSlotData, nsTopGuests,
   };
 }
 
@@ -317,6 +345,7 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
     avgUtilPct,
     walkIns, walkInCovers, walkInPct, walkInAvgParty,
     wiSlotData, wiPeakSlot,
+    noShows, nsFromConfirmed, nsFromBooked, nsSlotData, nsTopGuests,
   } = stats;
 
   const maxDowCovers     = Math.max(...dowData.map(d => d.covers), 1);
@@ -453,6 +482,64 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
           </div>
         )}
       </div>
+
+      {/* No-Shows */}
+      {noShows.length > 0 && (
+        <div>
+          <SectionHeader label="No-Shows" />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <KpiCard value={noShowCount}        label="Total no-shows"    sub="guests who didn't arrive"          accent={C.amber} />
+            <KpiCard value={`${noShowRate}%`}   label="No-show rate"      sub="of all reservations"               accent={C.amber} />
+            <div className="bg-gray-50 rounded-xl p-4">
+              <p className="text-xs text-gray-400 mb-1">Confirmed → no-show</p>
+              <p className="text-2xl font-semibold text-gray-900">{nsFromConfirmed}</p>
+              <p className="text-xs text-gray-400 mt-1">
+                {`${noShowCount ? Math.round(nsFromConfirmed / noShowCount * 100) : 0}% of no-shows`}
+              </p>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-4">
+              <p className="text-xs text-gray-400 mb-1">Booked → no-show</p>
+              <p className="text-2xl font-semibold text-gray-900">{nsFromBooked}</p>
+              <p className="text-xs text-gray-400 mt-1">
+                {`${noShowCount ? Math.round(nsFromBooked / noShowCount * 100) : 0}% of no-shows`}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {nsSlotData.length > 0 && (
+              <ChartCard title="No-shows by time slot">
+                {nsSlotData.map(s => (
+                  <HorizBar key={s.slot} label={s.slot}
+                    value={s.count} maxValue={nsSlotData[0]?.count ?? 1}
+                    color={C.amber} suffix=" no-shows" />
+                ))}
+              </ChartCard>
+            )}
+
+            {nsTopGuests.length > 0 && (
+              <div className="bg-white border border-gray-100 rounded-xl p-4">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Top no-show guests</p>
+                {nsTopGuests.map((g, i) => (
+                  <div key={i} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium shrink-0"
+                        style={{ background: C.amber + "22", color: C.amber }}>
+                        {g.displayName[0].toUpperCase()}
+                      </div>
+                      <span className="text-sm text-gray-800">{g.displayName}</span>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-xs font-semibold text-gray-700">{g.count} {g.count === 1 ? "time" : "times"}</span>
+                      <span className="text-xs text-gray-300 ml-2">{g.covers} covers</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Walk-ins */}
       {walkIns.length > 0 && (

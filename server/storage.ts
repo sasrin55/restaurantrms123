@@ -93,7 +93,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateReservationStatus(id: string, status: string): Promise<Reservation | undefined> {
-    const [updated] = await db.update(reservations).set({ status }).where(eq(reservations.id, id)).returning();
+    const existing = await db.select().from(reservations).where(eq(reservations.id, id)).limit(1);
+    const previousStatus = existing[0]?.status;
+    const [updated] = await db.update(reservations)
+      .set({ status, previousStatus })
+      .where(eq(reservations.id, id))
+      .returning();
     return updated;
   }
 

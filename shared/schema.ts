@@ -29,6 +29,7 @@ export const reservations = pgTable("reservations", {
   comments: text("comments").default(""),
   takenBy: text("taken_by").default(""),
   status: text("status").notNull().default("booked"),
+  previousStatus: text("previous_status"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
