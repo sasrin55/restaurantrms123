@@ -28,7 +28,7 @@ import {
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { ReservationCard, ReservationRow, type ReservationStatus } from "@/components/reservation-card";
 import { EditReservationDialog } from "@/components/edit-reservation-dialog";
-import { Plus, Search, Calendar, LayoutGrid, List, Loader2, Upload, Users, Clock, Phone, Table2, XCircle, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Plus, Search, Calendar, LayoutGrid, List, Loader2, Upload, Users, Clock, Phone, Table2, XCircle, AlertTriangle, CheckCircle2, X } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format, addDays, startOfWeek, endOfWeek, isWithinInterval, parseISO, isToday, isTomorrow } from "date-fns";
@@ -135,6 +135,15 @@ export default function ReservationsPage() {
     return d ? new Date(d + "T12:00:00") : new Date();
   });
   const [calendarOpen, setCalendarOpen] = useState(false);
+
+  // Cancellations tab own date filter
+  const [cancelDateMode, setCancelDateMode] = useState<"today" | "date" | "range" | "all">("today");
+  const [cancelDate, setCancelDate] = useState<Date | undefined>(undefined);
+  const [cancelRangeFrom, setCancelRangeFrom] = useState<Date | undefined>(undefined);
+  const [cancelRangeTo, setCancelRangeTo] = useState<Date | undefined>(undefined);
+  const [cancelDateOpen, setCancelDateOpen] = useState(false);
+  const [cancelRangeOpen, setCancelRangeOpen] = useState(false);
+
   const [slotFilter, setSlotFilter] = useState<"all" | string>(() => {
     const p = new URLSearchParams(urlSearch);
     return p.get("slot") || "all";
@@ -318,7 +327,19 @@ export default function ReservationsPage() {
       (partySizeFilter === "5-6" && reservation.partySize >= 5 && reservation.partySize <= 6) ||
       (partySizeFilter === "7+" && reservation.partySize >= 7);
 
-    const matchesDate = subTab === "cancellations" ? true : matchesDateFilter(reservation.date);
+    const matchesDate = subTab === "cancellations"
+      ? (() => {
+          if (cancelDateMode === "all") return true;
+          if (cancelDateMode === "today") return reservation.date === format(new Date(), "yyyy-MM-dd");
+          if (cancelDateMode === "date" && cancelDate) return reservation.date === format(cancelDate, "yyyy-MM-dd");
+          if (cancelDateMode === "range" && cancelRangeFrom) {
+            const fromStr = format(cancelRangeFrom, "yyyy-MM-dd");
+            const toStr   = cancelRangeTo ? format(cancelRangeTo, "yyyy-MM-dd") : fromStr;
+            return reservation.date >= fromStr && reservation.date <= toStr;
+          }
+          return true;
+        })()
+      : matchesDateFilter(reservation.date);
     const matchesSubTab = subTabStatuses.includes(reservation.status);
 
     return matchesSearch && matchesStatus && matchesPartySize && matchesDate && matchesSubTab;
@@ -381,9 +402,86 @@ export default function ReservationsPage() {
           </div>
 
           {subTab === "cancellations" ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-200 bg-gray-50 text-xs font-medium text-gray-500" data-testid="badge-all-time">
-              All time
-            </span>
+            <div className="flex items-center gap-1.5 flex-wrap" data-testid="cancel-date-filter">
+              {/* Today */}
+              <button
+                onClick={() => setCancelDateMode("today")}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${cancelDateMode === "today" ? "bg-[#0D7377] text-white border-[#0D7377]" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700"}`}
+                data-testid="button-cancel-filter-today"
+              >
+                Today
+              </button>
+
+              {/* Specific date */}
+              <Popover open={cancelDateOpen} onOpenChange={setCancelDateOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${cancelDateMode === "date" ? "bg-[#0D7377] text-white border-[#0D7377]" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700"}`}
+                    data-testid="button-cancel-filter-date"
+                  >
+                    <Calendar className="h-3.5 w-3.5" />
+                    {cancelDateMode === "date" && cancelDate ? format(cancelDate, "MMM d") : "Date"}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={cancelDate}
+                    onSelect={(d) => { setCancelDate(d); setCancelDateMode("date"); setCancelDateOpen(false); }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+
+              {/* Date range */}
+              <Popover open={cancelRangeOpen} onOpenChange={setCancelRangeOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${cancelDateMode === "range" ? "bg-[#0D7377] text-white border-[#0D7377]" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700"}`}
+                    data-testid="button-cancel-filter-range"
+                  >
+                    <Calendar className="h-3.5 w-3.5" />
+                    {cancelDateMode === "range" && cancelRangeFrom
+                      ? `${format(cancelRangeFrom, "MMM d")}${cancelRangeTo ? ` – ${format(cancelRangeTo, "MMM d")}` : " – …"}`
+                      : "Range"}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="range"
+                    selected={{ from: cancelRangeFrom, to: cancelRangeTo }}
+                    onSelect={(r) => {
+                      setCancelRangeFrom(r?.from);
+                      setCancelRangeTo(r?.to);
+                      setCancelDateMode("range");
+                      if (r?.from && r?.to) setCancelRangeOpen(false);
+                    }}
+                    numberOfMonths={2}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+
+              {/* All time */}
+              <button
+                onClick={() => setCancelDateMode("all")}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${cancelDateMode === "all" ? "bg-[#0D7377] text-white border-[#0D7377]" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700"}`}
+                data-testid="button-cancel-filter-all"
+              >
+                All time
+              </button>
+
+              {/* Clear back to today */}
+              {cancelDateMode !== "today" && (
+                <button
+                  onClick={() => { setCancelDateMode("today"); setCancelDate(undefined); setCancelRangeFrom(undefined); setCancelRangeTo(undefined); }}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                  data-testid="button-cancel-filter-clear"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           ) : (
             <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
               <PopoverTrigger asChild>
@@ -533,7 +631,15 @@ export default function ReservationsPage() {
               {subTab === "completed"
                 ? `No completed reservations ${dateFilter === "today" ? "today" : dateFilter === "tomorrow" ? "tomorrow" : dateFilter === "this-week" ? "this week" : `on ${format(selectedDate, "MMM d")}`}`
                 : subTab === "cancellations"
-                ? "No cancellations or no-shows on record"
+                ? cancelDateMode === "all"
+                  ? "No cancellations or no-shows on record"
+                  : cancelDateMode === "today"
+                  ? "No cancellations or no-shows today"
+                  : cancelDateMode === "date" && cancelDate
+                  ? `No cancellations or no-shows on ${format(cancelDate, "MMM d")}`
+                  : cancelDateMode === "range" && cancelRangeFrom
+                  ? `No cancellations or no-shows in this range`
+                  : "No cancellations or no-shows"
                 : `No reservations ${dateFilter === "today" ? "for today" : dateFilter === "tomorrow" ? "for tomorrow" : dateFilter === "this-week" ? "this week" : `for ${format(selectedDate, "MMM d")}`}`}
             </h3>
             {subTab === "active" && (
