@@ -318,7 +318,7 @@ export default function ReservationsPage() {
       (partySizeFilter === "5-6" && reservation.partySize >= 5 && reservation.partySize <= 6) ||
       (partySizeFilter === "7+" && reservation.partySize >= 7);
 
-    const matchesDate = matchesDateFilter(reservation.date);
+    const matchesDate = subTab === "cancellations" ? true : matchesDateFilter(reservation.date);
     const matchesSubTab = subTabStatuses.includes(reservation.status);
 
     return matchesSearch && matchesStatus && matchesPartySize && matchesDate && matchesSubTab;
@@ -380,61 +380,67 @@ export default function ReservationsPage() {
             />
           </div>
 
-          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-            <PopoverTrigger asChild>
-              <Button 
-                variant="outline" 
-                className="gap-2 min-w-[100px] justify-between" 
-                data-testid="button-date-picker"
-              >
-                <span>{getDateDisplayLabel()}</span>
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <div className="p-2 border-b flex gap-1">
-                <Button
-                  variant={dateFilter === "today" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => {
-                    handleDateFilterChange("today");
-                    setCalendarOpen(false);
-                  }}
-                  data-testid="button-filter-today"
+          {subTab === "cancellations" ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-200 bg-gray-50 text-xs font-medium text-gray-500" data-testid="badge-all-time">
+              All time
+            </span>
+          ) : (
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  className="gap-2 min-w-[100px] justify-between" 
+                  data-testid="button-date-picker"
                 >
-                  Today
+                  <span>{getDateDisplayLabel()}</span>
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
                 </Button>
-                <Button
-                  variant={dateFilter === "tomorrow" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => {
-                    handleDateFilterChange("tomorrow");
-                    setCalendarOpen(false);
-                  }}
-                  data-testid="button-filter-tomorrow"
-                >
-                  Tomorrow
-                </Button>
-                <Button
-                  variant={dateFilter === "this-week" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => {
-                    setDateFilter("this-week");
-                    setCalendarOpen(false);
-                  }}
-                  data-testid="button-filter-this-week"
-                >
-                  This Week
-                </Button>
-              </div>
-              <CalendarComponent
-                mode="single"
-                selected={selectedDate}
-                onSelect={handleCalendarSelect}
-                initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <div className="p-2 border-b flex gap-1">
+                  <Button
+                    variant={dateFilter === "today" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => {
+                      handleDateFilterChange("today");
+                      setCalendarOpen(false);
+                    }}
+                    data-testid="button-filter-today"
+                  >
+                    Today
+                  </Button>
+                  <Button
+                    variant={dateFilter === "tomorrow" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => {
+                      handleDateFilterChange("tomorrow");
+                      setCalendarOpen(false);
+                    }}
+                    data-testid="button-filter-tomorrow"
+                  >
+                    Tomorrow
+                  </Button>
+                  <Button
+                    variant={dateFilter === "this-week" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => {
+                      setDateFilter("this-week");
+                      setCalendarOpen(false);
+                    }}
+                    data-testid="button-filter-this-week"
+                  >
+                    This Week
+                  </Button>
+                </div>
+                <CalendarComponent
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={handleCalendarSelect}
+                  initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+          )}
 
           {subTab === "active" && (
             <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -527,7 +533,7 @@ export default function ReservationsPage() {
               {subTab === "completed"
                 ? `No completed reservations ${dateFilter === "today" ? "today" : dateFilter === "tomorrow" ? "tomorrow" : dateFilter === "this-week" ? "this week" : `on ${format(selectedDate, "MMM d")}`}`
                 : subTab === "cancellations"
-                ? `No cancellations or no-shows ${dateFilter === "today" ? "today" : dateFilter === "tomorrow" ? "tomorrow" : dateFilter === "this-week" ? "this week" : `on ${format(selectedDate, "MMM d")}`}`
+                ? "No cancellations or no-shows on record"
                 : `No reservations ${dateFilter === "today" ? "for today" : dateFilter === "tomorrow" ? "for tomorrow" : dateFilter === "this-week" ? "this week" : `for ${format(selectedDate, "MMM d")}`}`}
             </h3>
             {subTab === "active" && (
