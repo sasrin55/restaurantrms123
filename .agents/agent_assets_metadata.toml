@@ -54,3 +54,9 @@ id = "B5TUbTfIS-Cdq6cJkaWqv"
 uri = "file://slide8_analytics.png"
 type = "image"
 title = "Image 5 — Analytics Dashboard"
+
+[[outputs]]
+id = "Odlz60k3GphVP2Jad0VLZ"
+uri = "file://Seated_Product_Brochure.pdf"
+type = "pdf"
+title = "Seated — Product Brochure (8 pages)"
