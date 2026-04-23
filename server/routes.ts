@@ -37,6 +37,20 @@ export async function registerRoutes(
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.errors });
     }
+
+    // Block double-booking: reject if table already has an active reservation at this date/time
+    const conflict = await storage.checkTableConflict(
+      parsed.data.tableId,
+      parsed.data.date,
+      parsed.data.time
+    );
+    if (conflict) {
+      return res.status(409).json({
+        error: `${parsed.data.tableName} is already booked for ${parsed.data.time} — double booking prevented`,
+        conflict: { customerName: conflict.customerName, status: conflict.status },
+      });
+    }
+
     const reservation = await storage.createReservation(parsed.data);
 
     await storage.upsertGuest(
@@ -90,6 +104,25 @@ export async function registerRoutes(
     if (phoneNumber !== undefined) updates.phoneNumber = phoneNumber;
     if (comments !== undefined) updates.comments = comments;
     if (customerName !== undefined) updates.customerName = customerName;
+
+    // If the edit changes table/date/time, block conflicts with other reservations (exclude self)
+    if (updates.tableId !== undefined || updates.date !== undefined || updates.time !== undefined) {
+      const current = await storage.getReservation(req.params.id);
+      if (current) {
+        const checkTableId = updates.tableId ?? current.tableId;
+        const checkDate    = updates.date    ?? current.date;
+        const checkTime    = updates.time    ?? current.time;
+        const checkName    = updates.tableName ?? current.tableName;
+        const conflict = await storage.checkTableConflict(checkTableId, checkDate, checkTime, req.params.id);
+        if (conflict) {
+          return res.status(409).json({
+            error: `${checkName} is already booked for ${checkTime} — double booking prevented`,
+            conflict: { customerName: conflict.customerName, status: conflict.status },
+          });
+        }
+      }
+    }
+
     const reservation = await storage.updateReservation(req.params.id, updates);
     if (!reservation) {
       return res.status(404).json({ error: "Reservation not found" });

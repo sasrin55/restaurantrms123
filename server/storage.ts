@@ -13,6 +13,7 @@ export interface IStorage {
   updateReservation(id: string, updates: Partial<Reservation>): Promise<Reservation | undefined>;
   updateReservationStatus(id: string, status: string): Promise<Reservation | undefined>;
   deleteReservation(id: string): Promise<boolean>;
+  checkTableConflict(tableId: number, date: string, time: string, excludeId?: string): Promise<Reservation | undefined>;
 
   getGuests(): Promise<Guest[]>;
   getGuest(id: string): Promise<Guest | undefined>;
@@ -105,6 +106,14 @@ export class DatabaseStorage implements IStorage {
   async deleteReservation(id: string): Promise<boolean> {
     const result = await db.delete(reservations).where(eq(reservations.id, id)).returning();
     return result.length > 0;
+  }
+
+  async checkTableConflict(tableId: number, date: string, time: string, excludeId?: string): Promise<Reservation | undefined> {
+    const ACTIVE_STATUSES = new Set(["booked", "confirmed", "seated"]);
+    const rows = await db.select().from(reservations).where(
+      and(eq(reservations.tableId, tableId), eq(reservations.date, date), eq(reservations.time, time))
+    );
+    return rows.find(r => ACTIVE_STATUSES.has(r.status) && r.id !== excludeId);
   }
 
   async getGuests(): Promise<Guest[]> {

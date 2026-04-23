@@ -108,6 +108,19 @@ export default function NewCustomerPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/guests"] });
       setConfirmed(true);
     },
+    onError: (err: any) => {
+      const msg = err?.message || "Failed to create reservation";
+      const isConflict = msg.includes("already booked") || err?.status === 409;
+      toast({
+        title: isConflict ? "Table already booked" : "Error",
+        description: isConflict
+          ? msg
+          : msg,
+        variant: "destructive",
+      });
+      // Re-fetch reservations so the UI immediately reflects the conflict
+      queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
+    },
   });
 
   const canSubmit = mode === "reservation"

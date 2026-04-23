@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,7 @@ export function EditReservationDialog({
   open,
   onOpenChange,
 }: EditReservationDialogProps) {
+  const { toast } = useToast();
   const [customerName, setCustomerName] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -170,6 +172,15 @@ export function EditReservationDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
       onOpenChange(false);
+    },
+    onError: (err: any) => {
+      const msg = err?.message || "Failed to update reservation";
+      toast({
+        title: msg.includes("already booked") ? "Table already booked" : "Error",
+        description: msg,
+        variant: "destructive",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
     },
   });
 
