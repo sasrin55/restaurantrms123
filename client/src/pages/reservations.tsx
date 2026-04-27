@@ -3,6 +3,7 @@ import { Link, useLocation, useSearch } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,6 +14,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -28,7 +36,7 @@ import {
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { ReservationCard, ReservationRow, type ReservationStatus } from "@/components/reservation-card";
 import { EditReservationDialog } from "@/components/edit-reservation-dialog";
-import { Plus, Search, Calendar, LayoutGrid, List, Loader2, Upload, Users, Clock, Phone, Table2, XCircle, AlertTriangle, CheckCircle2, X } from "lucide-react";
+import { Plus, Search, Calendar, LayoutGrid, List, Loader2, Send, Upload, Users, Clock, Phone, Table2, XCircle, AlertTriangle, CheckCircle2, X } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format, addDays, startOfWeek, endOfWeek, isWithinInterval, parseISO, isToday, isTomorrow } from "date-fns";
@@ -171,6 +179,11 @@ export default function ReservationsPage() {
 
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [pendingDeleteGroup, setPendingDeleteGroup] = useState<GroupedReservation | null>(null);
+  const [waDialogOpen, setWaDialogOpen] = useState(false);
+  const [waMessage, setWaMessage] = useState("");
+  const [waPhone, setWaPhone] = useState("");
+  const [waGuestName, setWaGuestName] = useState("");
+  const [waSending, setWaSending] = useState(false);
 
   const deleteReservationMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -256,6 +269,35 @@ export default function ReservationsPage() {
       for (const id of group.ids) {
         updateStatusMutation.mutate({ id, status: "cancelled" });
       }
+    }
+  };
+
+  const handleOpenWaReminderDialog = (group: GroupedReservation) => {
+    const resDate = group.date ? new Date(group.date + "T00:00:00") : null;
+    const dayLabel = resDate
+      ? format(resDate, "EEEE, do MMMM")
+      : group.date;
+    const msg = `Dear Guest,\n\nYou have a reservation with us on ${dayLabel} at ${group.time}.\n\nPlease reply YES to confirm your reservation.\n\nWe hold tables for just 15 mins and request your punctuality to ensure a pleasant and comfortable dining experience.\n\nBest Regards,\nTeam Paola's`;
+    setWaGuestName(group.customerName);
+    setWaPhone(group.phoneNumber);
+    setWaMessage(msg);
+    setWaDialogOpen(true);
+  };
+
+  const handleSendWaReminder = async () => {
+    setWaSending(true);
+    try {
+      await apiRequest("POST", "/api/whatsapp/send", {
+        name: waGuestName,
+        phone: waPhone,
+        message: waMessage,
+      });
+      setWaDialogOpen(false);
+      toast({ title: "Message sent", description: "WhatsApp confirmation sent successfully." });
+    } catch (err: any) {
+      toast({ title: "Failed to send", description: err?.message || "Could not reach WhatsApp service.", variant: "destructive" });
+    } finally {
+      setWaSending(false);
     }
   };
 
@@ -702,6 +744,7 @@ export default function ReservationsPage() {
                           onPrimaryAction={() => handleGroupPrimaryAction(group)}
                           onSecondaryAction={() => handleGroupSecondaryAction(group)}
                           onTertiaryAction={() => handleGroupTertiaryAction(group)}
+                          onSendConfirmation={() => handleOpenWaReminderDialog(group)}
                         />
                       ))}
                     </div>
@@ -759,6 +802,7 @@ export default function ReservationsPage() {
                               onPrimaryAction={() => handleGroupPrimaryAction(group)}
                               onSecondaryAction={() => handleGroupSecondaryAction(group)}
                               onTertiaryAction={() => handleGroupTertiaryAction(group)}
+                              onSendConfirmation={() => handleOpenWaReminderDialog(group)}
                             />
                           ))}
                         </tbody>
@@ -808,6 +852,40 @@ export default function ReservationsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={waDialogOpen} onOpenChange={setWaDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send Confirmation Text</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              Sending to <span className="font-medium text-foreground">{waGuestName}</span> at <span className="font-medium text-foreground">{waPhone}</span>. Edit the message before sending.
+            </p>
+            <Textarea
+              value={waMessage}
+              onChange={(e) => setWaMessage(e.target.value)}
+              rows={9}
+              className="resize-none text-sm"
+              data-testid="textarea-wa-reminder-message"
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setWaDialogOpen(false)} disabled={waSending} data-testid="button-wa-reminder-cancel">
+              Cancel
+            </Button>
+            <Button
+              className="bg-[#0D7377] text-white gap-2"
+              onClick={handleSendWaReminder}
+              disabled={waSending || !waMessage.trim()}
+              data-testid="button-wa-reminder-send"
+            >
+              {waSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {waSending ? "Sending…" : "Send"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

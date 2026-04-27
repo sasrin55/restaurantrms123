@@ -300,7 +300,7 @@ export default function NewCustomerPage() {
     const monthName = format(effectiveDate, "MMMM");
     const serverName = takenBy.trim() || "your host";
     const name = customerName.trim() || "Guest";
-    return `Hello, this is ${serverName} from Paola's Cosa Nostra. Just a quick note that your table for ${parsedSize} has been reserved this coming ${dayName}, ${ordinalSuffix(day)} of ${monthName} at ${time}. The table is reserved under the name of ${name}. We look forward to welcoming you.`;
+    return `Hello! This is ${serverName} from Paola's Cosa Nostra.\n\nJust a quick note that your table for ${parsedSize} has been reserved this coming ${dayName}, ${ordinalSuffix(day)} ${monthName} at ${time} under the name ${name}.\n\nWe look forward to welcoming you.`;
   };
 
   const handleOpenWaDialog = () => {

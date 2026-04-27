@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Clock, Users, Phone, MessageSquare, Pencil, UserCheck } from "lucide-react";
+import { Clock, Users, Phone, MessageSquare, Pencil, Send, UserCheck } from "lucide-react";
 
 export type ReservationStatus = "booked" | "seated" | "confirmed" | "no-show" | "complete" | "cancelled";
 
@@ -19,6 +19,7 @@ interface ReservationCardProps {
   onPrimaryAction?: () => void;
   onSecondaryAction?: () => void;
   onTertiaryAction?: () => void;
+  onSendConfirmation?: () => void;
 }
 
 const statusConfig: Record<ReservationStatus, { label: string; className: string }> = {
@@ -106,6 +107,7 @@ export function ReservationCard({
   onPrimaryAction,
   onSecondaryAction,
   onTertiaryAction,
+  onSendConfirmation,
 }: ReservationCardProps) {
   const statusStyle = statusConfig[status] ?? { label: status, className: "bg-gray-400 text-white" };
   const actions = getActionButtons(status);
@@ -207,6 +209,19 @@ export function ReservationCard({
             {actions.secondary.label}
           </Button>
         )}
+        {(status === "booked" || status === "confirmed") && onSendConfirmation && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onSendConfirmation}
+            disabled={disabled}
+            className="gap-1.5 text-[#0D7377] border-[#0D7377]/40 hover:bg-[#0D7377]/10"
+            data-testid={`button-send-wa-${id}`}
+          >
+            <Send className="h-3.5 w-3.5" />
+            Send Confirmation Text
+          </Button>
+        )}
       </div>
     </Card>
   );
@@ -227,6 +242,7 @@ interface ReservationRowProps {
   onPrimaryAction?: () => void;
   onSecondaryAction?: () => void;
   onTertiaryAction?: () => void;
+  onSendConfirmation?: () => void;
 }
 
 export function ReservationRow({
@@ -244,6 +260,7 @@ export function ReservationRow({
   onPrimaryAction,
   onSecondaryAction,
   onTertiaryAction,
+  onSendConfirmation,
 }: ReservationRowProps) {
   const statusStyle = statusConfig[status] ?? { label: status, className: "bg-gray-400 text-white" };
   const actions = getActionButtons(status);
@@ -305,6 +322,19 @@ export function ReservationRow({
               data-testid={`button-secondary-row-${id}`}
             >
               {actions.secondary.label}
+            </Button>
+          )}
+          {(status === "booked" || status === "confirmed") && onSendConfirmation && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onSendConfirmation}
+              disabled={disabled}
+              className="gap-1.5 text-[#0D7377] border-[#0D7377]/40 hover:bg-[#0D7377]/10 whitespace-nowrap"
+              data-testid={`button-send-wa-row-${id}`}
+            >
+              <Send className="h-3.5 w-3.5" />
+              Send Confirmation Text
             </Button>
           )}
         </div>
