@@ -252,7 +252,7 @@ export function EditReservationDialog({
                 <SelectValue placeholder="Select party size" />
               </SelectTrigger>
               <SelectContent>
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((size) => (
+                {Array.from({ length: 25 }, (_, i) => i + 1).map((size) => (
                   <SelectItem key={size} value={size.toString()}>
                     {size} {size === 1 ? "person" : "people"}
                   </SelectItem>
