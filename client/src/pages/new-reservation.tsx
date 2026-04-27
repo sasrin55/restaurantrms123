@@ -130,6 +130,47 @@ export default function NewCustomerPage() {
   const handleSubmit = () => {
     if (canSubmit) {
       createMutation.mutate();
+      return;
+    }
+    // Show specific feedback about what's missing
+    if (mode === "walkin") {
+      if (!time) {
+        toast({ title: "Select a time slot", description: "Please choose a time slot before seating the walk-in.", variant: "destructive" });
+        return;
+      }
+      if (parsedSize <= 0) {
+        toast({ title: "Enter party size", description: "Please enter how many guests are in the party.", variant: "destructive" });
+        return;
+      }
+      if (selectedTables.length === 0) {
+        toast({ title: "Select a table", description: "Please select at least one table to seat the guest.", variant: "destructive" });
+        return;
+      }
+    } else {
+      if (!date) {
+        toast({ title: "Select a date", description: "Please choose the reservation date.", variant: "destructive" });
+        return;
+      }
+      if (!time) {
+        toast({ title: "Select a time slot", description: "Please choose a time slot.", variant: "destructive" });
+        return;
+      }
+      if (parsedSize <= 0) {
+        toast({ title: "Enter party size", description: "Please enter how many guests are in the party.", variant: "destructive" });
+        return;
+      }
+      if (selectedTables.length === 0) {
+        toast({ title: "Select a table", description: "Please select at least one table.", variant: "destructive" });
+        return;
+      }
+      if (!customerName.trim()) {
+        toast({ title: "Enter guest name", description: "Please enter the guest's name.", variant: "destructive" });
+        return;
+      }
+      if (!phoneNumber.trim()) {
+        toast({ title: "Enter phone number", description: "Please enter the guest's phone number.", variant: "destructive" });
+        return;
+      }
     }
   };
 
@@ -560,7 +601,7 @@ export default function NewCustomerPage() {
           <Button
             className="w-full bg-[#0D7377] text-white"
             onClick={handleSubmit}
-            disabled={!canSubmit || createMutation.isPending}
+            disabled={createMutation.isPending}
             data-testid="button-create-reservation"
           >
             {createMutation.isPending
