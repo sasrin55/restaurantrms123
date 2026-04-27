@@ -65,10 +65,6 @@ export async function registerRoutes(
       console.error("Google Sheets sync error:", err)
     );
 
-    // WhatsApp confirmation — non-blocking, never fails the request
-    sendWhatsAppConfirmation(reservation.customerName, reservation.phoneNumber)
-      .catch(err => console.error("[WhatsApp] Reservation creation notice failed:", err));
-
     res.status(201).json(reservation);
   });
 
@@ -93,12 +89,6 @@ export async function registerRoutes(
         reservation.date,
         reservation.partySize,
       ).catch(err => console.error("Failed to update guest no-show count:", err));
-    }
-
-    // WhatsApp confirmation when staff manually confirms a booking
-    if (status === "confirmed") {
-      sendWhatsAppConfirmation(reservation.customerName, reservation.phoneNumber)
-        .catch(err => console.error("[WhatsApp] Confirmation notice failed:", err));
     }
 
     res.json(reservation);
@@ -705,6 +695,21 @@ export async function registerRoutes(
     const ok = await storage.deleteStaffMember(id);
     if (!ok) return res.status(404).json({ error: "Not found" });
     res.status(204).end();
+  });
+
+  // ── WhatsApp send endpoint ─────────────────────────────────────────────────
+  // POST /api/whatsapp/send  { "name": "...", "phone": "...", "message": "..." }
+  app.post("/api/whatsapp/send", async (req, res) => {
+    const { name, phone, message } = req.body;
+    if (!name || !phone || !message) {
+      return res.status(400).json({ error: "'name', 'phone', and 'message' are required" });
+    }
+    try {
+      const result = await sendWhatsAppConfirmation(String(name), String(phone), String(message));
+      res.json({ ok: true, chat_id: result.chat_id });
+    } catch (err: any) {
+      res.status(502).json({ ok: false, error: err.message });
+    }
   });
 
   // ── WhatsApp test endpoint ─────────────────────────────────────────────────

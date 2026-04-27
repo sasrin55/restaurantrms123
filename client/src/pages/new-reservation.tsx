@@ -15,15 +15,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar as CalendarIcon, Check, Send, X } from "lucide-react";
+import { Calendar as CalendarIcon, Check, Loader2, Send, X } from "lucide-react";
 import { StaffSelect } from "@/components/staff-select";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { restaurantTables, TABLE_SECTIONS, getTablesBySection } from "@/lib/tables";
 import { getTimeSlotsForDate, isMonday, getPeriodLabel, type MealPeriod } from "@/lib/timeSlots";
 import restaurantBg from "@/assets/images/restaurant-bg.jpg";
+
+function ordinalSuffix(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
 
 type CustomerMode = "reservation" | "walkin";
 
@@ -40,6 +53,10 @@ export default function NewCustomerPage() {
 
   const [mode, setMode] = useState<CustomerMode>("reservation");
   const [confirmed, setConfirmed] = useState(false);
+  const [waDialogOpen, setWaDialogOpen] = useState(false);
+  const [waMessage, setWaMessage] = useState("");
+  const [waSending, setWaSending] = useState(false);
+  const [waSent, setWaSent] = useState(false);
 
   const [date, setDate] = useState<Date | undefined>(() => {
     if (preDateStr) {
@@ -276,6 +293,40 @@ export default function NewCustomerPage() {
   );
 
 
+  const buildWaTemplate = () => {
+    if (!effectiveDate) return "";
+    const dayName = format(effectiveDate, "EEEE");
+    const day = effectiveDate.getDate();
+    const monthName = format(effectiveDate, "MMMM");
+    const serverName = takenBy.trim() || "your host";
+    const name = customerName.trim() || "Guest";
+    return `Hello, this is ${serverName} from Paola's Cosa Nostra. Just a quick note that your table for ${parsedSize} has been reserved this coming ${dayName}, ${ordinalSuffix(day)} of ${monthName} at ${time}. The table is reserved under the name of ${name}. We look forward to welcoming you.`;
+  };
+
+  const handleOpenWaDialog = () => {
+    setWaMessage(buildWaTemplate());
+    setWaSent(false);
+    setWaDialogOpen(true);
+  };
+
+  const handleSendWa = async () => {
+    setWaSending(true);
+    try {
+      const res = await apiRequest("POST", "/api/whatsapp/send", {
+        name: customerName.trim() || "Guest",
+        phone: phoneNumber.trim(),
+        message: waMessage,
+      });
+      setWaSent(true);
+      setWaDialogOpen(false);
+      toast({ title: "Message sent", description: "WhatsApp confirmation has been sent." });
+    } catch (err: any) {
+      toast({ title: "Failed to send", description: err?.message || "Could not reach WhatsApp service.", variant: "destructive" });
+    } finally {
+      setWaSending(false);
+    }
+  };
+
   if (confirmed) {
     return (
       <div
@@ -366,9 +417,14 @@ export default function NewCustomerPage() {
             </div>
             <div className="mt-6 space-y-3">
               {mode === "reservation" && (
-                <Button variant="outline" className="w-full gap-2" data-testid="button-send-confirmation">
-                  <Send className="h-4 w-4" />
-                  Send Confirmation
+                <Button
+                  variant="outline"
+                  className={`w-full gap-2 ${waSent ? "border-green-500 text-green-600" : ""}`}
+                  onClick={handleOpenWaDialog}
+                  data-testid="button-send-confirmation"
+                >
+                  {waSent ? <Check className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+                  {waSent ? "Message Sent" : "Send WhatsApp Confirmation"}
                 </Button>
               )}
               <Button
@@ -381,6 +437,40 @@ export default function NewCustomerPage() {
             </div>
           </Card>
         </div>
+
+        <Dialog open={waDialogOpen} onOpenChange={setWaDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Send WhatsApp Confirmation</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              <p className="text-sm text-muted-foreground">
+                Review and edit the message before sending to <span className="font-medium text-foreground">{phoneNumber}</span>.
+              </p>
+              <Textarea
+                value={waMessage}
+                onChange={(e) => setWaMessage(e.target.value)}
+                rows={7}
+                className="resize-none text-sm"
+                data-testid="textarea-wa-message"
+              />
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setWaDialogOpen(false)} disabled={waSending} data-testid="button-wa-cancel">
+                Cancel
+              </Button>
+              <Button
+                className="bg-[#0D7377] text-white gap-2"
+                onClick={handleSendWa}
+                disabled={waSending || !waMessage.trim()}
+                data-testid="button-wa-send"
+              >
+                {waSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {waSending ? "Sending…" : "Send"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
