@@ -80,9 +80,16 @@ function groupReservations(reservations: Reservation[]): GroupedReservation[] {
   const groups = new Map<string, Reservation[]>();
 
   for (const r of reservations) {
+    // If the reservation has a groupId, always group by it (handles multi-table walk-ins)
+    if ((r as any).groupId) {
+      const key = `group:${(r as any).groupId}`;
+      const existing = groups.get(key);
+      if (existing) { existing.push(r); } else { groups.set(key, [r]); }
+      continue;
+    }
     const phone = (r.phoneNumber || "").trim().toLowerCase();
     const isAnonymous = !phone || phone === "n/a" || phone === "na" || phone === "any";
-    // Anonymous / walk-in guests should never be grouped together — use unique ID
+    // Anonymous / walk-in guests without a groupId are always separate cards
     const key = isAnonymous
       ? r.id
       : `${r.customerName}|${r.date}|${r.time}|${r.phoneNumber}`;

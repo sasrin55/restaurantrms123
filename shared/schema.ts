@@ -19,6 +19,7 @@ export type User = typeof users.$inferSelect;
 
 export const reservations = pgTable("reservations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  groupId: varchar("group_id"),
   customerName: text("customer_name").notNull(),
   phoneNumber: text("phone_number").notNull(),
   date: text("date").notNull(),

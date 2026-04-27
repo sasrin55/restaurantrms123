@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -83,9 +83,13 @@ export default function NewCustomerPage() {
   const createMutation = useMutation({
     mutationFn: async () => {
       const dateStr = effectiveDate ? format(effectiveDate, "yyyy-MM-dd") : "";
+      // Generate a shared groupId when multiple tables are booked together
+      const groupId = selectedTables.length > 1
+        ? crypto.randomUUID()
+        : undefined;
       const promises = selectedTables.map((table) => {
         const isTepanyaki = table.id >= 1001 && table.id <= 1008;
-        const payload = {
+        const payload: Record<string, unknown> = {
           customerName: mode === "walkin" ? (customerName.trim() || "Walk-in Guest") : customerName,
           phoneNumber: mode === "walkin" ? (phoneNumber.trim() || "N/A") : phoneNumber,
           date: dateStr,
@@ -99,6 +103,7 @@ export default function NewCustomerPage() {
           takenBy: takenBy.trim(),
           status: mode === "walkin" ? "seated" : "booked",
         };
+        if (groupId) payload.groupId = groupId;
         return apiRequest("POST", "/api/reservations", payload);
       });
       return Promise.all(promises);
