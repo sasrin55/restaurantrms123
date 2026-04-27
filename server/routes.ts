@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { insertReservationSchema, insertOrderSchema, insertOrderItemSchema, insertMenuItemSchema, guests } from "@shared/schema";
 import { menuCategories } from "@shared/menuData";
 import { appendReservationToSheet, updateReservationInSheet, exportAllReservationsToSheet, syncFromSheet, fetchAllSheetTabsData, type SheetReservationUpdate, type SheetNewReservation } from "./googleSheets";
+import { sendWhatsAppConfirmation } from "./whatsapp";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -64,6 +65,10 @@ export async function registerRoutes(
       console.error("Google Sheets sync error:", err)
     );
 
+    // WhatsApp confirmation — non-blocking, never fails the request
+    sendWhatsAppConfirmation(reservation.customerName, reservation.phoneNumber)
+      .catch(err => console.error("[WhatsApp] Reservation creation notice failed:", err));
+
     res.status(201).json(reservation);
   });
 
@@ -88,6 +93,12 @@ export async function registerRoutes(
         reservation.date,
         reservation.partySize,
       ).catch(err => console.error("Failed to update guest no-show count:", err));
+    }
+
+    // WhatsApp confirmation when staff manually confirms a booking
+    if (status === "confirmed") {
+      sendWhatsAppConfirmation(reservation.customerName, reservation.phoneNumber)
+        .catch(err => console.error("[WhatsApp] Confirmation notice failed:", err));
     }
 
     res.json(reservation);
@@ -694,6 +705,22 @@ export async function registerRoutes(
     const ok = await storage.deleteStaffMember(id);
     if (!ok) return res.status(404).json({ error: "Not found" });
     res.status(204).end();
+  });
+
+  // ── WhatsApp test endpoint ─────────────────────────────────────────────────
+  // POST /api/admin/test-whatsapp  { "name": "...", "phone": "..." }
+  // Use this to verify the WA microservice connection without making a real reservation.
+  app.post("/api/admin/test-whatsapp", async (req, res) => {
+    const { name, phone } = req.body;
+    if (!name || !phone) {
+      return res.status(400).json({ error: "Both 'name' and 'phone' are required" });
+    }
+    try {
+      const result = await sendWhatsAppConfirmation(String(name), String(phone));
+      res.json({ ok: true, chat_id: result.chat_id, message: `Test message sent to ${phone}` });
+    } catch (err: any) {
+      res.status(502).json({ ok: false, error: err.message });
+    }
   });
 
   return httpServer;
