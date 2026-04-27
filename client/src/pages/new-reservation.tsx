@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 import { Calendar as CalendarIcon, Check, Send, X } from "lucide-react";
 import { StaffSelect } from "@/components/staff-select";
 import { format } from "date-fns";
@@ -27,6 +28,7 @@ import restaurantBg from "@/assets/images/restaurant-bg.jpg";
 type CustomerMode = "reservation" | "walkin";
 
 export default function NewCustomerPage() {
+  const { toast } = useToast();
   const [, navigate] = useLocation();
   const searchStr = useSearch();
   const params = useMemo(() => new URLSearchParams(searchStr), [searchStr]);
