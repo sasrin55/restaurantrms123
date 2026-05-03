@@ -18,6 +18,7 @@ import MenuManagementPage from "@/pages/menu-management";
 import PastOrdersPage from "@/pages/past-orders";
 import CallsPage from "@/pages/calls";
 import WaitlistPage from "@/pages/waitlist";
+import SettingsPage from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -47,6 +48,9 @@ function Router() {
       </Route>
       <Route path="/calls">
         <ProtectedRoute><CallsPage /></ProtectedRoute>
+      </Route>
+      <Route path="/settings">
+        <ProtectedRoute><SettingsPage /></ProtectedRoute>
       </Route>
 
       <Route component={NotFound} />
