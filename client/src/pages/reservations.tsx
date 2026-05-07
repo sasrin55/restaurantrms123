@@ -90,7 +90,8 @@ function groupReservations(reservations: Reservation[]): GroupedReservation[] {
   for (const r of reservations) {
     // If the reservation has a groupId, always group by it (handles multi-table walk-ins)
     if ((r as any).groupId) {
-      const key = `group:${(r as any).groupId}`;
+      // Include status so that if one table in a group gets cancelled, it shows separately
+      const key = `group:${(r as any).groupId}:${r.status}`;
       const existing = groups.get(key);
       if (existing) { existing.push(r); } else { groups.set(key, [r]); }
       continue;
@@ -98,9 +99,10 @@ function groupReservations(reservations: Reservation[]): GroupedReservation[] {
     const phone = (r.phoneNumber || "").trim().toLowerCase();
     const isAnonymous = !phone || phone === "n/a" || phone === "na" || phone === "any";
     // Anonymous / walk-in guests without a groupId are always separate cards
+    // Status is included in the key so reservations with different statuses never merge
     const key = isAnonymous
       ? r.id
-      : `${r.customerName}|${r.date}|${r.time}|${r.phoneNumber}`;
+      : `${r.customerName}|${r.date}|${r.time}|${r.phoneNumber}|${r.status}`;
     const existing = groups.get(key);
     if (existing) {
       existing.push(r);
