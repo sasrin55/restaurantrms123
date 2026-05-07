@@ -1,19 +1,30 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { ChevronLeft, ChevronRight, Trash2, ArrowRight, Clock, Users, Phone } from "lucide-react";
 import type { Reservation } from "@shared/schema";
 import { format, addDays, subDays, isToday } from "date-fns";
 import { restaurantTables, TABLE_SECTIONS, getTablesBySection, type TableSection } from "@/lib/tables";
 import { getTimeSlotsForDate, getPeriodLabel } from "@/lib/timeSlots";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function TablesPage() {
   const [, navigate] = useLocation();
+  const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const dateStr = format(selectedDate, "yyyy-MM-dd");
 
   const slots = getTimeSlotsForDate(selectedDate);
@@ -27,6 +38,19 @@ export default function TablesPage() {
     staleTime: 0,
     refetchOnMount: "always",
     refetchInterval: 30_000,
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiRequest("PATCH", `/api/reservations/${id}/status`, { status: "cancelled" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
+      setSelectedReservation(null);
+      toast({ title: "Reservation removed", description: "The reservation has been cancelled." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Could not cancel the reservation.", variant: "destructive" });
+    },
   });
 
   const activeReservations = reservations.filter((r) => {
@@ -71,7 +95,7 @@ export default function TablesPage() {
 
     const handleCardClick = () => {
       if (!isAvailable && reservation) {
-        navigate(`/?date=${dateStr}&slot=${encodeURIComponent(reservation.time)}`);
+        setSelectedReservation(reservation);
       } else if (isAvailable) {
         const slotParam = selectedSlot ? `&slot=${encodeURIComponent(selectedSlot)}` : "";
         navigate(`/new-reservation?tableId=${table.id}&tableNumber=${encodeURIComponent(table.number)}&date=${dateStr}${slotParam}`);
@@ -197,6 +221,59 @@ export default function TablesPage() {
           })}
         </div>
       </div>
+
+      {/* Reservation action dialog */}
+      <Dialog open={!!selectedReservation} onOpenChange={(open) => { if (!open) setSelectedReservation(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{selectedReservation?.tableName}</DialogTitle>
+          </DialogHeader>
+          {selectedReservation && (
+            <div className="space-y-3 py-1">
+              <p className="font-semibold text-foreground text-lg">{selectedReservation.customerName}</p>
+              <div className="space-y-1.5 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 shrink-0" />
+                  <span>{selectedReservation.time}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 shrink-0" />
+                  <span>{selectedReservation.partySize} {selectedReservation.partySize === 1 ? "person" : "people"}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 shrink-0" />
+                  <span>{selectedReservation.phoneNumber}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => {
+                if (selectedReservation) {
+                  navigate(`/?date=${dateStr}&slot=${encodeURIComponent(selectedReservation.time)}`);
+                  setSelectedReservation(null);
+                }
+              }}
+              data-testid="button-table-view-reservation"
+            >
+              <ArrowRight className="h-4 w-4" />
+              View in Reservations
+            </Button>
+            <Button
+              className="w-full gap-2 bg-rose-600 hover:bg-rose-700 text-white"
+              onClick={() => selectedReservation && cancelMutation.mutate(selectedReservation.id)}
+              disabled={cancelMutation.isPending}
+              data-testid="button-table-cancel-reservation"
+            >
+              <Trash2 className="h-4 w-4" />
+              {cancelMutation.isPending ? "Removing…" : "Remove Reservation"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
