@@ -24,6 +24,9 @@ export default function TablesPage() {
 
   const { data: reservations = [] } = useQuery<Reservation[]>({
     queryKey: ["/api/reservations"],
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchInterval: 30_000,
   });
 
   const activeReservations = reservations.filter((r) => {
