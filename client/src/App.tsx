@@ -20,6 +20,8 @@ import PastOrdersPage from "@/pages/past-orders";
 import CallsPage from "@/pages/calls";
 import WaitlistPage from "@/pages/waitlist";
 import SettingsPage from "@/pages/settings";
+import ServersPage from "@/pages/servers";
+import ServerDetailPage from "@/pages/server-detail";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -52,6 +54,12 @@ function Router() {
       </Route>
       <Route path="/calls">
         <ProtectedRoute><CallsPage /></ProtectedRoute>
+      </Route>
+      <Route path="/servers">
+        <ProtectedRoute><ServersPage /></ProtectedRoute>
+      </Route>
+      <Route path="/servers/:name">
+        <ProtectedRoute><ServerDetailPage /></ProtectedRoute>
       </Route>
       <Route path="/settings">
         <ProtectedRoute><SettingsPage /></ProtectedRoute>
