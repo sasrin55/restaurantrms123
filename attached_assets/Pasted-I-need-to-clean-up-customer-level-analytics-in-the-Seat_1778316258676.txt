@@ -1,0 +1,40 @@
+I need to clean up customer-level analytics in the Seated Analytics tab. There's a fundamental data-quality issue and a display issue — both apply anywhere we aggregate per-customer.
+
+The problem (visible in Analytics → "Top Returning Guests"):
+
+The current top customers list shows entries like:
+
+hold — 55 visits, 212 covers
+Anuall day closed — 24 visits, 48 covers
+These are not real customers. Staff are typing free-form names like "hold" or "Annual day closed" as the customer name when they're blocking out tables. The current code groups by the customer_name column, which means any text typed in that field gets aggregated as if it were a customer.
+
+What I want instead:
+
+Group customer aggregations by phone number, not name. Phone is the unique identifier. Two reservations under the same name but different phones = two different customers. Two reservations under different names ("Ahmed", "Ahmed K", "Ahmed Khan") with the same phone = one customer.
+
+For each unique phone, display the most recently used name alongside the phone number. Format like: Ahmed Khan · +92 300 1234567 or whatever fits the existing UI styling. Phone is the source of truth, name is decoration.
+
+Filter out entries that aren't real customers before aggregating. Exclude any reservation where:
+
+customer_phone is null, empty, or fewer than 10 digits after stripping non-numeric characters
+customer_phone matches obvious placeholder values like all zeroes, "0000000000", "n/a", "hold", "block", etc.
+Apply the same logic everywhere customer-level analytics are computed. That includes at minimum:
+
+Top Returning Guests (in Analytics)
+No-show customer lists / counts (in Analytics)
+Repeat guest rate (the 27% number)
+Cancellation rate per customer
+Anywhere else the codebase aggregates by customer_name — please find these and list them in your diff
+Edge case to think about: what if the same phone has reservations under wildly different names ("Ahmed" and "Sara")? That's probably one phone shared by a household. Treat them as the same customer (group by phone), but if you want to handle this differently let me know your reasoning.
+
+What I do NOT want:
+
+Don't add a backfill / data migration. The fix is at the query/aggregation layer, not by editing existing rows.
+Don't add a UI to "merge customers" — too much scope for now.
+Don't change the schema unless absolutely necessary; if you do, justify it.
+Show me the diff before applying. Specifically I want to see:
+
+The new aggregation queries (the SQL/ORM changes)
+The list of files/views that needed updating (so I can confirm you found everything)
+The placeholder-value filter logic, with the exact list of strings/patterns being excluded
+Single restaurant for now, so no multi-tenant concerns — every reservation in the DB is Paola's.

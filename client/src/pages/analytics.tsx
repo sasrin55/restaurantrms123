@@ -61,6 +61,42 @@ function isWalkIn(r: Reservation) {
   );
 }
 
+// ── Real-guest filter ─────────────────────────────────────────────────────────
+// Exact placeholder names that should never appear in customer analytics
+const PLACEHOLDER_NAMES = new Set([
+  "hold", "block", "blocked", "closed", "open", "n/a", "na", "any",
+  "annual day closed", "walk in", "walk-in", "walk in guest", "walk-in guest",
+]);
+
+function digitsOnly(phone: string): string {
+  return (phone ?? "").replace(/\D/g, "");
+}
+
+/** Returns true only for reservations that represent a real, identifiable guest */
+function isRealGuest(r: Reservation): boolean {
+  if (isWalkIn(r)) return false;
+  const name = (r.customerName ?? "").toLowerCase().trim();
+  // Reject exact placeholder names or names that start with placeholder words
+  if (PLACEHOLDER_NAMES.has(name)) return false;
+  if (/^(hold|block|closed)\b/.test(name)) return false;
+  // Phone must have at least 10 digits after stripping non-numeric characters
+  const digits = digitsOnly(r.phoneNumber ?? "");
+  if (digits.length < 10) return false;
+  // Reject all-zero phone numbers
+  if (/^0+$/.test(digits)) return false;
+  return true;
+}
+
+/** Stable key for deduplication: stripped digit string of the phone number */
+function guestKey(r: Reservation): string {
+  return digitsOnly(r.phoneNumber ?? "");
+}
+
+/** Format phone for display: keeps the raw value the staff entered */
+function fmtPhone(phone: string): string {
+  return (phone ?? "").trim();
+}
+
 // ── Shared UI ───────────────────────────────────────────────────────────────
 function SectionHeader({ label }: { label: string }) {
   return (
@@ -250,19 +286,29 @@ function computeDbAnalytics(reservations: Reservation[]) {
     .map(([table, v]) => ({ table, ...v }))
     .sort((a, b) => b.bookings - a.bookings);
 
-  // Repeat guests: exclude walk-ins so "Walk-in" entries don't appear as one massive repeat guest
-  const nameMap: Record<string, { displayName: string; visits: number; covers: number }> = {};
+  // Repeat guests: group strictly by phone number, filter out non-real guests
+  const guestMap: Record<string, { displayName: string; phone: string; latestDate: string; visits: number; covers: number }> = {};
   for (const r of booked) {
-    const key = (r.phoneNumber && r.phoneNumber !== "0" ? r.phoneNumber : r.customerName).toLowerCase().trim();
-    if (!nameMap[key]) nameMap[key] = { displayName: r.customerName, visits: 0, covers: 0 };
-    nameMap[key].visits += 1;
-    nameMap[key].covers += r.partySize;
+    if (!isRealGuest(r)) continue;
+    const key = guestKey(r);
+    if (!guestMap[key]) {
+      guestMap[key] = { displayName: r.customerName, phone: fmtPhone(r.phoneNumber ?? ""), latestDate: r.date, visits: 0, covers: 0 };
+    } else if (r.date > guestMap[key].latestDate) {
+      // Always show the most recently used name for this phone number
+      guestMap[key].displayName = r.customerName;
+      guestMap[key].phone       = fmtPhone(r.phoneNumber ?? "");
+      guestMap[key].latestDate  = r.date;
+    }
+    guestMap[key].visits += 1;
+    guestMap[key].covers += r.partySize;
   }
-  const repeatGuests = Object.values(nameMap)
+  const repeatGuests = Object.values(guestMap)
     .filter(g => g.visits > 1)
     .sort((a, b) => b.visits - a.visits);
   const repeatResos = repeatGuests.reduce((s, g) => s + g.visits, 0);
-  const repeatRate  = booked.length ? Math.round(repeatResos / booked.length * 100) : 0;
+  // Repeat rate denominator: only real-guest bookings
+  const realBookedCount = booked.filter(r => isRealGuest(r)).length;
+  const repeatRate  = realBookedCount ? Math.round(repeatResos / realBookedCount * 100) : 0;
 
   const statusCounts: Partial<Record<KnownStatus, number>> = {};
   for (const r of reservations) {
@@ -290,12 +336,18 @@ function computeDbAnalytics(reservations: Reservation[]) {
     .map(([slot, count]) => ({ slot, count, color: slotColor(slot) }))
     .sort((a, b) => b.count - a.count);
 
-  // Top no-show guests (deduplicated by phone)
-  const nsGuestMap: Record<string, { displayName: string; count: number; covers: number }> = {};
+  // Top no-show guests: group strictly by phone, filter out non-real guests
+  const nsGuestMap: Record<string, { displayName: string; phone: string; latestDate: string; count: number; covers: number }> = {};
   for (const r of noShows) {
-    if (isWalkIn(r)) continue;
-    const key = (r.phoneNumber && r.phoneNumber !== "0" ? r.phoneNumber : r.customerName).toLowerCase().trim();
-    if (!nsGuestMap[key]) nsGuestMap[key] = { displayName: r.customerName, count: 0, covers: 0 };
+    if (!isRealGuest(r)) continue;
+    const key = guestKey(r);
+    if (!nsGuestMap[key]) {
+      nsGuestMap[key] = { displayName: r.customerName, phone: fmtPhone(r.phoneNumber ?? ""), latestDate: r.date, count: 0, covers: 0 };
+    } else if (r.date > nsGuestMap[key].latestDate) {
+      nsGuestMap[key].displayName = r.customerName;
+      nsGuestMap[key].phone       = fmtPhone(r.phoneNumber ?? "");
+      nsGuestMap[key].latestDate  = r.date;
+    }
     nsGuestMap[key].count  += 1;
     nsGuestMap[key].covers += r.partySize;
   }
@@ -471,7 +523,10 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
                     style={{ background: C.teal + "22", color: C.teal }}>
                     {g.displayName[0].toUpperCase()}
                   </div>
-                  <span className="text-sm text-gray-800">{g.displayName}</span>
+                  <div>
+                    <p className="text-sm text-gray-800 leading-tight">{g.displayName}</p>
+                    <p className="text-xs text-gray-400 leading-tight">{g.phone}</p>
+                  </div>
                 </div>
                 <div className="text-right shrink-0">
                   <span className="text-xs font-semibold text-gray-700">{g.visits} visits</span>
@@ -527,7 +582,10 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
                         style={{ background: C.amber + "22", color: C.amber }}>
                         {g.displayName[0].toUpperCase()}
                       </div>
-                      <span className="text-sm text-gray-800">{g.displayName}</span>
+                      <div>
+                        <p className="text-sm text-gray-800 leading-tight">{g.displayName}</p>
+                        <p className="text-xs text-gray-400 leading-tight">{g.phone}</p>
+                      </div>
                     </div>
                     <div className="text-right shrink-0">
                       <span className="text-xs font-semibold text-gray-700">{g.count} {g.count === 1 ? "time" : "times"}</span>
