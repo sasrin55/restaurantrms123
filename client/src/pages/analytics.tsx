@@ -26,6 +26,7 @@ const C = {
   purple: "#7F77DD",
   teal:   "#1D9E75",
   gray:   "#888780",
+  grayBar: "#D1D5DB", // softer fill for Walk-ins bars; accent stripes still use gray
   muted:  "#c8c6be",
 };
 
@@ -223,10 +224,15 @@ function luminance(hex: string): number {
   });
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
-// Returns "#ffffff" when bar fill is dark enough for white text (contrast ≥ 4.5:1),
-// otherwise returns a legible dark gray.
+// Returns "#ffffff" when bar fill is dark enough for white text (contrast ≥ 3.0:1),
+// otherwise returns a legible dark gray. 3.0 is AA-Large; our bar text is always
+// bold/medium weight so this threshold is appropriate. Results per section color:
+//   purple #7F77DD → 3.75:1 → white ✓
+//   blue   #378ADD → 3.60:1 → white ✓
+//   grayBar #D1D5DB → 1.40:1 → dark ✓  (light fill, dark text)
+//   amber  #EF9F27 → 2.17:1 → dark ✓  (warm fill, dark text)
 function insideLabelColor(hex: string): string {
-  return 1.05 / (luminance(hex) + 0.05) >= 4.5 ? "#ffffff" : "#374151";
+  return 1.05 / (luminance(hex) + 0.05) >= 3.0 ? "#ffffff" : "#1F2937";
 }
 
 const INSIDE_PX = 80; // bar must be ≥ 80 px wide to fit label inside comfortably
@@ -270,7 +276,7 @@ function HorizBar({ label, value, maxValue, color, suffix = "" }: { label: strin
         {/* Outside label — always rendered when bar is too narrow, never suppressed */}
         {!inside && (
           <span
-            className="absolute top-1/2 -translate-y-1/2 text-xs text-gray-600 font-medium whitespace-nowrap"
+            className="absolute top-1/2 -translate-y-1/2 text-xs text-gray-700 font-medium whitespace-nowrap"
             style={{ left: `calc(${barPct}% + 6px)` }}
           >
             {value}{suffix}
@@ -1061,7 +1067,7 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
               {wiSlotData.filter(s => isSlotRange(s.slot) || s.count >= 3).map(s => (
                 <HorizBar key={s.slot} label={s.slot}
                   value={s.count} maxValue={wiSlotData[0]?.count ?? 1}
-                  color={C.gray} suffix=" walk-ins" />
+                  color={C.grayBar} suffix=" walk-ins" />
               ))}
             </ChartCard>
           )}
