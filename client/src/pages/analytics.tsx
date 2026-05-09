@@ -197,7 +197,7 @@ function KpiCard({ value, label, sub, accent }: { value: string | number; label:
       {accent && <div className="absolute top-0 left-0 w-1 h-full rounded-l-xl" style={{ background: accent }} />}
       <p className="text-xs text-gray-400 mb-1 pl-1">{label}</p>
       <p className="text-3xl font-semibold text-gray-900 leading-none pl-1">{value}</p>
-      {sub && <p className="text-xs text-gray-400 mt-1 pl-1">{sub}</p>}
+      {sub && <p className="text-xs text-gray-500 mt-1 pl-1">{sub}</p>}
     </div>
   );
 }
@@ -429,12 +429,12 @@ function computeDbAnalytics(reservations: Reservation[]) {
     .map(([slot, count]) => ({ slot, count, color: slotColor(slot) }))
     .sort((a, b) => b.count - a.count);
 
-  const nsGuestMap: Record<string, { displayName: string; phone: string; latestDate: string; count: number; covers: number }> = {};
+  const nsGuestMap: Record<string, { displayName: string; phone: string; phoneDigits: string; latestDate: string; count: number; covers: number }> = {};
   for (const v of noShows) {
     if (!isRealDedupedGuest(v)) continue;
     const key = v.phoneDigits;
     if (!nsGuestMap[key]) {
-      nsGuestMap[key] = { displayName: v.customerName, phone: v.phone, latestDate: v.date, count: 0, covers: 0 };
+      nsGuestMap[key] = { displayName: v.customerName, phone: v.phone, phoneDigits: v.phoneDigits, latestDate: v.date, count: 0, covers: 0 };
     } else if (v.date > nsGuestMap[key].latestDate) {
       nsGuestMap[key].displayName = v.customerName;
       nsGuestMap[key].phone       = v.phone;
@@ -443,7 +443,7 @@ function computeDbAnalytics(reservations: Reservation[]) {
     nsGuestMap[key].count  += 1;
     nsGuestMap[key].covers += v.partySize;
   }
-  const nsTopGuests = Object.values(nsGuestMap).sort((a, b) => b.count - a.count).slice(0, 8);
+  const nsTopGuests = Object.values(nsGuestMap).sort((a, b) => b.count - a.count);
 
   const busiestDay  = [...dayData].sort((a, b) => b.covers - a.covers)[0];
   const busiestDow  = dowData[0];
@@ -499,9 +499,12 @@ function VisitStatusChip({ status }: { status: string }) {
 const GUEST_PAGE_SIZE = 50;
 
 function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
-  const [expandedPhone, setExpandedPhone] = useState<string | null>(null);
-  const [guestSearch, setGuestSearch]     = useState("");
-  const [guestVisible, setGuestVisible]   = useState(GUEST_PAGE_SIZE);
+  const [expandedPhone, setExpandedPhone]     = useState<string | null>(null);
+  const [guestSearch, setGuestSearch]         = useState("");
+  const [guestVisible, setGuestVisible]       = useState(GUEST_PAGE_SIZE);
+  const [expandedNsPhone, setExpandedNsPhone] = useState<string | null>(null);
+  const [nsSearch, setNsSearch]               = useState("");
+  const [nsVisible, setNsVisible]             = useState(GUEST_PAGE_SIZE);
 
   const stats = useMemo(() => computeDbAnalytics(reservations), [reservations]);
   const {
@@ -524,6 +527,14 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
       g.displayName.toLowerCase().includes(q) || g.phone.includes(q)
     );
   }, [repeatGuests, guestSearch]);
+
+  const filteredNsGuests = useMemo(() => {
+    const q = nsSearch.trim().toLowerCase();
+    if (!q) return nsTopGuests;
+    return nsTopGuests.filter(g =>
+      g.displayName.toLowerCase().includes(q) || g.phone.includes(q)
+    );
+  }, [nsTopGuests, nsSearch]);
 
   const maxDowCovers     = Math.max(...dowData.map(d => d.covers), 1);
   const maxTableBookings = tableData[0]?.bookings ?? 1;
@@ -689,9 +700,9 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
                     <div className="flex items-center gap-3 shrink-0">
                       <div className="text-right">
                         <span className="text-xs font-semibold text-gray-700">{g.completedVisits} completed</span>
-                        <span className="text-xs text-gray-300 ml-2">{g.completedCovers} covers</span>
+                        <span className="text-xs text-gray-500 ml-2">{g.completedCovers} covers</span>
                         {g.totalVisits > g.completedVisits && (
-                          <span className="text-xs text-gray-300 ml-2">({g.totalVisits} total)</span>
+                          <span className="text-xs text-gray-500 ml-2">({g.totalVisits} total)</span>
                         )}
                       </div>
                       <ChevronDown
@@ -802,14 +813,14 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
             <div className="bg-gray-50 rounded-xl p-4">
               <p className="text-xs text-gray-400 mb-1">Confirmed → no-show</p>
               <p className="text-2xl font-semibold text-gray-900">{nsFromConfirmed}</p>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-gray-500 mt-1">
                 {`${noShowCount ? Math.round(nsFromConfirmed / noShowCount * 100) : 0}% of no-shows`}
               </p>
             </div>
             <div className="bg-gray-50 rounded-xl p-4">
               <p className="text-xs text-gray-400 mb-1">Booked → no-show</p>
               <p className="text-2xl font-semibold text-gray-900">{nsFromBooked}</p>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-gray-500 mt-1">
                 {`${noShowCount ? Math.round(nsFromBooked / noShowCount * 100) : 0}% of no-shows`}
               </p>
             </div>
@@ -827,26 +838,148 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
             )}
 
             {nsTopGuests.length > 0 && (
-              <div className="bg-white border border-gray-100 rounded-xl p-4">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Top no-show guests</p>
-                {nsTopGuests.map((g, i) => (
-                  <div key={i} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium shrink-0"
-                        style={{ background: C.amber + "22", color: C.amber }}>
-                        {g.displayName[0].toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-800 leading-tight">{g.displayName}</p>
-                        <p className="text-xs text-gray-400 leading-tight">{g.phone}</p>
-                      </div>
+              <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
+                {/* Header + search */}
+                <div className="px-4 pt-4 pb-3 flex items-center gap-3">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex-1">
+                    Top no-show guests
+                    <span className="ml-2 font-normal normal-case text-gray-400">
+                      ({filteredNsGuests.length} guests)
+                    </span>
+                  </p>
+                  <Input
+                    placeholder="Search name or phone…"
+                    value={nsSearch}
+                    onChange={e => { setNsSearch(e.target.value); setNsVisible(GUEST_PAGE_SIZE); }}
+                    className="h-7 text-xs w-44 border-gray-200"
+                    data-testid="input-ns-guest-search"
+                  />
+                </div>
+
+                {filteredNsGuests.slice(0, nsVisible).map((g, i) => {
+                  const isOpen = expandedNsPhone === g.phoneDigits;
+                  const visits = allVisits
+                    .filter(v => v.phoneDigits === g.phoneDigits && v.status === "no-show")
+                    .sort((a, b) => {
+                      const dc = b.date.localeCompare(a.date);
+                      return dc !== 0 ? dc : b.time.localeCompare(a.time);
+                    });
+                  const shown    = visits.slice(0, VISIT_CAP);
+                  const overflow = visits.length - VISIT_CAP;
+                  return (
+                    <div key={g.phoneDigits + i} className="border-t border-gray-50">
+                      {/* Guest row */}
+                      <button
+                        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors text-left"
+                        onClick={() => setExpandedNsPhone(isOpen ? null : g.phoneDigits)}
+                        data-testid={`button-ns-guest-expand-${i}`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium shrink-0"
+                            style={{ background: C.amber + "22", color: C.amber }}>
+                            {formatName(g.displayName)[0] ?? ""}
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-800 leading-tight">{formatName(g.displayName)}</p>
+                            <p className="text-xs text-gray-400 leading-tight">{g.phone}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div className="text-right">
+                            <span className="text-xs font-semibold text-gray-700">
+                              {g.count} {g.count === 1 ? "no-show" : "no-shows"}
+                            </span>
+                            <span className="text-xs text-gray-500 ml-2">{g.covers} covers</span>
+                          </div>
+                          <ChevronDown
+                            className="h-4 w-4 text-gray-300 transition-transform duration-200 shrink-0"
+                            style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+                          />
+                        </div>
+                      </button>
+
+                      {/* Expanded no-show history */}
+                      {isOpen && (
+                        <div className="bg-gray-50 border-t border-gray-100 px-4 py-3">
+                          {/* Desktop table */}
+                          <div className="hidden sm:block overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="text-gray-400 border-b border-gray-200">
+                                  <th className="text-left font-medium pb-2 pr-3">Date</th>
+                                  <th className="text-left font-medium pb-2 pr-3">Time</th>
+                                  <th className="text-left font-medium pb-2 pr-3">Pax</th>
+                                  <th className="text-left font-medium pb-2 pr-3">Table(s)</th>
+                                  <th className="text-left font-medium pb-2 pr-3">Name used</th>
+                                  <th className="text-left font-medium pb-2">Notes</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {shown.map((v) => {
+                                  const notes = v.comments.trim();
+                                  let dateLabel = v.date;
+                                  try { dateLabel = format(parseISO(v.date), "EEE d MMM yyyy"); } catch {}
+                                  return (
+                                    <tr key={v.id} className="border-b border-gray-100 last:border-0 hover:bg-white transition-colors">
+                                      <td className="py-2 pr-3 text-gray-700 whitespace-nowrap">{dateLabel}</td>
+                                      <td className="py-2 pr-3 text-gray-700 whitespace-nowrap">{v.time}</td>
+                                      <td className="py-2 pr-3 text-gray-700">{v.partySize}</td>
+                                      <td className="py-2 pr-3 text-gray-500 max-w-[160px]">{v.tables}</td>
+                                      <td className="py-2 pr-3 text-gray-600 whitespace-nowrap">{formatName(v.customerName)}</td>
+                                      <td className="py-2 text-gray-400">
+                                        {notes ? (
+                                          <span title={notes} className="cursor-default">
+                                            {notes.length > 40 ? notes.slice(0, 40) + "…" : notes}
+                                          </span>
+                                        ) : "—"}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {/* Mobile stacked cards */}
+                          <div className="sm:hidden space-y-2">
+                            {shown.map((v) => {
+                              let dateLabel = v.date;
+                              try { dateLabel = format(parseISO(v.date), "EEE d MMM yyyy"); } catch {}
+                              return (
+                                <div key={v.id} className="bg-white rounded-lg px-3 py-2.5 text-xs space-y-1">
+                                  <span className="font-medium text-gray-700">{dateLabel} · {v.time}</span>
+                                  <div className="text-gray-500">
+                                    {formatName(v.customerName)} · {v.partySize} pax{v.tables !== "—" ? ` · ${v.tables}` : ""}
+                                  </div>
+                                  {v.comments && <div className="text-gray-400 truncate">{v.comments}</div>}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {overflow > 0 && (
+                            <p className="text-xs text-gray-400 mt-3 text-center">
+                              Showing {VISIT_CAP} of {visits.length} no-shows
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <div className="text-right shrink-0">
-                      <span className="text-xs font-semibold text-gray-700">{g.count} {g.count === 1 ? "time" : "times"}</span>
-                      <span className="text-xs text-gray-300 ml-2">{g.covers} covers</span>
-                    </div>
+                  );
+                })}
+
+                {/* Load more */}
+                {filteredNsGuests.length > nsVisible && (
+                  <div className="px-4 py-3 border-t border-gray-50 text-center">
+                    <button
+                      onClick={() => setNsVisible(v => v + GUEST_PAGE_SIZE)}
+                      className="text-xs text-[#0D7377] font-medium hover:underline"
+                      data-testid="button-ns-guest-load-more"
+                    >
+                      Show more ({filteredNsGuests.length - nsVisible} remaining)
+                    </button>
                   </div>
-                ))}
+                )}
               </div>
             )}
           </div>
