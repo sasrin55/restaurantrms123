@@ -211,16 +211,18 @@ function ChartCard({ title, children, className = "" }: { title: string; childre
   );
 }
 
+function isSlotRange(time: string) {
+  return time.includes(" - ");
+}
+
 function HorizBar({ label, value, maxValue, color, suffix = "" }: { label: string; value: number; maxValue: number; color: string; suffix?: string }) {
   const pct = maxValue ? Math.round((value / maxValue) * 100) : 0;
   return (
     <div className="flex items-center gap-2 mb-2.5">
       <span className="text-xs text-gray-500 w-28 shrink-0 truncate">{label}</span>
       <div className="flex-1 bg-gray-100 rounded h-5 overflow-hidden">
-        <div className="h-full rounded flex items-center px-2 transition-all duration-500"
-          style={{ width: `${Math.max(pct, 3)}%`, background: color + "33" }}>
-          {pct > 28 && <span className="text-xs font-medium" style={{ color }}>{value}{suffix}</span>}
-        </div>
+        <div className="h-full rounded transition-all duration-500"
+          style={{ width: `${Math.max(pct, 3)}%`, background: color + "33" }} />
       </div>
       <span className="text-xs text-gray-400 w-16 text-right shrink-0">{value}{suffix}</span>
     </div>
@@ -618,7 +620,7 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
         {slotData.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <ChartCard title="By service slot">
-              {slotData.map(s => (
+              {slotData.filter(s => isSlotRange(s.slot) || s.covers >= 50).map(s => (
                 <HorizBar key={s.slot} label={s.slot}
                   value={s.covers} maxValue={slotData[0]?.covers ?? 1}
                   color={s.color} suffix=" covers" />
@@ -829,7 +831,7 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {nsSlotData.length > 0 && (
               <ChartCard title="No-shows by time slot">
-                {nsSlotData.map(s => (
+                {nsSlotData.filter(s => isSlotRange(s.slot) || s.count >= 3).map(s => (
                   <HorizBar key={s.slot} label={s.slot}
                     value={s.count} maxValue={nsSlotData[0]?.count ?? 1}
                     color={C.amber} suffix=" no-shows" />
@@ -1003,7 +1005,7 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
 
           {wiSlotData.length > 0 && (
             <ChartCard title="Walk-ins by time slot">
-              {wiSlotData.map(s => (
+              {wiSlotData.filter(s => isSlotRange(s.slot) || s.count >= 3).map(s => (
                 <HorizBar key={s.slot} label={s.slot}
                   value={s.count} maxValue={wiSlotData[0]?.count ?? 1}
                   color={s.color} suffix=" walk-ins" />
