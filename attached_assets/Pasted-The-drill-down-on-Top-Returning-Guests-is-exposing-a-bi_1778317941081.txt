@@ -1,0 +1,24 @@
+The drill-down on Top Returning Guests is exposing a bigger problem in how reservations are stored and counted. Look at the Aiza Zohan expansion in the screenshot:
+
+12 rows, all on Thu 9 Apr 2026, 6:45 PM – 8:15 PM, 25 pax, just different tables (40, 41, 47, 42, 47, 48, 44, 44, 42, 41, 48, 40)
+This is one private event for 25 people that occupied multiple tables, but it's stored as 12 separate reservation rows
+Analytics is treating it as 12 visits and 300 covers (12 × 25). Real numbers: 1 visit, 25 covers.
+This same bug is inflating every aggregate that counts reservations or covers — Repeat Guest Rate, Cancellation Rate (the 17% / 619 cancelled), No-show counts, daily/monthly chart numbers — anywhere we COUNT(*) FROM reservations or SUM(party_size).
+
+What I want, in order:
+
+1. Audit: find every place in the codebase that counts reservations or covers, and report back the list before changing anything. I want to see the surface area of this bug.
+
+2. Fix at the analytics layer (not the schema layer yet): treat rows with the same (customer_phone, date, start_time) as a single visit. Specifically:
+
+Visit count = COUNT(DISTINCT customer_phone || date || start_time)
+Covers = sum of party_size taken once per distinct visit (not multiplied across table rows)
+Cancellation rate / no-show rate = numerator and denominator both deduped the same way
+Repeat Guest Rate = also deduped (a customer's first multi-table booking shouldn't count as 12 prior visits)
+3. Fix the drill-down display: when expanding a customer, collapse multi-table reservations into a single row. Show Tables 40, 41, 42, 44, 47, 48 (deduped, sorted) in the Table column instead of one row per table.
+
+4. Don't change the schema yet. I know the right long-term fix is a proper many-to-many reservation_tables join table so a reservation has N tables. That's a bigger refactor — let's not do it inside this change. Note in your diff comments where the cleaner schema would simplify the query, so we know what to come back to.
+
+Show me the diff before applying including the audit list from step 1.
+
+One sanity check for after deploy: the "619 cancelled" number is going to drop a lot. That's correct, not a bug — it was inflated. Same for the no-show count of 218.

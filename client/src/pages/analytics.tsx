@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Input } from "@/components/ui/input";
 import { useQuery } from "@tanstack/react-query";
 import type { Reservation } from "@shared/schema";
 import {
@@ -95,6 +96,88 @@ function guestKey(r: Reservation): string {
 /** Format phone for display: keeps the raw value the staff entered */
 function fmtPhone(phone: string): string {
   return (phone ?? "").trim();
+}
+
+// ── Multi-table deduplication ─────────────────────────────────────────────────
+// Problem: one event (e.g. a 25-pax private dinner) is stored as N rows, one per
+// table assigned. Raw counts inflate every aggregate N×.
+// Fix (analytics layer only): group rows sharing the same (phone_digits, date, time)
+// into a single DedupedVisit. The clean long-term fix is a reservation_tables join
+// table so one reservation can reference multiple tables — until that schema
+// refactor lands, this dedup lives here.
+
+type DedupedVisit = {
+  id: string;            // representative row id (React key)
+  phoneDigits: string;   // stripped digits — dedup/lookup key
+  phone: string;         // formatted for display
+  date: string;
+  time: string;
+  partySize: number;     // MAX across merged rows (all rows store the same value)
+  status: string;        // highest-priority status across merged rows
+  previousStatus: string | null;
+  tables: string;        // "Table 40, 41, 42" — sorted unique table names joined
+  customerName: string;  // from representative (highest-priority-status) row
+  comments: string;
+};
+
+const STATUS_PRIORITY: Record<string, number> = {
+  complete: 6, seated: 5, confirmed: 4, booked: 3, "no-show": 2, cancelled: 1,
+};
+
+function deduplicateVisits(reservations: Reservation[]): DedupedVisit[] {
+  const groups = new Map<string, Reservation[]>();
+  for (const r of reservations) {
+    const digits = digitsOnly(r.phoneNumber ?? "");
+    // Group by phone+date+time when phone is valid; else treat as a standalone visit
+    const key = digits.length >= 10 && !/^0+$/.test(digits)
+      ? `${digits}|${r.date}|${r.time}`
+      : `solo:${r.id}`;
+    const g = groups.get(key);
+    if (g) g.push(r); else groups.set(key, [r]);
+  }
+  const result: DedupedVisit[] = [];
+  for (const [, rows] of groups) {
+    const rep = rows.reduce((best, r) =>
+      (STATUS_PRIORITY[r.status] ?? 0) > (STATUS_PRIORITY[best.status] ?? 0) ? r : best
+    , rows[0]);
+    const tableNames = [...new Set(rows.map(r => r.tableName).filter(Boolean))].sort();
+    result.push({
+      id: rep.id,
+      phoneDigits: digitsOnly(rep.phoneNumber ?? ""),
+      phone: (rep.phoneNumber ?? "").trim(),
+      date: rep.date,
+      time: rep.time,
+      partySize: Math.max(...rows.map(r => r.partySize)),
+      status: rep.status,
+      previousStatus: (rep as any).previousStatus ?? null,
+      tables: tableNames.join(", ") || rep.tableName || "—",
+      customerName: rep.customerName,
+      comments: rep.comments ?? "",
+    });
+  }
+  return result;
+}
+
+function isDedupedWalkIn(v: DedupedVisit): boolean {
+  const name  = v.customerName.toLowerCase().trim();
+  const phone = v.phone.toLowerCase().trim();
+  return (
+    v.comments?.toLowerCase().startsWith("walk-in") ||
+    name === "walk in" || name === "walk-in" ||
+    name === "walk-in guest" || name === "walk in guest" ||
+    name.startsWith("walk in") || name.startsWith("walk-in") ||
+    phone === "n/a" || phone === "0"
+  );
+}
+
+function isRealDedupedGuest(v: DedupedVisit): boolean {
+  if (isDedupedWalkIn(v)) return false;
+  const name = v.customerName.toLowerCase().trim();
+  if (PLACEHOLDER_NAMES.has(name)) return false;
+  if (/^(hold|block|closed)\b/.test(name)) return false;
+  if (v.phoneDigits.length < 10) return false;
+  if (/^0+$/.test(v.phoneDigits)) return false;
+  return true;
 }
 
 // ── Shared UI ───────────────────────────────────────────────────────────────
@@ -210,33 +293,34 @@ function ReservationStatusCard({ total, counts, accent }: { total: number; count
 
 // ── DB analytics ─────────────────────────────────────────────────────────────
 function computeDbAnalytics(reservations: Reservation[]) {
-  const active   = reservations.filter(r => r.status !== "cancelled" && r.status !== "no-show");
-  const walkIns  = active.filter(r => isWalkIn(r));
-  const booked   = active.filter(r => !isWalkIn(r));
+  // Deduplicate multi-table rows into single visits before any counting
+  const allVisits = deduplicateVisits(reservations);
+  const active    = allVisits.filter(v => v.status !== "cancelled" && v.status !== "no-show");
+  const walkIns   = active.filter(v => isDedupedWalkIn(v));
 
-  const totalCovers = active.reduce((s, r) => s + r.partySize, 0);
+  const totalCovers = active.reduce((s, v) => s + v.partySize, 0);
   const totalResos  = active.length;
   const avgParty    = totalResos ? +(totalCovers / totalResos).toFixed(1) : 0;
 
-  const dayMap: Record<string, { covers: number; resos: number; tables: Set<number>; dow: string }> = {};
-  for (const r of active) {
-    if (!dayMap[r.date]) {
+  const dayMap: Record<string, { covers: number; resos: number; tables: Set<string>; dow: string }> = {};
+  for (const v of active) {
+    if (!dayMap[v.date]) {
       let dow = "";
-      try { dow = format(parseISO(r.date), "EEEE"); } catch {}
-      dayMap[r.date] = { covers: 0, resos: 0, tables: new Set(), dow };
+      try { dow = format(parseISO(v.date), "EEEE"); } catch {}
+      dayMap[v.date] = { covers: 0, resos: 0, tables: new Set(), dow };
     }
-    dayMap[r.date].covers += r.partySize;
-    dayMap[r.date].resos  += 1;
-    dayMap[r.date].tables.add(r.tableId);
+    dayMap[v.date].covers += v.partySize;
+    dayMap[v.date].resos  += 1;
+    v.tables.split(", ").forEach(t => { if (t && t !== "—") dayMap[v.date].tables.add(t); });
   }
   const dayData = Object.entries(dayMap)
-    .map(([date, v]) => ({
+    .map(([date, dv]) => ({
       date,
       label: (() => { try { return format(parseISO(date), "MMM d"); } catch { return date; } })(),
-      covers: v.covers, resos: v.resos,
-      tablesUsed: v.tables.size,
-      utilPct: Math.round(v.tables.size / restaurantTables.length * 100),
-      dow: v.dow,
+      covers: dv.covers, resos: dv.resos,
+      tablesUsed: dv.tables.size,
+      utilPct: Math.round(dv.tables.size / restaurantTables.length * 100),
+      dow: dv.dow,
     }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
@@ -244,133 +328,136 @@ function computeDbAnalytics(reservations: Reservation[]) {
   const avgPerDay  = activeDays ? Math.round(totalCovers / activeDays) : 0;
 
   const slotMap: Record<string, { covers: number; resos: number }> = {};
-  for (const r of active) {
-    const slot = r.time;
-    if (!slotMap[slot]) slotMap[slot] = { covers: 0, resos: 0 };
-    slotMap[slot].covers += r.partySize;
-    slotMap[slot].resos  += 1;
+  for (const v of active) {
+    if (!slotMap[v.time]) slotMap[v.time] = { covers: 0, resos: 0 };
+    slotMap[v.time].covers += v.partySize;
+    slotMap[v.time].resos  += 1;
   }
   const slotData = Object.entries(slotMap)
-    .map(([slot, v]) => ({
-      slot, ...v,
+    .map(([slot, sv]) => ({
+      slot, ...sv,
       color: slotColor(slot),
-      pct: totalCovers ? Math.round(v.covers / totalCovers * 100) : 0,
+      pct: totalCovers ? Math.round(sv.covers / totalCovers * 100) : 0,
     }))
     .sort((a, b) => b.covers - a.covers);
 
   const dowMap: Record<string, { covers: number; resos: number; days: Set<string> }> = {};
-  for (const r of active) {
+  for (const v of active) {
     let dow = "Unknown";
-    try { dow = format(parseISO(r.date), "EEEE"); } catch {}
+    try { dow = format(parseISO(v.date), "EEEE"); } catch {}
     if (!dowMap[dow]) dowMap[dow] = { covers: 0, resos: 0, days: new Set() };
-    dowMap[dow].covers += r.partySize;
+    dowMap[dow].covers += v.partySize;
     dowMap[dow].resos  += 1;
-    dowMap[dow].days.add(r.date);
+    dowMap[dow].days.add(v.date);
   }
   const dowData = Object.entries(dowMap)
-    .map(([dow, v]) => ({
-      dow, covers: v.covers, resos: v.resos,
-      days: v.days.size,
-      avgPerDay: Math.round(v.covers / v.days.size),
+    .map(([dow, dv]) => ({
+      dow, covers: dv.covers, resos: dv.resos,
+      days: dv.days.size,
+      avgPerDay: Math.round(dv.covers / dv.days.size),
     }))
     .sort((a, b) => b.covers - a.covers);
 
+  // Table performance: intentionally uses RAW reservations — one row per table
+  // assignment is correct for per-table booking counts.
   const tableMap: Record<string, { bookings: number; covers: number }> = {};
-  for (const r of active) {
-    const key = r.tableName;
-    if (!tableMap[key]) tableMap[key] = { bookings: 0, covers: 0 };
-    tableMap[key].bookings += 1;
-    tableMap[key].covers   += r.partySize;
+  const activeRaw = reservations.filter(r => r.status !== "cancelled" && r.status !== "no-show" && !isWalkIn(r));
+  for (const r of activeRaw) {
+    if (!tableMap[r.tableName]) tableMap[r.tableName] = { bookings: 0, covers: 0 };
+    tableMap[r.tableName].bookings += 1;
+    tableMap[r.tableName].covers   += r.partySize;
   }
   const tableData = Object.entries(tableMap)
-    .map(([table, v]) => ({ table, ...v }))
+    .map(([table, tv]) => ({ table, ...tv }))
     .sort((a, b) => b.bookings - a.bookings);
 
-  // Repeat guests: group strictly by phone number, filter out non-real guests
-  const guestMap: Record<string, { displayName: string; phone: string; latestDate: string; visits: number; covers: number }> = {};
-  for (const r of booked) {
-    if (!isRealGuest(r)) continue;
-    const key = guestKey(r);
+  // Guest analytics: group deduped visits by phone
+  // completedVisits/completedCovers drive Top Returning Guests ranking
+  const guestMap: Record<string, {
+    displayName: string; phone: string; latestDate: string;
+    completedVisits: number; completedCovers: number;
+    totalVisits: number; totalCovers: number;
+  }> = {};
+  for (const v of allVisits) {
+    if (!isRealDedupedGuest(v)) continue;
+    const key = v.phoneDigits;
     if (!guestMap[key]) {
-      guestMap[key] = { displayName: r.customerName, phone: fmtPhone(r.phoneNumber ?? ""), latestDate: r.date, visits: 0, covers: 0 };
-    } else if (r.date > guestMap[key].latestDate) {
-      // Always show the most recently used name for this phone number
-      guestMap[key].displayName = r.customerName;
-      guestMap[key].phone       = fmtPhone(r.phoneNumber ?? "");
-      guestMap[key].latestDate  = r.date;
+      guestMap[key] = { displayName: v.customerName, phone: v.phone, latestDate: v.date,
+        completedVisits: 0, completedCovers: 0, totalVisits: 0, totalCovers: 0 };
+    } else if (v.date > guestMap[key].latestDate) {
+      guestMap[key].displayName = v.customerName;
+      guestMap[key].phone       = v.phone;
+      guestMap[key].latestDate  = v.date;
     }
-    guestMap[key].visits += 1;
-    guestMap[key].covers += r.partySize;
+    guestMap[key].totalVisits += 1;
+    guestMap[key].totalCovers += v.partySize;
+    if (v.status === "complete") {
+      guestMap[key].completedVisits += 1;
+      guestMap[key].completedCovers += v.partySize;
+    }
   }
+  // Sort by completed visits (actual shows), secondary by total visits
   const repeatGuests = Object.values(guestMap)
-    .filter(g => g.visits > 1)
-    .sort((a, b) => b.visits - a.visits);
-  const repeatResos = repeatGuests.reduce((s, g) => s + g.visits, 0);
-  // Repeat rate denominator: only real-guest bookings
-  const realBookedCount = booked.filter(r => isRealGuest(r)).length;
-  const repeatRate  = realBookedCount ? Math.round(repeatResos / realBookedCount * 100) : 0;
+    .filter(g => g.completedVisits >= 1)
+    .sort((a, b) => b.completedVisits - a.completedVisits || b.totalVisits - a.totalVisits);
+
+  // Repeat rate: % of real deduped visits from guests with >1 total visit
+  const totalRealVisits  = Object.values(guestMap).reduce((s, g) => s + g.totalVisits, 0);
+  const repeatResos      = Object.values(guestMap).filter(g => g.totalVisits > 1).reduce((s, g) => s + g.totalVisits, 0);
+  const repeatRate       = totalRealVisits ? Math.round(repeatResos / totalRealVisits * 100) : 0;
 
   const statusCounts: Partial<Record<KnownStatus, number>> = {};
-  for (const r of reservations) {
-    const s = r.status as KnownStatus;
+  for (const v of allVisits) {
+    const s = v.status as KnownStatus;
     if (s in STATUS_CONFIG) statusCounts[s] = (statusCounts[s] ?? 0) + 1;
   }
 
-  const noShows     = reservations.filter(r => r.status === "no-show");
+  const noShows     = allVisits.filter(v => v.status === "no-show");
   const noShowCount = noShows.length;
-  const cancelCount = reservations.filter(r => r.status === "cancelled").length;
-  const noShowRate  = reservations.length ? Math.round(noShowCount / reservations.length * 100) : 0;
-  const cancelRate  = reservations.length ? Math.round(cancelCount / reservations.length * 100) : 0;
+  const cancelCount = allVisits.filter(v => v.status === "cancelled").length;
+  const noShowRate  = allVisits.length ? Math.round(noShowCount / allVisits.length * 100) : 0;
+  const cancelRate  = allVisits.length ? Math.round(cancelCount / allVisits.length * 100) : 0;
   const avgUtilPct  = dayData.length ? Math.round(dayData.reduce((s, d) => s + d.utilPct, 0) / dayData.length) : 0;
 
-  // No-show deep analytics
-  const nsFromConfirmed = noShows.filter(r => r.previousStatus === "confirmed").length;
-  const nsFromBooked    = noShows.filter(r => r.previousStatus === "booked").length;
+  const nsFromConfirmed = noShows.filter(v => v.previousStatus === "confirmed").length;
+  const nsFromBooked    = noShows.filter(v => v.previousStatus === "booked").length;
 
-  // No-show by time slot
   const nsSlotMap: Record<string, number> = {};
-  for (const r of noShows) {
-    nsSlotMap[r.time] = (nsSlotMap[r.time] ?? 0) + 1;
-  }
+  for (const v of noShows) nsSlotMap[v.time] = (nsSlotMap[v.time] ?? 0) + 1;
   const nsSlotData = Object.entries(nsSlotMap)
     .map(([slot, count]) => ({ slot, count, color: slotColor(slot) }))
     .sort((a, b) => b.count - a.count);
 
-  // Top no-show guests: group strictly by phone, filter out non-real guests
   const nsGuestMap: Record<string, { displayName: string; phone: string; latestDate: string; count: number; covers: number }> = {};
-  for (const r of noShows) {
-    if (!isRealGuest(r)) continue;
-    const key = guestKey(r);
+  for (const v of noShows) {
+    if (!isRealDedupedGuest(v)) continue;
+    const key = v.phoneDigits;
     if (!nsGuestMap[key]) {
-      nsGuestMap[key] = { displayName: r.customerName, phone: fmtPhone(r.phoneNumber ?? ""), latestDate: r.date, count: 0, covers: 0 };
-    } else if (r.date > nsGuestMap[key].latestDate) {
-      nsGuestMap[key].displayName = r.customerName;
-      nsGuestMap[key].phone       = fmtPhone(r.phoneNumber ?? "");
-      nsGuestMap[key].latestDate  = r.date;
+      nsGuestMap[key] = { displayName: v.customerName, phone: v.phone, latestDate: v.date, count: 0, covers: 0 };
+    } else if (v.date > nsGuestMap[key].latestDate) {
+      nsGuestMap[key].displayName = v.customerName;
+      nsGuestMap[key].phone       = v.phone;
+      nsGuestMap[key].latestDate  = v.date;
     }
     nsGuestMap[key].count  += 1;
-    nsGuestMap[key].covers += r.partySize;
+    nsGuestMap[key].covers += v.partySize;
   }
-  const nsTopGuests = Object.values(nsGuestMap)
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 8);
+  const nsTopGuests = Object.values(nsGuestMap).sort((a, b) => b.count - a.count).slice(0, 8);
+
   const busiestDay  = [...dayData].sort((a, b) => b.covers - a.covers)[0];
   const busiestDow  = dowData[0];
   const busiestSlot = slotData[0];
 
   // Walk-in analytics
-  const walkInCovers  = walkIns.reduce((s, r) => s + r.partySize, 0);
-  const walkInPct     = totalResos ? Math.round(walkIns.length / totalResos * 100) : 0;
+  const walkInCovers   = walkIns.reduce((s, v) => s + v.partySize, 0);
+  const walkInPct      = totalResos ? Math.round(walkIns.length / totalResos * 100) : 0;
   const walkInAvgParty = walkIns.length ? +(walkInCovers / walkIns.length).toFixed(1) : 0;
 
   const wiSlotMap: Record<string, number> = {};
-  for (const r of walkIns) {
-    wiSlotMap[r.time] = (wiSlotMap[r.time] ?? 0) + 1;
-  }
+  for (const v of walkIns) wiSlotMap[v.time] = (wiSlotMap[v.time] ?? 0) + 1;
   const wiSlotData = Object.entries(wiSlotMap)
     .map(([slot, count]) => ({ slot, count, color: slotColor(slot) }))
     .sort((a, b) => b.count - a.count);
-
   const wiPeakSlot = wiSlotData[0];
 
   return {
@@ -383,6 +470,7 @@ function computeDbAnalytics(reservations: Reservation[]) {
     walkIns, walkInCovers, walkInPct, walkInAvgParty,
     wiSlotData, wiPeakSlot,
     noShows, nsFromConfirmed, nsFromBooked, nsSlotData, nsTopGuests,
+    allVisits,
   };
 }
 
@@ -407,8 +495,13 @@ function VisitStatusChip({ status }: { status: string }) {
   );
 }
 
+const GUEST_PAGE_SIZE = 50;
+
 function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
   const [expandedPhone, setExpandedPhone] = useState<string | null>(null);
+  const [guestSearch, setGuestSearch]     = useState("");
+  const [guestVisible, setGuestVisible]   = useState(GUEST_PAGE_SIZE);
+
   const stats = useMemo(() => computeDbAnalytics(reservations), [reservations]);
   const {
     totalCovers, totalResos, avgParty, avgPerDay, activeDays,
@@ -420,7 +513,16 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
     walkIns, walkInCovers, walkInPct, walkInAvgParty,
     wiSlotData, wiPeakSlot,
     noShows, nsFromConfirmed, nsFromBooked, nsSlotData, nsTopGuests,
+    allVisits,
   } = stats;
+
+  const filteredGuests = useMemo(() => {
+    const q = guestSearch.trim().toLowerCase();
+    if (!q) return repeatGuests;
+    return repeatGuests.filter(g =>
+      g.displayName.toLowerCase().includes(q) || g.phone.includes(q)
+    );
+  }, [repeatGuests, guestSearch]);
 
   const maxDowCovers     = Math.max(...dowData.map(d => d.covers), 1);
   const maxTableBookings = tableData[0]?.bookings ?? 1;
@@ -537,24 +639,40 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
 
         {repeatGuests.length > 0 && (
           <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 pt-4 pb-3">Top returning guests</p>
-            {repeatGuests.slice(0, 8).map((g, i) => {
-              const phoneDigits = digitsOnly(g.phone);
-              const isOpen = expandedPhone === phoneDigits;
-              const visits = reservations
-                .filter(r => digitsOnly(r.phoneNumber ?? "") === phoneDigits)
+            {/* Header + search */}
+            <div className="px-4 pt-4 pb-3 flex items-center gap-3">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex-1">
+                Top returning guests
+                <span className="ml-2 font-normal normal-case text-gray-400">
+                  ({filteredGuests.length} guests)
+                </span>
+              </p>
+              <Input
+                placeholder="Search name or phone…"
+                value={guestSearch}
+                onChange={e => { setGuestSearch(e.target.value); setGuestVisible(GUEST_PAGE_SIZE); }}
+                className="h-7 text-xs w-44 border-gray-200"
+                data-testid="input-guest-search"
+              />
+            </div>
+
+            {filteredGuests.slice(0, guestVisible).map((g, i) => {
+              const isOpen = expandedPhone === g.phone;
+              // Drill-down uses deduped allVisits for this phone — collapses multi-table rows
+              const visits = allVisits
+                .filter(v => v.phoneDigits === digitsOnly(g.phone))
                 .sort((a, b) => {
                   const dc = b.date.localeCompare(a.date);
                   return dc !== 0 ? dc : b.time.localeCompare(a.time);
                 });
-              const shown = visits.slice(0, VISIT_CAP);
+              const shown    = visits.slice(0, VISIT_CAP);
               const overflow = visits.length - VISIT_CAP;
               return (
-                <div key={i} className="border-t border-gray-50 first:border-0">
-                  {/* Guest row — clickable */}
+                <div key={g.phone + i} className="border-t border-gray-50">
+                  {/* Guest row */}
                   <button
                     className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors text-left"
-                    onClick={() => setExpandedPhone(isOpen ? null : phoneDigits)}
+                    onClick={() => setExpandedPhone(isOpen ? null : g.phone)}
                     data-testid={`button-guest-expand-${i}`}
                   >
                     <div className="flex items-center gap-2.5">
@@ -569,8 +687,11 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       <div className="text-right">
-                        <span className="text-xs font-semibold text-gray-700">{g.visits} visits</span>
-                        <span className="text-xs text-gray-300 ml-2">{g.covers} covers</span>
+                        <span className="text-xs font-semibold text-gray-700">{g.completedVisits} completed</span>
+                        <span className="text-xs text-gray-300 ml-2">{g.completedCovers} covers</span>
+                        {g.totalVisits > g.completedVisits && (
+                          <span className="text-xs text-gray-300 ml-2">({g.totalVisits} total)</span>
+                        )}
                       </div>
                       <ChevronDown
                         className="h-4 w-4 text-gray-300 transition-transform duration-200 shrink-0"
@@ -579,7 +700,7 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
                     </div>
                   </button>
 
-                  {/* Expanded visit history */}
+                  {/* Expanded visit history — deduped, multi-table rows collapsed */}
                   {isOpen && (
                     <div className="bg-gray-50 border-t border-gray-100 px-4 py-3">
                       {/* Desktop table */}
@@ -590,25 +711,25 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
                               <th className="text-left font-medium pb-2 pr-3">Date</th>
                               <th className="text-left font-medium pb-2 pr-3">Time</th>
                               <th className="text-left font-medium pb-2 pr-3">Pax</th>
-                              <th className="text-left font-medium pb-2 pr-3">Table</th>
+                              <th className="text-left font-medium pb-2 pr-3">Table(s)</th>
                               <th className="text-left font-medium pb-2 pr-3">Status</th>
                               <th className="text-left font-medium pb-2 pr-3">Name used</th>
                               <th className="text-left font-medium pb-2">Notes</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {shown.map((r) => {
-                              const notes = (r.comments ?? "").trim();
-                              let dateLabel = r.date;
-                              try { dateLabel = format(parseISO(r.date), "EEE d MMM yyyy"); } catch {}
+                            {shown.map((v) => {
+                              const notes = v.comments.trim();
+                              let dateLabel = v.date;
+                              try { dateLabel = format(parseISO(v.date), "EEE d MMM yyyy"); } catch {}
                               return (
-                                <tr key={r.id} className="border-b border-gray-100 last:border-0 hover:bg-white transition-colors">
+                                <tr key={v.id} className="border-b border-gray-100 last:border-0 hover:bg-white transition-colors">
                                   <td className="py-2 pr-3 text-gray-700 whitespace-nowrap">{dateLabel}</td>
-                                  <td className="py-2 pr-3 text-gray-700 whitespace-nowrap">{r.time}</td>
-                                  <td className="py-2 pr-3 text-gray-700">{r.partySize}</td>
-                                  <td className="py-2 pr-3 text-gray-500">{r.tableName || "—"}</td>
-                                  <td className="py-2 pr-3"><VisitStatusChip status={r.status} /></td>
-                                  <td className="py-2 pr-3 text-gray-600 whitespace-nowrap">{r.customerName}</td>
+                                  <td className="py-2 pr-3 text-gray-700 whitespace-nowrap">{v.time}</td>
+                                  <td className="py-2 pr-3 text-gray-700">{v.partySize}</td>
+                                  <td className="py-2 pr-3 text-gray-500 max-w-[160px]">{v.tables}</td>
+                                  <td className="py-2 pr-3"><VisitStatusChip status={v.status} /></td>
+                                  <td className="py-2 pr-3 text-gray-600 whitespace-nowrap">{v.customerName}</td>
                                   <td className="py-2 text-gray-400">
                                     {notes ? (
                                       <span title={notes} className="cursor-default">
@@ -625,19 +746,19 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
 
                       {/* Mobile stacked cards */}
                       <div className="sm:hidden space-y-2">
-                        {shown.map((r) => {
-                          let dateLabel = r.date;
-                          try { dateLabel = format(parseISO(r.date), "EEE d MMM yyyy"); } catch {}
+                        {shown.map((v) => {
+                          let dateLabel = v.date;
+                          try { dateLabel = format(parseISO(v.date), "EEE d MMM yyyy"); } catch {}
                           return (
-                            <div key={r.id} className="bg-white rounded-lg px-3 py-2.5 text-xs space-y-1">
+                            <div key={v.id} className="bg-white rounded-lg px-3 py-2.5 text-xs space-y-1">
                               <div className="flex items-center justify-between gap-2">
-                                <span className="font-medium text-gray-700">{dateLabel} · {r.time}</span>
-                                <VisitStatusChip status={r.status} />
+                                <span className="font-medium text-gray-700">{dateLabel} · {v.time}</span>
+                                <VisitStatusChip status={v.status} />
                               </div>
-                              <div className="text-gray-500">{r.customerName} · {r.partySize} pax{r.tableName ? ` · ${r.tableName}` : ""}</div>
-                              {r.comments && (
-                                <div className="text-gray-400 truncate">{r.comments}</div>
-                              )}
+                              <div className="text-gray-500">
+                                {v.customerName} · {v.partySize} pax{v.tables !== "—" ? ` · ${v.tables}` : ""}
+                              </div>
+                              {v.comments && <div className="text-gray-400 truncate">{v.comments}</div>}
                             </div>
                           );
                         })}
@@ -645,7 +766,7 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
 
                       {overflow > 0 && (
                         <p className="text-xs text-gray-400 mt-3 text-center">
-                          Showing {VISIT_CAP} of {visits.length} visits — switch to All Time to see more
+                          Showing {VISIT_CAP} of {visits.length} visits
                         </p>
                       )}
                     </div>
@@ -653,6 +774,19 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
                 </div>
               );
             })}
+
+            {/* Load more */}
+            {filteredGuests.length > guestVisible && (
+              <div className="px-4 py-3 border-t border-gray-50 text-center">
+                <button
+                  onClick={() => setGuestVisible(v => v + GUEST_PAGE_SIZE)}
+                  className="text-xs text-[#0D7377] font-medium hover:underline"
+                  data-testid="button-guest-load-more"
+                >
+                  Show more ({filteredGuests.length - guestVisible} remaining)
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
