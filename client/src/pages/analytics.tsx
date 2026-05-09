@@ -216,15 +216,38 @@ function isSlotRange(time: string) {
 }
 
 function HorizBar({ label, value, maxValue, color, suffix = "" }: { label: string; value: number; maxValue: number; color: string; suffix?: string }) {
-  const pct = maxValue ? Math.round((value / maxValue) * 100) : 0;
+  const pct     = maxValue ? Math.round((value / maxValue) * 100) : 0;
+  const barPct  = Math.max(pct, 3);
+  // ≥20 % → label fits comfortably inside (~80 px in a typical 400 px container)
+  const inside  = pct >= 20;
   return (
     <div className="flex items-center gap-2 mb-2.5">
       <span className="text-xs text-gray-500 w-28 shrink-0 truncate">{label}</span>
-      <div className="flex-1 bg-gray-100 rounded h-5 overflow-hidden">
-        <div className="h-full rounded transition-all duration-500"
-          style={{ width: `${Math.max(pct, 3)}%`, background: color + "33" }} />
+      <div className="flex-1 relative h-5 bg-gray-100 rounded">
+        {/* Colored fill */}
+        <div
+          className="absolute left-0 top-0 h-full rounded transition-all duration-500"
+          style={{ width: `${barPct}%`, background: color + "33" }}
+        >
+          {inside && (
+            <span
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium whitespace-nowrap"
+              style={{ color }}
+            >
+              {value}{suffix}
+            </span>
+          )}
+        </div>
+        {/* Fallback: label just outside bar's right edge */}
+        {!inside && (
+          <span
+            className="absolute top-1/2 -translate-y-1/2 text-xs text-gray-400 whitespace-nowrap pl-1.5"
+            style={{ left: `${barPct}%` }}
+          >
+            {value}{suffix}
+          </span>
+        )}
       </div>
-      <span className="text-xs text-gray-400 w-16 text-right shrink-0">{value}{suffix}</span>
     </div>
   );
 }
