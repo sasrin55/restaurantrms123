@@ -443,7 +443,7 @@ function computeDbAnalytics(reservations: Reservation[]) {
     nsGuestMap[key].count  += 1;
     nsGuestMap[key].covers += v.partySize;
   }
-  const nsTopGuests = Object.values(nsGuestMap).sort((a, b) => b.count - a.count);
+  const nsTopGuests = Object.values(nsGuestMap).sort((a, b) => b.covers - a.covers || b.count - a.count);
 
   const busiestDay  = [...dayData].sort((a, b) => b.covers - a.covers)[0];
   const busiestDow  = dowData[0];
@@ -496,7 +496,7 @@ function VisitStatusChip({ status }: { status: string }) {
   );
 }
 
-const GUEST_PAGE_SIZE = 50;
+const GUEST_PAGE_SIZE = 10;
 
 function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
   const [expandedPhone, setExpandedPhone]     = useState<string | null>(null);
