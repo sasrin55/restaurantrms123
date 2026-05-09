@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { formatName } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -215,34 +215,63 @@ function isSlotRange(time: string) {
   return time.includes(" - ");
 }
 
+// Relative luminance (WCAG formula) for a 6-digit hex color
+function luminance(hex: string): number {
+  const [r, g, b] = [1, 3, 5].map(i => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+// Returns "#ffffff" when bar fill is dark enough for white text (contrast ≥ 4.5:1),
+// otherwise returns a legible dark gray.
+function insideLabelColor(hex: string): string {
+  return 1.05 / (luminance(hex) + 0.05) >= 4.5 ? "#ffffff" : "#374151";
+}
+
+const INSIDE_PX = 80; // bar must be ≥ 80 px wide to fit label inside comfortably
+
 function HorizBar({ label, value, maxValue, color, suffix = "" }: { label: string; value: number; maxValue: number; color: string; suffix?: string }) {
-  const pct     = maxValue ? Math.round((value / maxValue) * 100) : 0;
-  const barPct  = Math.max(pct, 3);
-  // ≥20 % → label fits comfortably inside (~80 px in a typical 400 px container)
-  const inside  = pct >= 20;
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [trackW, setTrackW] = useState(0);
+
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    setTrackW(el.clientWidth);
+    const ro = new ResizeObserver(() => setTrackW(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const pct    = maxValue ? Math.round((value / maxValue) * 100) : 0;
+  const barPct = Math.max(pct, 3);
+  // Use measured pixels once available; fall back to % heuristic on first render
+  const inside = trackW > 0 ? (trackW * barPct / 100) >= INSIDE_PX : pct >= 25;
+
   return (
     <div className="flex items-center gap-2 mb-2.5">
       <span className="text-xs text-gray-500 w-28 shrink-0 truncate">{label}</span>
-      <div className="flex-1 relative h-5 bg-gray-100 rounded">
-        {/* Colored fill */}
+      <div ref={trackRef} className="flex-1 relative h-5 bg-gray-100 rounded overflow-visible">
+        {/* Solid-color fill — needed for white-text contrast check to hold */}
         <div
           className="absolute left-0 top-0 h-full rounded transition-all duration-500"
-          style={{ width: `${barPct}%`, background: color + "33" }}
+          style={{ width: `${barPct}%`, background: color }}
         >
           {inside && (
             <span
               className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium whitespace-nowrap"
-              style={{ color }}
+              style={{ color: insideLabelColor(color) }}
             >
               {value}{suffix}
             </span>
           )}
         </div>
-        {/* Fallback: label just outside bar's right edge */}
+        {/* Outside label — always rendered when bar is too narrow, never suppressed */}
         {!inside && (
           <span
-            className="absolute top-1/2 -translate-y-1/2 text-xs text-gray-400 whitespace-nowrap pl-1.5"
-            style={{ left: `${barPct}%` }}
+            className="absolute top-1/2 -translate-y-1/2 text-xs text-gray-600 font-medium whitespace-nowrap"
+            style={{ left: `calc(${barPct}% + 6px)` }}
           >
             {value}{suffix}
           </span>
