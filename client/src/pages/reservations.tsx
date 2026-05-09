@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
+import { formatName } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -280,7 +281,7 @@ export default function ReservationsPage() {
       ? format(resDate, "EEEE, do MMMM")
       : group.date;
     const msg = `Dear Guest,\n\nYou have a reservation with us on ${dayLabel} at ${group.time}.\n\nPlease reply YES to confirm your reservation.\n\nWe hold tables for just 15 mins and request your punctuality to ensure a pleasant and comfortable dining experience.\n\nBest Regards,\nTeam Paola's`;
-    setWaGuestName(group.customerName);
+    setWaGuestName(formatName(group.customerName));
     setWaPhone(group.phoneNumber);
     setWaMessage(msg);
     setWaDialogOpen(true);

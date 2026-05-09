@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { formatName } from "@/lib/utils";
 import { format, addDays, subDays, isToday } from "date-fns";
 import { ChevronLeft, ChevronRight, Users, Clock, Phone, Table2, XCircle, AlertTriangle, CalendarX } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,7 @@ export default function CancellationsPage() {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-semibold text-sm text-foreground">{r.customerName}</p>
+            <p className="font-semibold text-sm text-foreground">{formatName(r.customerName)}</p>
             <Badge
               className={isNoShow
                 ? "bg-orange-100 text-orange-700 border-orange-200 font-medium text-[11px]"

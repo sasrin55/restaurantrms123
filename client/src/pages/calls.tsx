@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Phone, Clock, User, CalendarDays } from "lucide-react";
 import { format } from "date-fns";
 import type { Reservation } from "@shared/schema";
+import { formatName } from "@/lib/utils";
 
 interface EnrichedCall {
   id: string;
@@ -63,7 +64,7 @@ export default function CallsPage() {
                       <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground flex-wrap">
                         <div className="flex items-center gap-1.5">
                           <User className="h-3.5 w-3.5" />
-                          <span>{call.guestName}</span>
+                          <span>{formatName(call.guestName)}</span>
                         </div>
                         {call.visitCount > 0 && (
                           <span>{call.visitCount} visit{call.visitCount !== 1 ? "s" : ""}</span>

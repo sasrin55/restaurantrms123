@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
+import { formatName } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import type { Reservation } from "@shared/schema";
 import {
@@ -678,10 +679,10 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
                     <div className="flex items-center gap-2.5">
                       <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium shrink-0"
                         style={{ background: C.teal + "22", color: C.teal }}>
-                        {g.displayName[0].toUpperCase()}
+                        {formatName(g.displayName)[0] ?? ""}
                       </div>
                       <div>
-                        <p className="text-sm text-gray-800 leading-tight">{g.displayName}</p>
+                        <p className="text-sm text-gray-800 leading-tight">{formatName(g.displayName)}</p>
                         <p className="text-xs text-gray-400 leading-tight">{g.phone}</p>
                       </div>
                     </div>
@@ -729,7 +730,7 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
                                   <td className="py-2 pr-3 text-gray-700">{v.partySize}</td>
                                   <td className="py-2 pr-3 text-gray-500 max-w-[160px]">{v.tables}</td>
                                   <td className="py-2 pr-3"><VisitStatusChip status={v.status} /></td>
-                                  <td className="py-2 pr-3 text-gray-600 whitespace-nowrap">{v.customerName}</td>
+                                  <td className="py-2 pr-3 text-gray-600 whitespace-nowrap">{formatName(v.customerName)}</td>
                                   <td className="py-2 text-gray-400">
                                     {notes ? (
                                       <span title={notes} className="cursor-default">
@@ -756,7 +757,7 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
                                 <VisitStatusChip status={v.status} />
                               </div>
                               <div className="text-gray-500">
-                                {v.customerName} · {v.partySize} pax{v.tables !== "—" ? ` · ${v.tables}` : ""}
+                                {formatName(v.customerName)} · {v.partySize} pax{v.tables !== "—" ? ` · ${v.tables}` : ""}
                               </div>
                               {v.comments && <div className="text-gray-400 truncate">{v.comments}</div>}
                             </div>

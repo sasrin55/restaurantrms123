@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { formatName } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -152,7 +153,7 @@ export default function SettingsPage() {
                 data-testid={`log-row-${r.id}`}
               >
                 <div className="min-w-0">
-                  <p className="font-medium text-foreground truncate">{r.customerName}</p>
+                  <p className="font-medium text-foreground truncate">{formatName(r.customerName)}</p>
                   <p className="text-muted-foreground text-xs truncate">{r.phoneNumber}</p>
                 </div>
                 <div className="min-w-0">

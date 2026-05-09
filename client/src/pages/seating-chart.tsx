@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import type { Reservation } from "@shared/schema";
 import floorPlanBg from "@assets/replit_1770894017909.JPG";
+import { formatName } from "@/lib/utils";
 
 interface TablePosition {
   id: number;
@@ -322,7 +323,7 @@ export default function SeatingChartPage() {
                         color: "white",
                       }}
                     >
-                      {reservation.customerName.split(" ")[0]}
+                      {formatName(reservation.customerName).split(" ")[0]}
                     </div>
                   )}
                 </div>
@@ -357,7 +358,7 @@ export default function SeatingChartPage() {
                     <div className="space-y-2 text-sm">
                       <div>
                         <span className="text-muted-foreground">Guest: </span>
-                        <span className="text-foreground font-medium">{reservation.customerName}</span>
+                        <span className="text-foreground font-medium">{formatName(reservation.customerName)}</span>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Time: </span>

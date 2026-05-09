@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Clock, Users, Phone, MessageSquare, Pencil, Send, UserCheck } from "lucide-react";
+import { formatName } from "@/lib/utils";
 
 export type ReservationStatus = "booked" | "seated" | "confirmed" | "no-show" | "complete" | "cancelled";
 
@@ -116,7 +117,7 @@ export function ReservationCard({
     <Card className="p-4 bg-card border border-border" data-testid={`reservation-card-${id}`}>
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2 min-w-0">
-          <h3 className="font-semibold text-foreground text-base truncate">{guestName}</h3>
+          <h3 className="font-semibold text-foreground text-base truncate">{formatName(guestName)}</h3>
           <span
             className={`px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${statusStyle.className}`}
           >
@@ -267,7 +268,7 @@ export function ReservationRow({
 
   return (
     <tr className="border-b border-border" data-testid={`reservation-row-${id}`}>
-      <td className="py-3 px-3 text-foreground font-medium whitespace-nowrap">{guestName}</td>
+      <td className="py-3 px-3 text-foreground font-medium whitespace-nowrap">{formatName(guestName)}</td>
       <td className="py-3 px-3 text-muted-foreground whitespace-nowrap">{time}</td>
       <td className="py-3 px-3 text-muted-foreground whitespace-nowrap">{partySize}</td>
       <td className="py-3 px-3 text-muted-foreground whitespace-nowrap">{tableNumber}</td>

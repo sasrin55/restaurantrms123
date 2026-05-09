@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { formatName } from "@/lib/utils";
 import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -143,7 +144,7 @@ export default function TablesPage() {
             {reservation && (
               <>
                 <span className="font-medium text-foreground text-center mt-1 text-sm leading-tight" data-testid={`text-guest-${table.id}`}>
-                  {reservation.customerName}
+                  {formatName(reservation.customerName)}
                 </span>
                 <span className="text-[11px] text-muted-foreground text-center">{reservation.time}</span>
               </>
