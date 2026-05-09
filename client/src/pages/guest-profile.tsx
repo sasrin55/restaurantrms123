@@ -64,44 +64,7 @@ export default function GuestProfilePage() {
     onError: () => toast({ title: "Save failed", variant: "destructive" }),
   });
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-  if (!guest) {
-    return (
-      <div className="p-8 text-center text-muted-foreground">
-        Guest not found.{" "}
-        <button className="text-[#0D7377] underline" onClick={() => navigate("/guests")}>Back to list</button>
-      </div>
-    );
-  }
-
-  const completedVisits = reservations.filter(r => r.status === "complete" || r.status === "seated").length;
-  const attendedResos   = reservations.filter(r => r.status !== "cancelled" && r.status !== "no-show");
-  const lifetimeCovers  = attendedResos.reduce((s, r) => s + r.partySize, 0);
-  const avgParty        = attendedResos.length > 0 ? Math.round(lifetimeCovers / attendedResos.length) : 0;
-  const noShowCount     = reservations.filter(r => r.status === "no-show").length;
-  const cancelCount     = reservations.filter(r => r.status === "cancelled").length;
-  const noShowRate      = reservations.length > 0 ? Math.round(noShowCount / reservations.length * 100) : 0;
-  const cancelRate      = reservations.length > 0 ? Math.round(cancelCount / reservations.length * 100) : 0;
-  const firstVisit      = reservations.length > 0 ? reservations[reservations.length - 1].date : null;
-  const lastVisit       = reservations.length > 0 ? reservations[0].date : null;
-  const daysSinceLast   = lastVisit ? differenceInDays(new Date(), parseISO(lastVisit)) : null;
-
-  const waDigits = guest.phone.replace(/\D/g, "");
-  const hasValidPhone = waDigits.length >= 10 && !guest.phone.startsWith("NO_PHONE_");
-
-  const initials = formatName(guest.name)
-    .split(" ")
-    .map(n => n[0] ?? "")
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-
+  // ── All derived values must be computed BEFORE any early return ──
   const groupedReservations = useMemo(() => {
     const seen = new Set<string>();
     return reservations.reduce<(Reservation & { allTables: string })[]>((acc, r) => {
@@ -118,7 +81,44 @@ export default function GuestProfilePage() {
     }, []);
   }, [reservations]);
 
-  const tags = guest.tags ?? [];
+  const completedVisits = reservations.filter(r => r.status === "complete" || r.status === "seated").length;
+  const attendedResos   = reservations.filter(r => r.status !== "cancelled" && r.status !== "no-show");
+  const lifetimeCovers  = attendedResos.reduce((s, r) => s + r.partySize, 0);
+  const avgParty        = attendedResos.length > 0 ? Math.round(lifetimeCovers / attendedResos.length) : 0;
+  const noShowCount     = reservations.filter(r => r.status === "no-show").length;
+  const cancelCount     = reservations.filter(r => r.status === "cancelled").length;
+  const noShowRate      = reservations.length > 0 ? Math.round(noShowCount / reservations.length * 100) : 0;
+  const cancelRate      = reservations.length > 0 ? Math.round(cancelCount / reservations.length * 100) : 0;
+  const firstVisit      = reservations.length > 0 ? reservations[reservations.length - 1].date : null;
+  const lastVisit       = reservations.length > 0 ? reservations[0].date : null;
+  const daysSinceLast   = lastVisit ? differenceInDays(new Date(), parseISO(lastVisit)) : null;
+
+  const waDigits      = guest?.phone.replace(/\D/g, "") ?? "";
+  const hasValidPhone = waDigits.length >= 10 && !(guest?.phone ?? "").startsWith("NO_PHONE_");
+  const initials      = formatName(guest?.name ?? "")
+    .split(" ")
+    .map(n => n[0] ?? "")
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+  const tags = guest?.tags ?? [];
+
+  // ── Early returns AFTER all hooks ──
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+  if (!guest) {
+    return (
+      <div className="p-8 text-center text-muted-foreground">
+        Guest not found.{" "}
+        <button className="text-[#0D7377] underline" onClick={() => navigate("/guests")}>Back to list</button>
+      </div>
+    );
+  }
 
   function fmtDate(d: string) {
     try { return format(parseISO(d), "EEE d MMM yyyy"); } catch { return d; }
