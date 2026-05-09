@@ -17,7 +17,8 @@ export interface IStorage {
 
   getGuests(): Promise<Guest[]>;
   getGuest(id: string): Promise<Guest | undefined>;
-  upsertGuest(name: string, phone: string, date: string, partySize: number): Promise<Guest>;
+  upsertGuest(name: string, phone: string, date: string, partySize: number, isWalkIn?: boolean): Promise<Guest>;
+  updateGuest(id: string, updates: Partial<Guest>): Promise<Guest | undefined>;
   deleteGuest(id: string): Promise<boolean>;
   rebuildGuestData(): Promise<void>;
 
@@ -125,7 +126,13 @@ export class DatabaseStorage implements IStorage {
     return guest;
   }
 
-  async upsertGuest(name: string, phone: string, date: string, partySize: number): Promise<Guest> {
+  async updateGuest(id: string, updates: Partial<Guest>): Promise<Guest | undefined> {
+    const { id: _id, ...safeUpdates } = updates as any;
+    const [updated] = await db.update(guests).set(safeUpdates).where(eq(guests.id, id)).returning();
+    return updated;
+  }
+
+  async upsertGuest(name: string, phone: string, date: string, partySize: number, isWalkIn?: boolean): Promise<Guest> {
     const [existing] = await db.select().from(guests).where(eq(guests.phone, phone));
 
     if (existing) {
@@ -168,6 +175,7 @@ export class DatabaseStorage implements IStorage {
       lastVisit: date,
       totalPartySize: partySize,
       noShowCount: 0,
+      isWalkIn: isWalkIn ?? false,
     }).returning();
     return guest;
   }

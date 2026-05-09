@@ -50,6 +50,13 @@ export const guests = pgTable("guests", {
   lastVisit: text("last_visit").notNull(),
   totalPartySize: integer("total_party_size").notNull().default(0),
   noShowCount: integer("no_show_count").notNull().default(0),
+  isWalkIn:        boolean("is_walk_in").notNull().default(false),
+  depositRequired: boolean("deposit_required").notNull().default(false),
+  tags:            text("tags").array().notNull().default(sql`'{}'::text[]`),
+  notes:           text("notes").notNull().default(""),
+  dietaryNotes:    text("dietary_notes").notNull().default(""),
+  notesUpdatedAt:  timestamp("notes_updated_at"),
+  notesUpdatedBy:  text("notes_updated_by").notNull().default(""),
 });
 
 export const insertGuestSchema = createInsertSchema(guests).omit({

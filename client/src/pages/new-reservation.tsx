@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { isValidPhone } from "@/lib/utils";
 import { useLocation, useSearch } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,7 @@ export default function NewCustomerPage() {
   const preSlot = params.get("slot") || null;
 
   const [mode, setMode] = useState<CustomerMode>("reservation");
+  const [noPhone, setNoPhone]     = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [waDialogOpen, setWaDialogOpen] = useState(false);
   const [waMessage, setWaMessage] = useState("");
@@ -110,7 +112,9 @@ export default function NewCustomerPage() {
         const isTepanyaki = table.id >= 1001 && table.id <= 1008;
         const payload: Record<string, unknown> = {
           customerName: mode === "walkin" ? (customerName.trim() || "Walk-in Guest") : customerName,
-          phoneNumber: mode === "walkin" ? (phoneNumber.trim() || "N/A") : phoneNumber,
+          phoneNumber: mode === "walkin"
+            ? (phoneNumber.trim() || "N/A")
+            : (noPhone ? `NO_PHONE_${Date.now()}_${Math.random().toString(36).slice(2)}` : phoneNumber),
           date: dateStr,
           time,
           partySize: parsedSize,
@@ -148,7 +152,7 @@ export default function NewCustomerPage() {
   });
 
   const canSubmit = mode === "reservation"
-    ? (!!date && !!time && parsedSize > 0 && selectedTables.length > 0 && !!customerName.trim() && !!phoneNumber.trim())
+    ? (!!date && !!time && parsedSize > 0 && selectedTables.length > 0 && !!customerName.trim() && (noPhone || !!phoneNumber.trim()))
     : (!!effectiveDate && !!time && parsedSize > 0 && selectedTables.length > 0);
 
   const handleSubmit = () => {
@@ -191,8 +195,12 @@ export default function NewCustomerPage() {
         toast({ title: "Enter guest name", description: "Please enter the guest's name.", variant: "destructive" });
         return;
       }
-      if (!phoneNumber.trim()) {
+      if (!noPhone && !phoneNumber.trim()) {
         toast({ title: "Enter phone number", description: "Please enter the guest's phone number.", variant: "destructive" });
+        return;
+      }
+      if (!noPhone && !isValidPhone(phoneNumber)) {
+        toast({ title: "Invalid phone number", description: "Please enter a valid number (at least 10 digits). Tick 'No phone' to skip.", variant: "destructive" });
         return;
       }
     }
@@ -372,7 +380,9 @@ export default function NewCustomerPage() {
               {mode === "reservation" && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Phone Number:</span>
-                  <span className="font-medium" data-testid="text-confirm-phone">{phoneNumber}</span>
+                  <span className="font-medium" data-testid="text-confirm-phone">
+                    {noPhone ? "No phone (walk-in record)" : phoneNumber}
+                  </span>
                 </div>
               )}
               <div className="flex justify-between">
@@ -657,13 +667,29 @@ export default function NewCustomerPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-muted-foreground text-sm">
-                Phone Number {mode === "walkin" && <span className="text-xs">(optional)</span>}
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-muted-foreground text-sm">
+                  Phone Number {mode === "walkin" && <span className="text-xs">(optional)</span>}
+                </Label>
+                {mode === "reservation" && (
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none" data-testid="label-no-phone">
+                    <input
+                      type="checkbox"
+                      checked={noPhone}
+                      onChange={e => { setNoPhone(e.target.checked); if (e.target.checked) setPhoneNumber(""); }}
+                      className="rounded border-gray-300"
+                      data-testid="checkbox-no-phone"
+                    />
+                    No phone (walk-in)
+                  </label>
+                )}
+              </div>
               <Input
-                placeholder="Phone number"
+                placeholder={noPhone ? "No phone — walk-in record" : "Phone number"}
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
+                disabled={mode === "reservation" && noPhone}
+                className={noPhone ? "bg-gray-50 text-gray-400" : ""}
                 data-testid="input-phone-number"
               />
             </div>

@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, Users, Phone, Calendar, Loader2, Trash2, Star, ShoppingCart, UserX } from "lucide-react";
+import { Search, Users, Phone, Calendar, Loader2, Trash2, Star, ShoppingCart, UserX, Eye, EyeOff } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { formatName, isValidPhone } from "@/lib/utils";
 
 interface Guest {
   id: string;
@@ -17,6 +19,11 @@ interface Guest {
   lastVisit: string;
   totalPartySize: number;
   noShowCount: number;
+  isWalkIn: boolean;
+  depositRequired: boolean;
+  tags: string[];
+  notes: string;
+  dietaryNotes: string;
 }
 
 interface GuestAnalytics {
@@ -64,6 +71,8 @@ function GuestOrderStats({ guestId }: { guestId: string }) {
 
 export default function GuestListPage() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [showHidden, setShowHidden]   = useState(false);
+  const [, navigate] = useLocation();
 
   const { data: guests = [], isLoading } = useQuery<Guest[]>({
     queryKey: ["/api/guests"],
@@ -76,15 +85,18 @@ export default function GuestListPage() {
     },
   });
 
-  const filteredGuests = guests.filter((guest) => {
-    const matchesSearch =
-      guest.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      guest.phone.includes(searchQuery);
-    return matchesSearch;
-  });
+  const validGuests  = guests.filter(g => isValidPhone(g.phone) && !g.isWalkIn);
+  const hiddenGuests = guests.filter(g => !isValidPhone(g.phone) || g.isWalkIn);
+
+  const displayGuests = showHidden ? guests : validGuests;
+
+  const filteredGuests = displayGuests.filter((guest) =>
+    guest.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    guest.phone.includes(searchQuery)
+  );
 
   const getInitials = (name: string) => {
-    return name
+    return formatName(name)
       .split(" ")
       .map((n) => n[0])
       .join("")
@@ -112,7 +124,7 @@ export default function GuestListPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+        <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-5">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -128,6 +140,19 @@ export default function GuestListPage() {
           </div>
         </div>
 
+        {hiddenGuests.length > 0 && (
+          <button
+            onClick={() => setShowHidden(v => !v)}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-4 transition-colors"
+            data-testid="button-toggle-hidden"
+          >
+            {showHidden
+              ? <><EyeOff className="h-3.5 w-3.5" /> Hide {hiddenGuests.length} entries with invalid phones / walk-ins</>
+              : <><Eye className="h-3.5 w-3.5" /> Show {hiddenGuests.length} entries with invalid phones / walk-ins</>
+            }
+          </button>
+        )}
+
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -141,7 +166,7 @@ export default function GuestListPage() {
               {searchQuery ? "No guests found" : "No guests yet"}
             </h3>
             <p className="text-muted-foreground mb-4 max-w-sm" data-testid="text-empty-description">
-              {searchQuery 
+              {searchQuery
                 ? "Try a different search term."
                 : "Guests will appear here once they make reservations."}
             </p>
@@ -149,7 +174,12 @@ export default function GuestListPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredGuests.map((guest) => (
-              <Card key={guest.id} className="hover-elevate" data-testid={`card-guest-${guest.id}`}>
+              <Card
+                key={guest.id}
+                className="hover-elevate cursor-pointer"
+                onClick={() => navigate(`/guests/${guest.id}`)}
+                data-testid={`card-guest-${guest.id}`}
+              >
                 <CardContent className="p-4">
                   <div className="flex items-start gap-4">
                     <Avatar className="h-12 w-12">
@@ -159,7 +189,7 @@ export default function GuestListPage() {
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-foreground truncate" data-testid={`text-guest-name-${guest.id}`}>
-                        {guest.name}
+                        {formatName(guest.name)}
                       </h3>
                       <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
                         <Phone className="h-3.5 w-3.5" />
@@ -167,8 +197,8 @@ export default function GuestListPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <Badge 
-                        variant="secondary" 
+                      <Badge
+                        variant="secondary"
                         data-testid={`badge-visit-count-${guest.id}`}
                       >
                         {guest.visitCount} {guest.visitCount === 1 ? "visit" : "visits"}
@@ -186,7 +216,7 @@ export default function GuestListPage() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        onClick={() => deleteGuestMutation.mutate(guest.id)}
+                        onClick={(e) => { e.stopPropagation(); deleteGuestMutation.mutate(guest.id); }}
                         disabled={deleteGuestMutation.isPending}
                         data-testid={`button-remove-guest-${guest.id}`}
                       >
@@ -201,9 +231,23 @@ export default function GuestListPage() {
                     </div>
                     <div className="flex items-center gap-1.5 text-muted-foreground">
                       <Users className="h-3.5 w-3.5" />
-                      <span>Avg party: {Math.round(guest.totalPartySize / guest.visitCount)}</span>
+                      <span>Avg party: {Math.round(guest.totalPartySize / Math.max(guest.visitCount, 1))}</span>
                     </div>
                   </div>
+                  {guest.depositRequired && (
+                    <div className="mt-2">
+                      <Badge variant="outline" className="text-xs border-amber-300 text-amber-700 bg-amber-50">
+                        Deposit required
+                      </Badge>
+                    </div>
+                  )}
+                  {guest.tags && guest.tags.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {guest.tags.slice(0, 3).map(tag => (
+                        <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
+                      ))}
+                    </div>
+                  )}
                   <GuestOrderStats guestId={guest.id} />
                 </CardContent>
               </Card>

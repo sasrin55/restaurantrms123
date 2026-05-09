@@ -54,11 +54,13 @@ export async function registerRoutes(
 
     const reservation = await storage.createReservation(parsed.data);
 
+    const isWalkIn = reservation.phoneNumber.startsWith("NO_PHONE_");
     await storage.upsertGuest(
       reservation.customerName,
       reservation.phoneNumber,
       reservation.date,
-      reservation.partySize
+      reservation.partySize,
+      isWalkIn
     );
 
     appendReservationToSheet(reservation).catch(err =>
@@ -237,6 +239,26 @@ export async function registerRoutes(
   app.get("/api/guests", async (req, res) => {
     const guests = await storage.getGuests();
     res.json(guests);
+  });
+
+  app.get("/api/guests/:id", async (req, res) => {
+    const guest = await storage.getGuest(req.params.id);
+    if (!guest) return res.status(404).json({ error: "Guest not found" });
+    const allReservations = await storage.getReservations();
+    const guestReservations = allReservations.filter(r => r.phoneNumber === guest.phone);
+    res.json({ guest, reservations: guestReservations });
+  });
+
+  app.patch("/api/guests/:id", async (req, res) => {
+    const allowed = ["depositRequired", "tags", "notes", "dietaryNotes", "notesUpdatedAt", "notesUpdatedBy", "name", "phone", "isWalkIn"];
+    const updates: any = {};
+    for (const k of allowed) {
+      if (req.body[k] !== undefined) updates[k] = req.body[k];
+    }
+    if (updates.notesUpdatedAt) updates.notesUpdatedAt = new Date(updates.notesUpdatedAt);
+    const updated = await storage.updateGuest(req.params.id, updates);
+    if (!updated) return res.status(404).json({ error: "Guest not found" });
+    res.json(updated);
   });
 
   app.delete("/api/guests/:id", async (req, res) => {

@@ -11,6 +11,7 @@ import LoginPage from "@/pages/login";
 import ReservationsPage from "@/pages/reservations";
 import NewCustomerPage from "@/pages/new-reservation";
 import GuestListPage from "@/pages/guest-list";
+import GuestProfilePage from "@/pages/guest-profile";
 import TablesPage from "@/pages/tables";
 import OrdersPage from "@/pages/orders";
 import AnalyticsPage from "@/pages/analytics";
@@ -33,6 +34,9 @@ function Router() {
       {/* Protected inside the app — requires password "Seated" */}
       <Route path="/guests">
         <ProtectedRoute><GuestListPage /></ProtectedRoute>
+      </Route>
+      <Route path="/guests/:id">
+        <ProtectedRoute><GuestProfilePage /></ProtectedRoute>
       </Route>
       <Route path="/orders">
         <ProtectedRoute><OrdersPage /></ProtectedRoute>
