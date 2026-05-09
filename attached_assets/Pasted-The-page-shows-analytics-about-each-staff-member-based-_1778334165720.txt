@@ -1,0 +1,55 @@
+The page shows analytics about each staff member based on the "Taken by" field on reservations they created. Only raw, observable counts — no calculated "scores" or ratings. No no-show or cancellation rates per server (those are outside their control).
+
+Default view: Servers list / leaderboard table
+
+Columns:
+
+Name (with formatName applied)
+Reservations taken (count, in selected date range)
+Total covers (sum of party_size across their bookings)
+New customers brought (count of bookings where the customer's phone had no prior reservations before this one)
+Returning customer bookings (count of bookings where the customer had at least one prior reservation)
+Bookings with phone captured (count where phone passes validation — same rules as Guest List)
+Bookings with table assigned (count where table_id is not null/empty)
+Bookings confirmed (count where status moved to confirmed — measures follow-up effort)
+Bookings completed (count of completed status — measures actual show-ups, factual)
+All of these are raw counts. No percentages, no score, no rating, no color-coded "good/bad" indicators. Sortable by any column.
+
+Date-range filter at the top of the list:
+
+Today
+This week
+This month (default)
+Last month
+All time
+Custom range
+The default sort is by "Reservations taken" descending so the most active server is at the top of this month's view.
+
+Click a server row → server detail page (/servers/:id)
+
+Detail page contents:
+
+Header: name, role, total lifetime reservations taken
+All the same count metrics from the table, but expanded for the selected date range
+Daily bookings chart — bar chart of how many reservations they took each day in the selected range. Pure visualization, no judgments.
+Recent bookings list — table of their last 50 reservations with date, time, customer name, party size, table, status. Click to jump to the reservation detail.
+Data hygiene callouts (factual, not scored):
+
+Below the metrics on the detail page, surface the raw lists of issues — not as a percentage, just as actionable lists:
+
+"8 bookings missing a valid phone" → click to see those specific bookings
+"3 bookings missing a table assignment" → click to see them
+"2 bookings missing customer name" → click
+The server can click each list to see exactly which reservations have the issue and fix them. Manager can use the same view for coaching.
+
+What I'm explicitly NOT asking for:
+
+No "score" or composite rating per server
+No no-show rate / cancellation rate per server
+No color-coded performance badges (red/yellow/green)
+No leaderboard ranking trophies or gamification
+No comparison-to-team-average shaming
+The goal is a factual, useful operational view — not a performance-management surveillance tool.
+
+Show me the diff before applying.
+
