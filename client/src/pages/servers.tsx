@@ -15,6 +15,19 @@ function isValidPhone(phone: string): boolean {
   const d = digitsOnly(phone);
   return d.length >= 10 && !/^0+$/.test(d);
 }
+function isWalkInReso(r: Reservation): boolean {
+  const name     = (r.customerName ?? "").toLowerCase().trim();
+  const comments = (r.comments ?? "").toLowerCase().trim();
+  const phone    = (r.phoneNumber ?? "").toLowerCase().trim();
+  return (
+    r.isWalkIn === true ||
+    comments.startsWith("walk-in") ||
+    name === "walk in" || name === "walk-in" ||
+    name === "walk-in guest" || name === "walk in guest" ||
+    name.startsWith("walk in") || name.startsWith("walk-in") ||
+    phone === "n/a" || phone === "0"
+  );
+}
 
 type DatePreset = "today" | "week" | "month" | "lastmonth" | "all" | "custom";
 
@@ -43,43 +56,21 @@ function getRange(preset: DatePreset, from?: Date, to?: Date): { from: string; t
 type ServerStats = {
   name: string;
   reservationsTaken: number;
-  totalCovers: number;
-  newCustomers: number;
-  returningCustomers: number;
-  phoneCapture: number;
-  tableAssigned: number;
-  confirmed: number;
-  completed: number;
+  walkInsTaken: number;
+  phoneMissing: number;
 };
 
 function computeStats(allResos: Reservation[], range: { from: string; to: string } | null): ServerStats[] {
-  const phoneFirstDate: Record<string, string> = {};
-  for (const r of allResos) {
-    if (!isValidPhone(r.phoneNumber)) continue;
-    const d = digitsOnly(r.phoneNumber);
-    if (!phoneFirstDate[d] || r.date < phoneFirstDate[d]) phoneFirstDate[d] = r.date;
-  }
   const inRange = range ? allResos.filter(r => r.date >= range.from && r.date <= range.to) : allResos;
   const stats: Record<string, ServerStats> = {};
   for (const r of inRange) {
     const name = (r.takenBy ?? "").trim();
     if (!name) continue;
-    if (!stats[name]) stats[name] = {
-      name, reservationsTaken: 0, totalCovers: 0, newCustomers: 0,
-      returningCustomers: 0, phoneCapture: 0, tableAssigned: 0, confirmed: 0, completed: 0,
-    };
+    if (!stats[name]) stats[name] = { name, reservationsTaken: 0, walkInsTaken: 0, phoneMissing: 0 };
     const s = stats[name];
-    s.reservationsTaken++;
-    s.totalCovers += r.partySize ?? 0;
-    if (isValidPhone(r.phoneNumber)) {
-      s.phoneCapture++;
-      const first = phoneFirstDate[digitsOnly(r.phoneNumber)];
-      if (first === r.date) s.newCustomers++;
-      else s.returningCustomers++;
-    }
-    if (r.tableId && r.tableId > 0) s.tableAssigned++;
-    if (["confirmed", "seated", "complete"].includes(r.status)) s.confirmed++;
-    if (r.status === "complete") s.completed++;
+    if (isWalkInReso(r)) s.walkInsTaken++;
+    else s.reservationsTaken++;
+    if (!isValidPhone(r.phoneNumber)) s.phoneMissing++;
   }
   return Object.values(stats);
 }
@@ -88,14 +79,9 @@ type SortKey = keyof Omit<ServerStats, "name">;
 type SortDir = "asc" | "desc";
 
 const COLS: { key: SortKey; label: string }[] = [
-  { key: "reservationsTaken",  label: "Resos taken" },
-  { key: "totalCovers",        label: "Total covers" },
-  { key: "newCustomers",       label: "New customers" },
-  { key: "returningCustomers", label: "Returning" },
-  { key: "phoneCapture",       label: "Phone captured" },
-  { key: "tableAssigned",      label: "Table assigned" },
-  { key: "confirmed",          label: "Confirmed" },
-  { key: "completed",          label: "Completed" },
+  { key: "reservationsTaken", label: "Reservations Taken" },
+  { key: "walkInsTaken",      label: "Walk-ins Taken" },
+  { key: "phoneMissing",      label: "Phone Not Filled Correctly" },
 ];
 
 export default function ServersPage() {
@@ -107,16 +93,15 @@ export default function ServersPage() {
     refetchOnMount: "always",
   });
 
-  const [preset, setPreset]       = useState<DatePreset>("month");
+  const [preset, setPreset]         = useState<DatePreset>("month");
   const [customFrom, setCustomFrom] = useState<Date | undefined>();
-  const [customTo, setCustomTo]   = useState<Date | undefined>();
-  const [calOpen, setCalOpen]     = useState(false);
-  const [sortKey, setSortKey]     = useState<SortKey>("reservationsTaken");
-  const [sortDir, setSortDir]     = useState<SortDir>("desc");
+  const [customTo, setCustomTo]     = useState<Date | undefined>();
+  const [calOpen, setCalOpen]       = useState(false);
+  const [sortKey, setSortKey]       = useState<SortKey>("reservationsTaken");
+  const [sortDir, setSortDir]       = useState<SortDir>("desc");
 
-  const range = useMemo(() => getRange(preset, customFrom, customTo), [preset, customFrom, customTo]);
+  const range  = useMemo(() => getRange(preset, customFrom, customTo), [preset, customFrom, customTo]);
   const stats  = useMemo(() => computeStats(allResos, range), [allResos, range]);
-
   const sorted = useMemo(() => [...stats].sort((a, b) =>
     sortDir === "desc" ? b[sortKey] - a[sortKey] : a[sortKey] - b[sortKey]
   ), [stats, sortKey, sortDir]);
@@ -127,18 +112,17 @@ export default function ServersPage() {
   }
 
   const rangeLabel = useMemo(() => {
-    if (preset === "custom" && customFrom) {
+    if (preset === "custom" && customFrom)
       return `${format(customFrom, "MMM d")}${customTo ? ` – ${format(customTo, "MMM d")}` : " – …"}`;
-    }
     return PRESET_LABELS[preset];
   }, [preset, customFrom, customTo]);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto" data-testid="page-servers">
+    <div className="p-6 max-w-5xl mx-auto" data-testid="page-servers">
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Servers</h1>
-          <p className="text-sm text-gray-400 mt-0.5">{rangeLabel} · raw counts only</p>
+          <p className="text-sm text-gray-400 mt-0.5">{rangeLabel}</p>
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -196,58 +180,60 @@ export default function ServersPage() {
         </div>
       ) : (
         <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[860px]">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">
-                    Name
-                  </th>
-                  {COLS.map(col => (
-                    <th key={col.key}
-                      className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer select-none whitespace-nowrap"
-                      onClick={() => handleSort(col.key)}
-                      data-testid={`th-${col.key}`}
-                    >
-                      <div className="flex items-center justify-end gap-1">
-                        {col.label}
-                        {sortKey === col.key
-                          ? sortDir === "desc"
-                            ? <ChevronDown className="h-3 w-3 text-[#0D7377]" />
-                            : <ChevronUp className="h-3 w-3 text-[#0D7377]" />
-                          : <ArrowUpDown className="h-3 w-3 opacity-25" />}
-                      </div>
-                    </th>
-                  ))}
-                  <th className="px-3 py-3 w-8 bg-gray-50" />
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.map((s, i) => (
-                  <tr key={s.name}
-                    className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors cursor-pointer group"
-                    onClick={() => navigate(`/servers/${encodeURIComponent(s.name)}`)}
-                    data-testid={`row-server-${i}`}
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Name
+                </th>
+                {COLS.map(col => (
+                  <th key={col.key}
+                    className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer select-none whitespace-nowrap"
+                    onClick={() => handleSort(col.key)}
+                    data-testid={`th-${col.key}`}
                   >
-                    <td className="px-4 py-3 font-medium text-gray-900 sticky left-0 bg-white group-hover:bg-gray-50 transition-colors">
-                      {formatName(s.name)}
-                    </td>
-                    {COLS.map(col => (
-                      <td key={col.key}
-                        className="px-4 py-3 text-right tabular-nums text-gray-700"
-                        data-testid={`cell-${col.key}-${i}`}
-                      >
-                        {s[col.key]}
-                      </td>
-                    ))}
-                    <td className="px-3 py-3 text-gray-300 group-hover:text-gray-400 transition-colors">
-                      <ChevronRight className="h-4 w-4" />
-                    </td>
-                  </tr>
+                    <div className="flex items-center justify-end gap-1">
+                      {col.label}
+                      {sortKey === col.key
+                        ? sortDir === "desc"
+                          ? <ChevronDown className="h-3 w-3 text-[#0D7377]" />
+                          : <ChevronUp className="h-3 w-3 text-[#0D7377]" />
+                        : <ArrowUpDown className="h-3 w-3 opacity-25" />}
+                    </div>
+                  </th>
                 ))}
-              </tbody>
-            </table>
-          </div>
+                <th className="px-3 py-3 w-8 bg-gray-50" />
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((s, i) => (
+                <tr key={s.name}
+                  className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors cursor-pointer group"
+                  onClick={() => navigate(`/servers/${encodeURIComponent(s.name)}`)}
+                  data-testid={`row-server-${i}`}
+                >
+                  <td className="px-4 py-3 font-medium text-gray-900">{formatName(s.name)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-gray-700"
+                    data-testid={`cell-reservationsTaken-${i}`}>
+                    {s.reservationsTaken}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums text-gray-700"
+                    data-testid={`cell-walkInsTaken-${i}`}>
+                    {s.walkInsTaken}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums"
+                    data-testid={`cell-phoneMissing-${i}`}>
+                    <span className={s.phoneMissing > 0 ? "text-amber-600 font-medium" : "text-gray-400"}>
+                      {s.phoneMissing}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3 text-gray-300 group-hover:text-gray-400 transition-colors">
+                    <ChevronRight className="h-4 w-4" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
