@@ -50,6 +50,7 @@ export const guests = pgTable("guests", {
   lastVisit: text("last_visit").notNull(),
   totalPartySize: integer("total_party_size").notNull().default(0),
   noShowCount: integer("no_show_count").notNull().default(0),
+  cancelCount: integer("cancel_count").notNull().default(0),
   isWalkIn:        boolean("is_walk_in").notNull().default(false),
   depositRequired: boolean("deposit_required").notNull().default(false),
   tags:            text("tags").array().notNull().default(sql`'{}'::text[]`),
