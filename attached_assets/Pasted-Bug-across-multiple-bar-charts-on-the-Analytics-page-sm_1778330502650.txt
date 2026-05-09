@@ -1,0 +1,21 @@
+Bug across multiple bar charts on the Analytics page: smaller bars are losing their count labels entirely. Look at "No-Shows by Time Slot" — the larger bars (13/15 no-shows) show their labels cleanly inside the bar, but several smaller bars have no visible label at all (or the label is clipped/invisible). Same issue appears in "By Service Slot," "Walk-ins by Time Slot," and "Table Performance."
+
+Rule to enforce, no exceptions, every bar chart on the page:
+
+Every bar must display its count label visibly, regardless of bar width. The placement rule:
+
+If the bar is wide enough to fit the label inside with comfortable padding (~8px on each side and the label fully fits) → render label INSIDE the bar, right-aligned, in white text.
+If the bar is too small for the label to fit inside → render the label OUTSIDE, immediately to the right of the bar's end, in secondary text color (the same gray you use for muted text elsewhere). No 1px gap, no awkward floating — flush against the bar's right edge with ~6px padding.
+There is no third case where the label is hidden. Every bar gets a label, period.
+
+Implementation note: if you're using a chart library (Recharts, Chart.js, etc.) the standard pattern is position: insideEnd with a custom renderer that checks bar width and switches to position: end (outside) when the bar is too narrow. If you're rendering bars manually, calculate the bar's pixel width and conditionally choose placement at render time.
+
+Also confirm the inside-bar text contrast still works on the new section colors:
+
+Purple (By Service Slot): white text on purple — should be fine
+Blue (Operations / Table Performance): white text on blue — should be fine
+Gray (Walk-ins): white text on light gray may be illegible — use dark text on gray bars instead
+Amber/orange (No-Shows): white may not have enough contrast on lighter amber — switch to dark text if so
+Pick text color per section based on contrast against that section's bar fill, and verify visually for every chart on the page.
+
+Show me the diff before applying including the threshold pixel width you use for the inside-vs-outside decision.
