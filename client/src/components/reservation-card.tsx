@@ -268,7 +268,7 @@ export function ReservationRow({
 
   return (
     <tr className="border-b border-border" data-testid={`reservation-row-${id}`}>
-      <td className="py-3 px-3 text-foreground font-medium whitespace-nowrap">{formatName(guestName)}</td>
+      <td className="py-3 px-3 text-foreground font-medium whitespace-nowrap sticky left-0 z-10 bg-background shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)]">{formatName(guestName)}</td>
       <td className="py-3 px-3 text-muted-foreground whitespace-nowrap">{time}</td>
       <td className="py-3 px-3 text-muted-foreground whitespace-nowrap">{partySize}</td>
       <td className="py-3 px-3 text-muted-foreground whitespace-nowrap">{tableNumber}</td>
@@ -279,7 +279,7 @@ export function ReservationRow({
           {statusStyle.label}
         </span>
       </td>
-      <td className="py-3 px-3">
+      <td className="py-3 px-3 sticky right-0 z-10 bg-background shadow-[-2px_0_4px_-1px_rgba(0,0,0,0.06)]">
         <div className="flex items-center gap-1.5 flex-nowrap">
           {actions.primary && (
             <Button

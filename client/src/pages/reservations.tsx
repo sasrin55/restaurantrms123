@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { formatName } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -45,6 +45,45 @@ import type { Reservation } from "@shared/schema";
 import { getTimeSlotsForDate, getPeriodLabel, ALL_SLOTS, type MealPeriod } from "@/lib/timeSlots";
 
 type DateFilter = "today" | "tomorrow" | "this-week" | "custom";
+
+// ── Horizontally-scrollable table wrapper with left/right gradient fade hints ─
+function ScrollFade({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [canLeft,  setCanLeft]  = useState(false);
+  const [canRight, setCanRight] = useState(false);
+
+  const update = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    setCanLeft(el.scrollLeft > 4);
+    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    update();
+    const el = ref.current;
+    if (el) {
+      el.addEventListener("scroll", update, { passive: true });
+      const ro = new ResizeObserver(update);
+      ro.observe(el);
+      return () => { el.removeEventListener("scroll", update); ro.disconnect(); };
+    }
+  }, [update]);
+
+  return (
+    <div className="relative">
+      {canLeft && (
+        <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-14 z-20 bg-gradient-to-r from-background to-transparent rounded-l-md" />
+      )}
+      {canRight && (
+        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-16 z-20 bg-gradient-to-l from-background to-transparent rounded-r-md" />
+      )}
+      <div ref={ref} className="overflow-x-auto border rounded-md">
+        {children}
+      </div>
+    </div>
+  );
+}
 
 interface GroupedReservation {
   ids: string[];
@@ -773,18 +812,18 @@ export default function ReservationsPage() {
                     <h2 className="text-lg font-semibold text-foreground mb-4" data-testid={`text-slot-list-${time}`}>
                       {getPeriodLabel(period)} · {time}
                     </h2>
-                    <div className="border rounded-md overflow-hidden">
-                      <table className="w-full">
+                    <ScrollFade>
+                      <table className="w-full min-w-[860px]">
                         <thead className="bg-muted/50">
                           <tr className="border-b">
-                            <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Name</th>
+                            <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm sticky left-0 z-10 bg-muted/50 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)]">Name</th>
                             <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Time</th>
                             <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Pax</th>
                             <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Table</th>
                             <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Phone</th>
                             <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Server</th>
                             <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Status</th>
-                            <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm">Actions</th>
+                            <th className="text-left py-3 px-3 font-medium text-muted-foreground whitespace-nowrap text-sm sticky right-0 z-10 bg-muted/50 shadow-[-2px_0_4px_-1px_rgba(0,0,0,0.06)]">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -810,7 +849,7 @@ export default function ReservationsPage() {
                           ))}
                         </tbody>
                       </table>
-                    </div>
+                    </ScrollFade>
                   </div>
                 );
               })}

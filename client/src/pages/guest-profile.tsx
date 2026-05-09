@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format, parseISO, differenceInDays } from "date-fns";
@@ -27,6 +27,44 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 type ProfileData = { guest: Guest; reservations: Reservation[] };
+
+function ProfileScrollFade({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [canLeft,  setCanLeft]  = useState(false);
+  const [canRight, setCanRight] = useState(false);
+
+  const update = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    setCanLeft(el.scrollLeft > 4);
+    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    update();
+    const el = ref.current;
+    if (el) {
+      el.addEventListener("scroll", update, { passive: true });
+      const ro = new ResizeObserver(update);
+      ro.observe(el);
+      return () => { el.removeEventListener("scroll", update); ro.disconnect(); };
+    }
+  }, [update]);
+
+  return (
+    <div className="hidden sm:block relative">
+      {canLeft && (
+        <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-10 z-20 bg-gradient-to-r from-white to-transparent" />
+      )}
+      {canRight && (
+        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-12 z-20 bg-gradient-to-l from-white to-transparent" />
+      )}
+      <div ref={ref} className="overflow-x-auto">
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export default function GuestProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -428,17 +466,17 @@ export default function GuestProfilePage() {
           ) : (
             <>
               {/* Desktop table */}
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="w-full text-xs">
+              <ProfileScrollFade>
+                <table className="w-full text-xs min-w-[600px]">
                   <thead>
                     <tr className="text-gray-400 border-b border-gray-100">
-                      <th className="text-left font-medium px-4 py-2.5 pr-3 whitespace-nowrap">Date</th>
+                      <th className="text-left font-medium px-4 py-2.5 pr-3 whitespace-nowrap sticky left-0 z-10 bg-white shadow-[2px_0_4px_-1px_rgba(0,0,0,0.04)]">Date</th>
                       <th className="text-left font-medium py-2.5 pr-3 whitespace-nowrap">Time</th>
                       <th className="text-left font-medium py-2.5 pr-3">Pax</th>
                       <th className="text-left font-medium py-2.5 pr-3">Table(s)</th>
                       <th className="text-left font-medium py-2.5 pr-3">Status</th>
                       <th className="text-left font-medium py-2.5 pr-3 whitespace-nowrap">Name used</th>
-                      <th className="text-left font-medium py-2.5">Notes</th>
+                      <th className="text-left font-medium py-2.5 sticky right-0 z-10 bg-white shadow-[-2px_0_4px_-1px_rgba(0,0,0,0.04)]">Notes</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -446,8 +484,8 @@ export default function GuestProfilePage() {
                       const statusClass = STATUS_COLORS[r.status] ?? STATUS_COLORS.booked;
                       const notes = r.comments?.trim() ?? "";
                       return (
-                        <tr key={r.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
-                          <td className="px-4 py-2.5 pr-3 text-gray-700 whitespace-nowrap">{fmtDate(r.date)}</td>
+                        <tr key={r.id} className="group border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-2.5 pr-3 text-gray-700 whitespace-nowrap sticky left-0 z-10 bg-white group-hover:bg-gray-50 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.04)]">{fmtDate(r.date)}</td>
                           <td className="py-2.5 pr-3 text-gray-700 whitespace-nowrap">{r.time}</td>
                           <td className="py-2.5 pr-3 text-gray-700">{r.partySize}</td>
                           <td className="py-2.5 pr-3 text-gray-500 max-w-[140px] truncate">{r.allTables}</td>
@@ -457,7 +495,7 @@ export default function GuestProfilePage() {
                             </span>
                           </td>
                           <td className="py-2.5 pr-3 text-gray-600 whitespace-nowrap">{formatName(r.customerName)}</td>
-                          <td className="py-2.5 text-gray-400 max-w-[180px]">
+                          <td className="py-2.5 text-gray-400 max-w-[180px] sticky right-0 z-10 bg-white group-hover:bg-gray-50 shadow-[-2px_0_4px_-1px_rgba(0,0,0,0.04)]">
                             {notes
                               ? <span title={notes}>{notes.length > 40 ? notes.slice(0, 40) + "…" : notes}</span>
                               : "—"}
@@ -467,7 +505,7 @@ export default function GuestProfilePage() {
                     })}
                   </tbody>
                 </table>
-              </div>
+              </ProfileScrollFade>
 
               {/* Mobile stacked */}
               <div className="sm:hidden divide-y divide-gray-50">
