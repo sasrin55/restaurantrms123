@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { MoreHorizontal, Check, CalendarIcon, X } from "lucide-react";
+import { MoreHorizontal, Check, CalendarIcon, X, ChevronDown } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import {
   BarChart, Bar, Cell,
@@ -386,7 +386,29 @@ function computeDbAnalytics(reservations: Reservation[]) {
   };
 }
 
+const VISIT_CAP = 30;
+
+const VISIT_STATUS: Record<string, { label: string; bg: string; text: string }> = {
+  complete:  { label: "Completed", bg: "#dcfce7", text: "#15803d" },
+  confirmed: { label: "Confirmed", bg: "#dbeafe", text: "#1d4ed8" },
+  booked:    { label: "Booked",    bg: "#dbeafe", text: "#1d4ed8" },
+  seated:    { label: "Seated",    bg: "#ecfccb", text: "#4A5D23" },
+  "no-show": { label: "No-show",   bg: "#fff7ed", text: "#c2410c" },
+  cancelled: { label: "Cancelled", bg: "#f3f4f6", text: "#6b7280" },
+};
+
+function VisitStatusChip({ status }: { status: string }) {
+  const cfg = VISIT_STATUS[status] ?? VISIT_STATUS["booked"];
+  return (
+    <span className="inline-block text-[11px] font-medium px-1.5 py-0.5 rounded whitespace-nowrap"
+      style={{ background: cfg.bg, color: cfg.text }}>
+      {cfg.label}
+    </span>
+  );
+}
+
 function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
+  const [expandedPhone, setExpandedPhone] = useState<string | null>(null);
   const stats = useMemo(() => computeDbAnalytics(reservations), [reservations]);
   const {
     totalCovers, totalResos, avgParty, avgPerDay, activeDays,
@@ -514,26 +536,123 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
         </div>
 
         {repeatGuests.length > 0 && (
-          <div className="bg-white border border-gray-100 rounded-xl p-4">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Top returning guests</p>
-            {repeatGuests.slice(0, 8).map((g, i) => (
-              <div key={i} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium shrink-0"
-                    style={{ background: C.teal + "22", color: C.teal }}>
-                    {g.displayName[0].toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-800 leading-tight">{g.displayName}</p>
-                    <p className="text-xs text-gray-400 leading-tight">{g.phone}</p>
-                  </div>
+          <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 pt-4 pb-3">Top returning guests</p>
+            {repeatGuests.slice(0, 8).map((g, i) => {
+              const phoneDigits = digitsOnly(g.phone);
+              const isOpen = expandedPhone === phoneDigits;
+              const visits = reservations
+                .filter(r => digitsOnly(r.phoneNumber ?? "") === phoneDigits)
+                .sort((a, b) => {
+                  const dc = b.date.localeCompare(a.date);
+                  return dc !== 0 ? dc : b.time.localeCompare(a.time);
+                });
+              const shown = visits.slice(0, VISIT_CAP);
+              const overflow = visits.length - VISIT_CAP;
+              return (
+                <div key={i} className="border-t border-gray-50 first:border-0">
+                  {/* Guest row — clickable */}
+                  <button
+                    className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors text-left"
+                    onClick={() => setExpandedPhone(isOpen ? null : phoneDigits)}
+                    data-testid={`button-guest-expand-${i}`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium shrink-0"
+                        style={{ background: C.teal + "22", color: C.teal }}>
+                        {g.displayName[0].toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-800 leading-tight">{g.displayName}</p>
+                        <p className="text-xs text-gray-400 leading-tight">{g.phone}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="text-right">
+                        <span className="text-xs font-semibold text-gray-700">{g.visits} visits</span>
+                        <span className="text-xs text-gray-300 ml-2">{g.covers} covers</span>
+                      </div>
+                      <ChevronDown
+                        className="h-4 w-4 text-gray-300 transition-transform duration-200 shrink-0"
+                        style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+                      />
+                    </div>
+                  </button>
+
+                  {/* Expanded visit history */}
+                  {isOpen && (
+                    <div className="bg-gray-50 border-t border-gray-100 px-4 py-3">
+                      {/* Desktop table */}
+                      <div className="hidden sm:block overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="text-gray-400 border-b border-gray-200">
+                              <th className="text-left font-medium pb-2 pr-3">Date</th>
+                              <th className="text-left font-medium pb-2 pr-3">Time</th>
+                              <th className="text-left font-medium pb-2 pr-3">Pax</th>
+                              <th className="text-left font-medium pb-2 pr-3">Table</th>
+                              <th className="text-left font-medium pb-2 pr-3">Status</th>
+                              <th className="text-left font-medium pb-2 pr-3">Name used</th>
+                              <th className="text-left font-medium pb-2">Notes</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {shown.map((r) => {
+                              const notes = (r.comments ?? "").trim();
+                              let dateLabel = r.date;
+                              try { dateLabel = format(parseISO(r.date), "EEE d MMM yyyy"); } catch {}
+                              return (
+                                <tr key={r.id} className="border-b border-gray-100 last:border-0 hover:bg-white transition-colors">
+                                  <td className="py-2 pr-3 text-gray-700 whitespace-nowrap">{dateLabel}</td>
+                                  <td className="py-2 pr-3 text-gray-700 whitespace-nowrap">{r.time}</td>
+                                  <td className="py-2 pr-3 text-gray-700">{r.partySize}</td>
+                                  <td className="py-2 pr-3 text-gray-500">{r.tableName || "—"}</td>
+                                  <td className="py-2 pr-3"><VisitStatusChip status={r.status} /></td>
+                                  <td className="py-2 pr-3 text-gray-600 whitespace-nowrap">{r.customerName}</td>
+                                  <td className="py-2 text-gray-400">
+                                    {notes ? (
+                                      <span title={notes} className="cursor-default">
+                                        {notes.length > 40 ? notes.slice(0, 40) + "…" : notes}
+                                      </span>
+                                    ) : "—"}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Mobile stacked cards */}
+                      <div className="sm:hidden space-y-2">
+                        {shown.map((r) => {
+                          let dateLabel = r.date;
+                          try { dateLabel = format(parseISO(r.date), "EEE d MMM yyyy"); } catch {}
+                          return (
+                            <div key={r.id} className="bg-white rounded-lg px-3 py-2.5 text-xs space-y-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-medium text-gray-700">{dateLabel} · {r.time}</span>
+                                <VisitStatusChip status={r.status} />
+                              </div>
+                              <div className="text-gray-500">{r.customerName} · {r.partySize} pax{r.tableName ? ` · ${r.tableName}` : ""}</div>
+                              {r.comments && (
+                                <div className="text-gray-400 truncate">{r.comments}</div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {overflow > 0 && (
+                        <p className="text-xs text-gray-400 mt-3 text-center">
+                          Showing {VISIT_CAP} of {visits.length} visits — switch to All Time to see more
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div className="text-right shrink-0">
-                  <span className="text-xs font-semibold text-gray-700">{g.visits} visits</span>
-                  <span className="text-xs text-gray-300 ml-2">{g.covers} covers</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

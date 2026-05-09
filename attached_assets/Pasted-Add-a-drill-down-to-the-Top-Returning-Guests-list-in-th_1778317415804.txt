@@ -1,0 +1,36 @@
+Add a drill-down to the Top Returning Guests list in the Analytics tab. Right now the list is read-only — I want to be able to click any customer row and see all of their visits expand inline underneath.
+
+Behavior:
+
+Each customer row in Top Returning Guests becomes clickable.
+Clicking expands a panel directly underneath that row showing every reservation tied to that customer's phone number, sorted most-recent-first.
+Clicking again collapses the panel. Only one customer expanded at a time — opening a second auto-closes the first.
+The lookup must use phone number, matching the dedup logic from the prior change — same customer's reservations under any name variant should all show up here.
+Columns in the expanded panel (one row per visit):
+
+Date (Saturday 4 May 2026)
+Time (8:30 PM)
+Party size
+Table (or "—" if not assigned)
+Status — color-coded chip: Completed (green), No-show (orange), Cancelled (gray), Confirmed/Booked (blue)
+Name used on this booking (handy for spotting variants like "Ahmed" vs "Ahmed K")
+Notes (truncated to ~40 chars with hover-to-expand for the full text, if your existing UI has notes; skip the column entirely if not)
+Caps and paging:
+
+Show up to 30 visits inline. If the customer has more, show a "Show all 47 visits →" link at the bottom that opens a full-page customer detail view (only build this if a customer detail route already exists; otherwise just keep the cap and we'll add the full view later).
+Visual / UX:
+
+Indicate clickability — caret/chevron on the right that rotates when expanded
+Keep the expanded panel inside the same scroll container; don't make the page jump
+Loading state if visits are fetched async, but if the data's already in memory just render immediately
+Mobile responsive (the table should reflow to stacked rows on narrow screens — or hide less-critical columns)
+Out of scope for this change:
+
+Don't add edit/delete actions on visits
+Don't add a separate customer profile page (we'll do that later if needed)
+Don't change the no-shows section yet — that's next
+Show me the diff before applying. I want to see:
+
+The expand/collapse state management approach
+The query for fetching a customer's visit history (must use phone, not name)
+Any new component or just changes to the existing Top Returning Guests component
