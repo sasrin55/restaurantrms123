@@ -646,7 +646,7 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
               {slotData.filter(s => isSlotRange(s.slot) || s.covers >= 50).map(s => (
                 <HorizBar key={s.slot} label={s.slot}
                   value={s.covers} maxValue={slotData[0]?.covers ?? 1}
-                  color={s.color} suffix=" covers" />
+                  color={C.purple} suffix=" covers" />
               ))}
             </ChartCard>
             {dowData.length > 0 && (
@@ -1016,13 +1016,14 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
         <div>
           <SectionHeader label="Walk-ins" />
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-            <KpiCard value={walkIns.length}    label="Walk-in visits"   sub="guests without a reservation" accent={C.amber} />
-            <KpiCard value={walkInCovers}      label="Walk-in covers"   sub="total guests"                 accent={C.amber} />
-            <KpiCard value={`${walkInPct}%`}   label="% of all visits"  sub="share of total bookings"      accent={C.gray}  />
-            <div className="bg-gray-50 rounded-xl p-4">
-              <p className="text-xs text-gray-400 mb-1">Peak walk-in slot</p>
-              <p className="text-lg font-semibold text-gray-900 leading-tight">{wiPeakSlot?.slot ?? "—"}</p>
-              <p className="text-xs text-gray-400 mt-1">{wiPeakSlot?.count ?? 0} walk-ins</p>
+            <KpiCard value={walkIns.length}    label="Walk-in visits"   sub="guests without a reservation" accent={C.gray} />
+            <KpiCard value={walkInCovers}      label="Walk-in covers"   sub="total guests"                 accent={C.gray} />
+            <KpiCard value={`${walkInPct}%`}   label="% of all visits"  sub="share of total bookings"      accent={C.gray} />
+            <div className="bg-gray-50 rounded-xl p-4 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-1 h-full rounded-l-xl" style={{ background: C.gray }} />
+              <p className="text-xs text-gray-400 mb-1 pl-1">Peak walk-in slot</p>
+              <p className="text-lg font-semibold text-gray-900 leading-tight pl-1">{wiPeakSlot?.slot ?? "—"}</p>
+              <p className="text-xs text-gray-400 mt-1 pl-1">{wiPeakSlot?.count ?? 0} walk-ins</p>
             </div>
           </div>
 
@@ -1031,7 +1032,7 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
               {wiSlotData.filter(s => isSlotRange(s.slot) || s.count >= 3).map(s => (
                 <HorizBar key={s.slot} label={s.slot}
                   value={s.count} maxValue={wiSlotData[0]?.count ?? 1}
-                  color={s.color} suffix=" walk-ins" />
+                  color={C.gray} suffix=" walk-ins" />
               ))}
             </ChartCard>
           )}
@@ -1048,20 +1049,20 @@ function LiveAnalytics({ reservations }: { reservations: Reservation[] }) {
             value={tableData[0]?.table ?? "—"}
             label="Most used table"
             sub={`${tableData[0]?.bookings ?? 0} bookings`}
-            accent={C.teal} />
+            accent={C.blue} />
           <KpiCard
             value={tableData[tableData.length - 1]?.table ?? "—"}
             label="Least used table"
             sub={`${tableData[tableData.length - 1]?.bookings ?? 0} bookings`}
-            accent={C.gray} />
+            accent={C.blue} />
         </div>
 
         {tableData.length > 0 && (
           <ChartCard title="Table performance">
-            {tableData.slice(0, 10).map((t, i) => (
+            {tableData.slice(0, 10).map((t) => (
               <HorizBar key={t.table} label={t.table}
                 value={t.bookings} maxValue={maxTableBookings}
-                color={i < 3 ? C.teal : C.gray} suffix=" bookings" />
+                color={C.blue} suffix=" bookings" />
             ))}
           </ChartCard>
         )}
