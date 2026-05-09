@@ -1,0 +1,40 @@
+ompt for the most impactful chunk (A + B + D)
+C and E are smaller follow-ups; this prompt covers the core that genuinely cleans up the experience.
+
+The Guest List has three problems I want fixed:
+
+1. Validate the phone field at customer creation.
+
+Currently staff type free-form text into the phone field — "any", "nill", "N/A", "waiting", "c\o naqash sir", "3" — and these become customer records. Add validation in the New Customer form (and any other place a customer is created or edited) requiring:
+
+At least 10 digits after stripping non-numeric characters
+Not match a denylist of obvious non-phones: ["any", "n/a", "na", "nill", "nil", "0", "00", "0000000000", "hold", "waiting", "block", "tbd", "tbc"] (case-insensitive, after trim)
+If the user genuinely doesn't have a phone (legitimate walk-in), provide a checkbox "No phone (walk-in)" that bypasses the validation but tags the customer record as is_walk_in = true instead of letting them type garbage.
+
+2. Default-hide the garbage from the existing Guest List.
+
+The Guest List view should:
+
+Hide rows where the stored phone fails the same validation rules above
+Hide rows where is_walk_in = true (they belong in the walk-ins analytics, not here)
+Apply phone-based dedup (same logic as Analytics — group by normalized phone, show the most recently used name)
+Apply formatName() to displayed names
+Above the list, show a small toggle: "Show N entries with invalid phones / walk-ins" so staff can see the hidden ones if they want to clean up
+3. Add a customer profile page at /guests/:phoneOrId (use phone as the canonical ID since we're deduping by it; route accepts either). Clicking a guest card opens the profile.
+
+Profile should include:
+
+Header: avatar circle, name (formatName'd), phone (canonical formatted), edit button
+Stats row: completed visits, lifetime covers, avg party size, first visit, last visit, days since last visit
+Risk metrics: no-show count + rate, cancellation count + rate, "Deposit required" toggle (saved to a new deposit_required boolean on the customer record)
+Tags: editable list of free-form tags (VIP, press, anniversary regular, etc.) — store as a string array on the customer
+Notes: large free-form text area, visible to all staff. Last edited by + when shown below.
+Dietary / preferences: dedicated text field for allergies and seating preferences (currently mixed into general notes — give it its own field so the kitchen / hosts can flag it)
+Visit history: table of all reservations sorted by date desc, columns: date, time, party size, table(s deduped), status, name used, notes. Same drill-down structure we built in Analytics.
+Send WhatsApp: a button that deep-links to https://wa.me/<phone> so staff can DM them directly from the profile
+What I'm explicitly NOT asking for in this change:
+
+No data backfill / migration of existing garbage rows. Just hide them from the default view; staff can clean up via the toggle.
+No merge-duplicate tool yet (separate prompt).
+No spend / order integration on the profile yet (separate prompt).
+Show me the diff before applying including the schema changes (new fields on the customer record), the new route/component for the profile page, and the validation rules.
