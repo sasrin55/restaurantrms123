@@ -31,7 +31,6 @@ import {
   CheckCircle2,
   XCircle,
 } from "lucide-react";
-import paolasLogo from "@/assets/images/paolas-logo.png";
 
 const restaurantItems = [
   {
@@ -104,19 +103,7 @@ export function AppSidebar({ onLogout }: { onLogout?: () => void }) {
 
   return (
     <Sidebar className="border-r border-sidebar-border">
-      <div className="pt-6 px-5 pb-4 flex justify-center">
-        <img 
-          src={paolasLogo} 
-          alt="PAOLA'S Cosa Nostra" 
-          style={{ 
-            width: "140px", 
-            height: "auto", 
-            mixBlendMode: "multiply" 
-          }}
-          data-testid="img-logo"
-        />
-      </div>
-      <SidebarContent>
+      <SidebarContent className="pt-4">
         <SidebarGroup>
           <div className="flex items-center gap-2 px-4 mb-3 pl-[8px] pr-[8px]">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">
