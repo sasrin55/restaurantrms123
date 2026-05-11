@@ -750,5 +750,179 @@ export async function registerRoutes(
     }
   });
 
+  // ── Public API (B2C app) ──────────────────────────────────────────────────
+  // All routes require: X-API-Key: <PUBLIC_API_KEY env secret>
+
+  function requireApiKey(req: any, res: any, next: any) {
+    const expected = process.env.PUBLIC_API_KEY;
+    if (!expected) {
+      return res.status(500).json({ error: "PUBLIC_API_KEY not configured on server" });
+    }
+    if (req.headers["x-api-key"] !== expected) {
+      return res.status(401).json({ error: "Invalid or missing X-API-Key header" });
+    }
+    next();
+  }
+
+  // Time slots mirrored from client/src/lib/timeSlots.ts
+  const PUBLIC_WEEKDAY_SLOTS = [
+    "9:00 AM - 10:30 AM",
+    "10:45 AM - 12:15 PM",
+    "12:30 PM - 2:30 PM",
+    "2:30 PM - 4:30 PM",
+    "4:30 PM - 6:30 PM",
+    "6:45 PM - 8:15 PM",
+    "8:30 PM - 10:00 PM",
+  ];
+  const PUBLIC_WEEKEND_SLOTS = [
+    "10:00 AM - 12:00 PM",
+    "12:00 PM - 2:00 PM",
+    "2:30 PM - 4:30 PM",
+    "4:30 PM - 6:30 PM",
+    "6:45 PM - 8:15 PM",
+    "8:30 PM - 10:00 PM",
+  ];
+  // Max active bookings per slot before flagging as fully booked
+  const PUBLIC_SLOT_CAPACITY = 20;
+
+  function getSlotsForDateStr(dateStr: string): string[] {
+    const d = new Date(dateStr + "T12:00:00");
+    return (d.getDay() === 0 || d.getDay() === 6) ? PUBLIC_WEEKEND_SLOTS : PUBLIC_WEEKDAY_SLOTS;
+  }
+
+  function normalizePhone(p: string): string {
+    return (p ?? "").replace(/\D/g, "");
+  }
+
+  // GET /api/public/availability?date=YYYY-MM-DD
+  app.get("/api/public/availability", requireApiKey, async (req, res) => {
+    const { date } = req.query;
+    if (!date || typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: "date query param required in YYYY-MM-DD format" });
+    }
+    const all = await storage.getReservations();
+    const active = all.filter(r => r.date === date && !["cancelled", "no-show"].includes(r.status));
+    const counts: Record<string, number> = {};
+    for (const r of active) counts[r.time] = (counts[r.time] ?? 0) + 1;
+    const slots = getSlotsForDateStr(date).map(time => ({
+      time,
+      available: (counts[time] ?? 0) < PUBLIC_SLOT_CAPACITY,
+      activeBookings: counts[time] ?? 0,
+    }));
+    res.json({ date, slots });
+  });
+
+  // GET /api/public/bookings?phone=XXXX
+  app.get("/api/public/bookings", requireApiKey, async (req, res) => {
+    const { phone } = req.query;
+    if (!phone || typeof phone !== "string") {
+      return res.status(400).json({ error: "phone query param required" });
+    }
+    const normalized = normalizePhone(phone);
+    const all = await storage.getReservations();
+    const bookings = all
+      .filter(r => normalizePhone(r.phoneNumber) === normalized)
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .map(r => ({
+        id: r.id,
+        date: r.date,
+        time: r.time,
+        partySize: r.partySize,
+        customerName: r.customerName,
+        tableName: r.tableName || "TBC",
+        status: r.status,
+        comments: r.comments ?? "",
+      }));
+    res.json({ phone, bookings });
+  });
+
+  // POST /api/public/bookings
+  // Body: { name, phone, date, time, partySize, comments? }
+  app.post("/api/public/bookings", requireApiKey, async (req, res) => {
+    const { name, phone, date, time, partySize, comments } = req.body;
+    if (!name || !phone || !date || !time || !partySize) {
+      return res.status(400).json({ error: "name, phone, date, time, partySize are all required" });
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date))) {
+      return res.status(400).json({ error: "date must be YYYY-MM-DD" });
+    }
+    const validSlots = getSlotsForDateStr(String(date));
+    if (!validSlots.includes(String(time))) {
+      return res.status(400).json({
+        error: `Invalid time slot for ${date}. Valid options: ${validSlots.join(" | ")}`,
+      });
+    }
+    const size = parseInt(String(partySize));
+    if (isNaN(size) || size < 1 || size > 50) {
+      return res.status(400).json({ error: "partySize must be between 1 and 50" });
+    }
+    const all = await storage.getReservations();
+    const slotCount = all.filter(r =>
+      r.date === String(date) && r.time === String(time) && !["cancelled", "no-show"].includes(r.status)
+    ).length;
+    if (slotCount >= PUBLIC_SLOT_CAPACITY) {
+      return res.status(409).json({ error: "This time slot is fully booked" });
+    }
+    const reservation = await storage.createReservation({
+      customerName: String(name).trim(),
+      phoneNumber: String(phone).trim(),
+      date: String(date),
+      time: String(time),
+      partySize: size,
+      tableId: 0,
+      tableName: "TBC",
+      comments: comments ? String(comments).trim() : "",
+      status: "booked",
+      groupId: null,
+      takenBy: "online",
+      previousStatus: null,
+    });
+    await storage.upsertGuest(
+      reservation.customerName,
+      reservation.phoneNumber,
+      reservation.date,
+      reservation.partySize,
+      false,
+    ).catch(() => {});
+    res.status(201).json({
+      id: reservation.id,
+      date: reservation.date,
+      time: reservation.time,
+      partySize: reservation.partySize,
+      customerName: reservation.customerName,
+      tableName: reservation.tableName,
+      status: reservation.status,
+      message: "Booking confirmed. A table will be assigned by the restaurant.",
+    });
+  });
+
+  // PATCH /api/public/bookings/:id/cancel
+  // Body: { phone } — must match the reservation's phone number
+  app.patch("/api/public/bookings/:id/cancel", requireApiKey, async (req, res) => {
+    const reservation = await storage.getReservation(req.params.id);
+    if (!reservation) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+    const { phone } = req.body;
+    if (!phone) {
+      return res.status(400).json({ error: "phone is required to verify ownership" });
+    }
+    if (normalizePhone(String(phone)) !== normalizePhone(reservation.phoneNumber)) {
+      return res.status(403).json({ error: "Phone number does not match this booking" });
+    }
+    if (reservation.status === "cancelled") {
+      return res.status(409).json({ error: "Booking is already cancelled" });
+    }
+    if (["seated", "complete"].includes(reservation.status)) {
+      return res.status(409).json({ error: "Cannot cancel a booking that is already seated or completed" });
+    }
+    const updated = await storage.updateReservationStatus(req.params.id, "cancelled");
+    res.json({
+      id: updated!.id,
+      status: updated!.status,
+      message: "Booking cancelled successfully",
+    });
+  });
+
   return httpServer;
 }
