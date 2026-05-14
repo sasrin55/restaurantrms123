@@ -896,12 +896,15 @@ export async function registerRoutes(
       const valid = slotMap.map(s => s.time24).join(", ");
       return res.status(400).json({ error: "invalid_time", message: `Invalid time '${time}' for ${date}. Valid options: ${valid}` });
     }
-    // Count active bookings for this slot (near-atomic: read then write in same tick)
+    // Check capacity using real table data (same logic as the GET availability endpoint)
     const all = await storage.getReservations();
-    const slotCount = all.filter(r =>
+    const slotResos = all.filter(r =>
       r.date === String(date) && r.time === matched.label && !["cancelled", "no-show"].includes(r.status)
-    ).length;
-    if (slotCount >= V1_TOTAL_TABLES) {
+    );
+    const assignedTableIds = new Set(slotResos.filter(r => r.tableId > 0).map(r => r.tableId));
+    const tbcCount = slotResos.filter(r => r.tableId === 0).length;
+    const fittingFree = V1_TABLES.filter(t => t.maxCap >= size && !assignedTableIds.has(t.id));
+    if (Math.max(0, fittingFree.length - tbcCount) === 0) {
       return res.status(409).json({ error: "slot_unavailable", message: "This time slot is fully booked. Please choose another time." });
     }
     // Build comments from optional fields
