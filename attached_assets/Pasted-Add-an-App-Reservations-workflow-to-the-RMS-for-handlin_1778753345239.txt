@@ -1,0 +1,86 @@
+Add an "App Reservations" workflow to the RMS for handling online bookings
+that come in from the B2C mobile app (Seated). These reservations land in
+the database with table_id = 0 and table_name = "TBC" because the app
+doesn't pick a table — staff do.
+
+CURRENT BEHAVIOR
+
+  POST /v1/restaurants/paolas/reservations from the B2C app stores:
+    - table_id   = 0
+    - table_name = "TBC"
+    - taken_by   = "seated-b2c"
+    - status     = "booked" (or "confirmed" per current logic)
+
+  These reservations are mixed into the existing Reservations view alongside
+  walk-ins and staff-entered bookings.
+
+REQUIRED — NEW VIEW
+
+Add a new tab/page in the RMS sidebar under RESTAURANT, called
+"App Reservations" (placed below "Reservations"). It shows ONLY
+reservations where:
+
+    taken_by = "seated-b2c" AND table_id = 0
+
+i.e. unassigned online bookings that need a server to pick a table.
+Sort by date+time ascending (next-upcoming first).
+
+Each reservation card shows:
+  - Customer name
+  - Phone number
+  - Date + time (slot label, e.g. "6:45 PM - 8:15 PM")
+  - Party size (prominent — so staff can pick the right table)
+  - Occasion + comments (if present)
+  - One primary action button: "Assign to Table"
+
+REQUIRED — ASSIGN-TO-TABLE FLOW
+
+Clicking "Assign to Table" opens a modal/picker showing only tables that:
+  (a) can fit party_size: table.min_capacity <= party_size <= table.max_capacity
+  (b) are not already booked at this date+slot by another reservation
+
+Staff picks a table. On confirm:
+  - Update reservation.table_id and reservation.table_name in the DB
+  - The reservation disappears from "App Reservations" view (since
+    table_id is no longer 0)
+  - It now appears in the regular Reservations view with the assigned table
+
+If no suitable tables exist (e.g. someone changed table capacities or another
+reservation got assigned the only fitting table first), show an inline error
+"No tables available for a party of N at this slot" — don't crash, don't
+silently assign a wrong table.
+
+KEEP CAPACITY PROTECTION INTACT
+
+The existing GET /v1/availability and POST /v1/reservations endpoints already
+account for table_id = 0 ("TBC") bookings when computing tables_remaining
+(this was added in the capacity-aware refactor). Do NOT change that logic.
+The app continues to prevent a party of 5 from booking if no 5+ table
+remains, even before staff has assigned a specific table.
+
+That means:
+  - App can only POST a reservation when at least one fitting table is free
+  - Once posted, it occupies a "slot" against capacity even while TBC
+  - Staff assigns the actual table later — the capacity math doesn't change
+
+VERIFY
+
+After implementing, walk through this manually in the RMS:
+
+  1. Create a fake app reservation by POSTing to /v1/.../reservations
+     (party of 4, weekday dinner slot). Confirm a 201 response.
+  2. Open the new "App Reservations" tab. The reservation should appear with
+     all the right fields and an "Assign to Table" button.
+  3. Click Assign to Table — only 4+ capacity tables should show in the
+     picker (e.g. Table 17 (4 seats), Table 19 (6 seats), Table 20 (10 seats),
+     Table 22 (4 seats), etc.). 2-seater Tables 26 and 27 should NOT appear.
+  4. Pick one, confirm. Reservation disappears from "App Reservations".
+  5. Open regular Reservations view — it's there with the new table assigned.
+
+REPLY WITH
+
+  - Where in the codebase the new view was added (file paths)
+  - Whether existing reservation logic needed any changes (it shouldn't)
+  - Any decisions you made on edge cases (e.g. what happens if two staff
+    members try to assign the same table to different app reservations
+    simultaneously — race condition handling)

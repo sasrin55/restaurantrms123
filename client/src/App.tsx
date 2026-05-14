@@ -22,6 +22,7 @@ import WaitlistPage from "@/pages/waitlist";
 import SettingsPage from "@/pages/settings";
 import ServersPage from "@/pages/servers";
 import ServerDetailPage from "@/pages/server-detail";
+import AppReservationsPage from "@/pages/app-reservations";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -60,6 +61,9 @@ function Router() {
       </Route>
       <Route path="/servers/:name">
         <ProtectedRoute><ServerDetailPage /></ProtectedRoute>
+      </Route>
+      <Route path="/app-reservations">
+        <ProtectedRoute><AppReservationsPage /></ProtectedRoute>
       </Route>
       <Route path="/settings">
         <ProtectedRoute><SettingsPage /></ProtectedRoute>

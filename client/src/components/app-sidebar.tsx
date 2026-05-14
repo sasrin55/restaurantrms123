@@ -30,6 +30,7 @@ import {
   ChevronDown,
   CheckCircle2,
   XCircle,
+  Smartphone,
 } from "lucide-react";
 import paolasLogo from "@/assets/images/paolas-logo.png";
 
@@ -48,6 +49,11 @@ const restaurantItems = [
     title: "Reservations",
     url: "/",
     icon: Table2,
+  },
+  {
+    title: "App Reservations",
+    url: "/app-reservations",
+    icon: Smartphone,
   },
   {
     title: "Tables",
