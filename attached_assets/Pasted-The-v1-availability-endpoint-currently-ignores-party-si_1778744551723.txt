@@ -1,0 +1,126 @@
+The /v1/availability endpoint currently ignores party_size when deciding
+whether a slot is available — it always returns tables_remaining = (slot
+capacity 20) minus existing reservations, regardless of what party size
+was requested. This is wrong: a party of 6 sees "available" at a slot
+where only 2-seater tables remain.
+
+Looking at the New Customer page, each table has a fixed capacity or a
+capacity range (e.g. Table 13 = 3-4, Table 19 = 6 seats, Table 20 = 10
+seats, Table 27 = 2 seats, Table 11 = 5-6, Table 12 = 7-8). The
+availability check needs to reflect THIS, not a flat per-slot bucket.
+
+REQUIRED BEHAVIOR
+
+For GET /v1/restaurants/paolas/availability?date=X&party_size=N
+
+A slot is "available" if and only if at least one valid seating
+arrangement (single table OR combination of tables, see below) can host
+party_size N and is not already booked at that slot.
+
+Single-table fit:
+  table.min_capacity <= N <= table.max_capacity
+  For a fixed-capacity table (e.g. "6 seats"), min = max = 6.
+  For a range table (e.g. "3-4"), min = 3, max = 4.
+
+Note: a 6-seat table should also accept a party of 4 or 5 (a party can
+sit at any table whose max_capacity >= party_size AND min_capacity <=
+party_size). If you prefer to reserve larger tables for larger parties,
+that's a separate policy decision — confirm with us before adding that
+constraint.
+
+TABLE COMBINATIONS
+
+Single-table fit isn't the only way to seat a party. Many restaurants
+combine adjacent tables for larger parties (e.g. two 4-seaters pushed
+together for a party of 8). If the RMS already models which tables can
+be combined (adjacency / table_groups / combinable_with — whatever field
+you used), the availability logic must include those combinations:
+
+A party of N is seatable at a slot if EITHER:
+  (a) a single free table with min_capacity <= N <= max_capacity exists,
+      OR
+  (b) a set of free tables flagged combinable with each other, whose
+      combined capacity >= N, exists at that slot.
+
+If the RMS doesn't currently model combinable tables, just say so in the
+reply and we'll defer combinations for now (single-table fit only).
+Don't fake it — better to be honest about capacity than overpromise and
+have staff scramble.
+
+RESPONSE SHAPE (unchanged)
+
+  {
+    "time": "18:45",
+    "available": true,
+    "tables_remaining": 3
+  }
+
+Where:
+  - "available": true if ANY single-table or combination seating works
+    for the requested party_size.
+  - "tables_remaining": best-effort count of seating ARRANGEMENTS
+    (single tables + each valid combination) that fit party_size. If
+    that's expensive to compute, just return the count of single-table
+    fits and accept that combinations are extra capacity — the boolean
+    "available" is what the app actually reads.
+
+EXAMPLES (party_size varies, same slot)
+
+party_size = 2 → many tables fit single-handedly:
+  { "time": "18:45", "available": true, "tables_remaining": 12 }
+
+party_size = 6 → fewer tables fit:
+  { "time": "18:45", "available": true, "tables_remaining": 3 }
+  e.g. Table 12 (7-8), Table 19 (6), Table 20 (10)
+
+party_size = 8 → only big tables OR combinations:
+  { "time": "18:45", "available": true, "tables_remaining": 2 }
+  e.g. Table 12 (7-8), Table 20 (10), plus any 4+4 combo
+
+party_size = 12 → no single table that big; combination may still seat:
+  { "time": "18:45", "available": true, "tables_remaining": 1 }
+  e.g. Table 20 (10) + Table 18 (3) if combinable
+  OR
+  { "time": "18:45", "available": false, "tables_remaining": 0 }
+  if combinations aren't modeled.
+
+PARTY_TOO_LARGE
+
+Update the 400 "party_too_large" check to use the real maximum the venue
+can seat (largest single table OR largest valid combination), instead
+of the hard-coded 25. If max single-table capacity is 10 and the
+biggest combinable group seats 16, then party_size > 16 should return
+party_too_large. Update the error message to reflect the real max.
+
+VERIFY
+
+After fixing, run these curls and paste output:
+
+  # party of 2 — should have many tables
+  curl -s -H "X-API-Key: seated_paolascosa" \
+    "https://app.seated.pk/v1/restaurants/paolas/availability?date=2026-05-15&party_size=2" \
+    | jq '.slots[0]'
+
+  # party of 6 — fewer tables fit
+  curl -s -H "X-API-Key: seated_paolascosa" \
+    "https://app.seated.pk/v1/restaurants/paolas/availability?date=2026-05-15&party_size=6" \
+    | jq '.slots[0]'
+
+  # party of 8 — only the bigger tables (and combos) fit
+  curl -s -H "X-API-Key: seated_paolascosa" \
+    "https://app.seated.pk/v1/restaurants/paolas/availability?date=2026-05-15&party_size=8" \
+    | jq '.slots[0]'
+
+  # party of 14 — only valid if combinations work
+  curl -s -H "X-API-Key: seated_paolascosa" \
+    "https://app.seated.pk/v1/restaurants/paolas/availability?date=2026-05-15&party_size=14" \
+    | jq '.slots[0]'
+
+tables_remaining should DECREASE as party_size increases. The party_of_14
+result tells us whether combinations are wired up.
+
+Reply with:
+  1. Whether table combinations are modeled in the RMS today, and if so
+     where (table.combinable_with, separate table_groups table, etc.).
+  2. What the new max party_size is (single-table max and combo max).
+  3. The four curl outputs above.

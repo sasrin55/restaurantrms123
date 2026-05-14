@@ -756,9 +756,47 @@ export async function registerRoutes(
   // Auth: X-API-Key header (same PUBLIC_API_KEY secret)
 
   const V1_RESTAURANT_ID = "paolas";
-  const V1_MAX_PARTY_SIZE = 25;
-  const V1_TOTAL_TABLES = 20; // capacity per slot before marking unavailable
   const V1_TIMEZONE = "Asia/Karachi";
+
+  // Full table inventory — mirrors client/src/lib/tables.ts
+  // maxCap is the physical seat limit; a party fits if partySize <= maxCap
+  const V1_TABLES = [
+    // Outdoor
+    { id: 11,  maxCap: 6  },
+    { id: 12,  maxCap: 8  },
+    { id: 13,  maxCap: 4  },
+    // Main Floor
+    { id: 17,  maxCap: 4  },
+    { id: 18,  maxCap: 3  },
+    { id: 19,  maxCap: 6  },
+    { id: 190, maxCap: 4  },
+    { id: 20,  maxCap: 10 },
+    { id: 21,  maxCap: 3  },
+    { id: 22,  maxCap: 4  },
+    { id: 23,  maxCap: 6  },
+    { id: 24,  maxCap: 5  },
+    { id: 25,  maxCap: 10 },
+    { id: 26,  maxCap: 2  },
+    { id: 27,  maxCap: 2  },
+    // Upstairs
+    { id: 40,  maxCap: 4  },
+    { id: 41,  maxCap: 8  },
+    { id: 42,  maxCap: 8  },
+    { id: 420, maxCap: 3  },
+    { id: 43,  maxCap: 4  },
+    { id: 44,  maxCap: 4  },
+    { id: 45,  maxCap: 3  },
+    { id: 46,  maxCap: 2  },
+    { id: 47,  maxCap: 2  },
+    { id: 48,  maxCap: 8  },
+    { id: 49,  maxCap: 2  },
+    { id: 51,  maxCap: 4  },
+    { id: 52,  maxCap: 4  },
+    { id: 53,  maxCap: 4  },
+  ];
+  // Largest single table (Tables 20 and 25 = 10 seats). Table combinations
+  // are NOT currently modeled in the RMS, so this is the hard party_too_large limit.
+  const V1_MAX_SINGLE_TABLE_CAP = Math.max(...V1_TABLES.map(t => t.maxCap)); // 10
 
   // 24-hour start time → internal slot label
   const V1_WEEKDAY_SLOTS = [
@@ -804,18 +842,27 @@ export async function registerRoutes(
     if (target < today || target > new Date(today.getTime() + 180 * 24 * 60 * 60 * 1000)) {
       return res.json({ restaurant_id: V1_RESTAURANT_ID, date, party_size: partySize, timezone: V1_TIMEZONE, slots: [] });
     }
-    // Oversized party → empty slots with reason
-    if (partySize > V1_MAX_PARTY_SIZE) {
-      return res.status(400).json({ error: "party_too_large", message: `Maximum party size is ${V1_MAX_PARTY_SIZE}` });
+    // Party larger than the biggest single table → reject immediately
+    // (table combinations are not modeled in this RMS)
+    if (partySize > V1_MAX_SINGLE_TABLE_CAP) {
+      return res.status(400).json({
+        error: "party_too_large",
+        message: `Maximum party size is ${V1_MAX_SINGLE_TABLE_CAP} (largest single table). Table combinations are not currently supported online — please call the restaurant for larger parties.`,
+      });
     }
     const all = await storage.getReservations();
-    const active = all.filter(r => r.date === date && !["cancelled", "no-show"].includes(r.status));
-    const counts: Record<string, number> = {};
-    for (const r of active) counts[r.time] = (counts[r.time] ?? 0) + 1;
+    const activeForDate = all.filter(r => r.date === date && !["cancelled", "no-show"].includes(r.status));
     const slots = getV1SlotsForDate(date).map(({ time24, label }) => {
-      const booked = counts[label] ?? 0;
-      const remaining = Math.max(0, V1_TOTAL_TABLES - booked);
-      return { time: time24, available: remaining > 0, tables_remaining: remaining };
+      const slotResos = activeForDate.filter(r => r.time === label);
+      // Tables with a confirmed assignment for this slot
+      const assignedTableIds = new Set(slotResos.filter(r => r.tableId > 0).map(r => r.tableId));
+      // Unassigned (TBC) bookings that will consume a table we haven't identified yet
+      const tbcCount = slotResos.filter(r => r.tableId === 0).length;
+      // Tables physically capable of seating partySize that aren't already taken
+      const fittingFree = V1_TABLES.filter(t => t.maxCap >= partySize && !assignedTableIds.has(t.id));
+      // Subtract TBC bookings from the fitting pool (conservative — they'll take some table)
+      const tablesRemaining = Math.max(0, fittingFree.length - tbcCount);
+      return { time: time24, available: tablesRemaining > 0, tables_remaining: tablesRemaining };
     });
     res.json({ restaurant_id: V1_RESTAURANT_ID, date, party_size: partySize, timezone: V1_TIMEZONE, slots });
   });
@@ -836,8 +883,11 @@ export async function registerRoutes(
     if (isNaN(size) || size < 1) {
       return res.status(400).json({ error: "invalid_party_size", message: "party_size must be a positive integer" });
     }
-    if (size > V1_MAX_PARTY_SIZE) {
-      return res.status(400).json({ error: "party_too_large", message: `Maximum party size is ${V1_MAX_PARTY_SIZE}` });
+    if (size > V1_MAX_SINGLE_TABLE_CAP) {
+      return res.status(400).json({
+        error: "party_too_large",
+        message: `Maximum party size is ${V1_MAX_SINGLE_TABLE_CAP} (largest single table). Table combinations are not currently supported online — please call the restaurant for larger parties.`,
+      });
     }
     // Map 24h time → internal slot label
     const slotMap = getV1SlotsForDate(String(date));
