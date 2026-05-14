@@ -212,10 +212,21 @@ function AppReservationCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="font-semibold text-base leading-tight">{reservation.customerName}</div>
-          <div className="flex items-center gap-1.5 mt-0.5 text-sm text-muted-foreground">
+          {/* Phone — dominant, WhatsApp link */}
+          <a
+            href={`https://wa.me/${reservation.phoneNumber.replace(/\D/g, "")}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-testid={`link-whatsapp-${reservation.id}`}
+            className="flex items-center gap-1.5 mt-1 text-sm font-medium text-[#0D7377] hover:underline"
+          >
             <Phone className="h-3.5 w-3.5 flex-shrink-0" />
             <span data-testid={`text-phone-${reservation.id}`}>{reservation.phoneNumber}</span>
-          </div>
+          </a>
+          {/* Email — subtle secondary, only if present */}
+          {email && (
+            <div className="text-xs text-muted-foreground mt-0.5 ml-5">{email}</div>
+          )}
         </div>
         <Badge
           data-testid={`badge-partysize-${reservation.id}`}
@@ -240,10 +251,9 @@ function AppReservationCard({
       </div>
 
       {/* Occasion / notes */}
-      {(occasion || email || notes) && (
+      {(occasion || notes) && (
         <div className="text-sm text-muted-foreground border-t border-border pt-2 flex flex-col gap-0.5">
           {occasion && <span><span className="font-medium text-foreground">Occasion:</span> {occasion}</span>}
-          {email && <span><span className="font-medium text-foreground">Email:</span> {email}</span>}
           {notes && <span data-testid={`text-notes-${reservation.id}`}>{notes}</span>}
         </div>
       )}
@@ -280,7 +290,7 @@ export default function AppReservationsPage() {
       (r) =>
         r.takenBy === "seated-b2c" &&
         r.tableId === 0 &&
-        !["cancelled", "no-show", "complete"].includes(r.status)
+        !["cancelled", "no-show"].includes(r.status)
     )
   );
 
