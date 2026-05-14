@@ -1,0 +1,80 @@
+The /v1 API endpoints you confirmed earlier are no longer responding.
+Every request to https://app.seated.pk/v1/... returns the SPA's index.html
+instead of JSON. The legacy /api/public/... endpoints have the same problem.
+
+EVIDENCE:
+
+  curl -i -H "X-API-Key: seated_paolascosa" \
+    "https://app.seated.pk/v1/restaurants/paolas/availability?date=2026-05-15&party_size=4"
+
+Response headers:
+  HTTP/2 200
+  content-type: text/html; charset=utf-8
+  content-length: 2066
+  last-modified: Mon, 11 May 2026 07:14:49 GMT
+  x-powered-by: Express
+  server: Google Frontend
+
+Body: the full SPA HTML starting with <!DOCTYPE html>.
+
+The exact same 2066-byte body and same etag come back for:
+  - /v1/restaurants/paolas/availability?...
+  - /api/public/availability?date=...
+  - /api/v1/restaurants/paolas/availability?... (a path that shouldn't exist)
+  - / (the SPA itself)
+
+So the Express server is running (x-powered-by header is present) but a
+catch-all route is matching everything before the API routes get a chance.
+
+MOST LIKELY CAUSE — Express route ordering.
+
+In your server entry file (likely server/index.ts or similar), the static
+SPA handler is being registered BEFORE the API routers. The pattern that
+breaks this is something like:
+
+    app.use(express.static("client/dist"));
+    app.get("*", (_req, res) => res.sendFile("client/dist/index.html"));
+    // ↑ catches everything — including /v1/* and /api/*
+    app.use("/v1", v1Router);          // ← never reached
+    app.use("/api", apiPublicRouter);  // ← never reached
+
+FIX:
+
+  Reorder so ALL API routers are mounted BEFORE the static + catch-all SPA
+  handler:
+
+    // 1. API routes first
+    app.use("/v1", v1Router);
+    app.use("/api", apiPublicRouter);
+    // 2. THEN the static SPA fallback
+    app.use(express.static("client/dist"));
+    app.get("*", (_req, res) => res.sendFile("client/dist/index.html"));
+
+  If you're using an Express 5 catch-all, the syntax is `app.get(/.*/, ...)`
+  or `app.use((req, res) => ...)` — same ordering rule.
+
+ALSO CHECK:
+
+  1. Is the Reserved VM actually running the latest build? The
+     last-modified header is May 11 — if you've redeployed since then and
+     the date hasn't changed, the deploy isn't picking up new code.
+     Trigger a fresh deploy and re-run the curl.
+
+  2. Confirm both v1 endpoints are in the route registration list and the
+     v1Router is actually imported in the main entry file. It's possible
+     the routes exist as a file but were never wired up.
+
+  3. After fixing, run this exact curl to verify (should return JSON, not HTML):
+
+       curl -s -H "X-API-Key: seated_paolascosa" \
+         "https://app.seated.pk/v1/restaurants/paolas/availability?date=2026-05-15&party_size=4" \
+         | head -c 300
+
+     Expected: JSON starting with {"restaurant_id":"paolas",...}
+     If it still returns HTML, the SPA catch-all is still winning — keep
+     moving the API routes higher.
+
+Reply with:
+  - What was wrong (route order? deploy stale? something else?)
+  - What you changed
+  - The output of the verification curl above
