@@ -137,6 +137,12 @@ function AssignTableModal({
           Party of {reservation.partySize} · {friendlyDate(reservation.date)} · {reservation.time}
         </div>
 
+        <div className="text-xs text-muted-foreground mb-2">
+          {fittingTables.length > 0
+            ? `${fittingTables.length} table${fittingTables.length === 1 ? "" : "s"} available at this slot`
+            : "No available tables at this slot"}
+        </div>
+
         {fittingTables.length === 0 ? (
           <div className="py-6 text-center text-sm text-destructive font-medium">
             No tables available for a party of {reservation.partySize} at this slot.

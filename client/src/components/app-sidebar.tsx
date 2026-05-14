@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation, useSearch } from "wouter";
+import type { Reservation } from "@shared/schema";
 import {
   Sidebar,
   SidebarContent,
@@ -103,6 +105,18 @@ export function AppSidebar({ onLogout }: { onLogout?: () => void }) {
   const isReservationsRoute = location === "/";
   const [reservationsOpen, setReservationsOpen] = useState(isReservationsRoute);
 
+  // Live count of unassigned app bookings — polls every 30 s
+  const { data: allReservations = [] } = useQuery<Reservation[]>({
+    queryKey: ["/api/reservations"],
+    refetchInterval: 30_000,
+  });
+  const pendingAppCount = allReservations.filter(
+    (r) =>
+      r.takenBy === "seated-b2c" &&
+      r.tableId === 0 &&
+      !["cancelled", "no-show"].includes(r.status)
+  ).length;
+
   const reservationsSubItems = [
     { label: "Completed", view: "completed", icon: CheckCircle2 },
     { label: "Cancellations & No-Shows", view: "cancellations", icon: XCircle },
@@ -185,6 +199,32 @@ export function AppSidebar({ onLogout }: { onLogout?: () => void }) {
                 }
 
                 const isActive = location === item.url;
+
+                if (item.title === "App Reservations") {
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton
+                        asChild
+                        data-active={isActive}
+                        className={isActive ? "bg-sidebar-accent" : ""}
+                      >
+                        <Link href={item.url} data-testid="nav-app-reservations" className="flex items-center gap-2 w-full">
+                          <item.icon className="h-4 w-4 flex-shrink-0" />
+                          <span className="flex-1">App Reservations</span>
+                          {pendingAppCount > 0 && (
+                            <span
+                              data-testid="badge-app-pending-count"
+                              className="ml-auto flex items-center justify-center h-5 min-w-5 rounded-full bg-[#0D7377] text-white text-[11px] font-semibold px-1.5 leading-none"
+                            >
+                              {pendingAppCount > 99 ? "99+" : pendingAppCount}
+                            </span>
+                          )}
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                }
+
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
