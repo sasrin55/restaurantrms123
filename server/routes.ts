@@ -750,6 +750,140 @@ export async function registerRoutes(
     }
   });
 
+  // ── V1 API (Seated B2C proxy) ─────────────────────────────────────────────
+  // GET  /v1/restaurants/:restaurantId/availability?date=YYYY-MM-DD&party_size=N
+  // POST /v1/restaurants/:restaurantId/reservations
+  // Auth: X-API-Key header (same PUBLIC_API_KEY secret)
+
+  const V1_RESTAURANT_ID = "paolas";
+  const V1_MAX_PARTY_SIZE = 25;
+  const V1_TOTAL_TABLES = 20; // capacity per slot before marking unavailable
+  const V1_TIMEZONE = "Asia/Karachi";
+
+  // 24-hour start time → internal slot label
+  const V1_WEEKDAY_SLOTS = [
+    { time24: "09:00", label: "9:00 AM - 10:30 AM" },
+    { time24: "10:45", label: "10:45 AM - 12:15 PM" },
+    { time24: "12:30", label: "12:30 PM - 2:30 PM" },
+    { time24: "14:30", label: "2:30 PM - 4:30 PM" },
+    { time24: "16:30", label: "4:30 PM - 6:30 PM" },
+    { time24: "18:45", label: "6:45 PM - 8:15 PM" },
+    { time24: "20:30", label: "8:30 PM - 10:00 PM" },
+  ];
+  const V1_WEEKEND_SLOTS = [
+    { time24: "10:00", label: "10:00 AM - 12:00 PM" },
+    { time24: "12:00", label: "12:00 PM - 2:00 PM" },
+    { time24: "14:30", label: "2:30 PM - 4:30 PM" },
+    { time24: "16:30", label: "4:30 PM - 6:30 PM" },
+    { time24: "18:45", label: "6:45 PM - 8:15 PM" },
+    { time24: "20:30", label: "8:30 PM - 10:00 PM" },
+  ];
+
+  function getV1SlotsForDate(dateStr: string) {
+    const d = new Date(dateStr + "T12:00:00");
+    return (d.getDay() === 0 || d.getDay() === 6) ? V1_WEEKEND_SLOTS : V1_WEEKDAY_SLOTS;
+  }
+
+  // GET /v1/restaurants/:restaurantId/availability
+  app.get("/v1/restaurants/:restaurantId/availability", requireApiKey, async (req, res) => {
+    if (req.params.restaurantId !== V1_RESTAURANT_ID) {
+      return res.status(404).json({ error: "restaurant_not_found", message: `Unknown restaurant '${req.params.restaurantId}'. Use 'paolas'.` });
+    }
+    const { date, party_size } = req.query;
+    if (!date || typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: "invalid_date", message: "date must be YYYY-MM-DD" });
+    }
+    const partySize = party_size ? parseInt(String(party_size)) : 1;
+    if (isNaN(partySize) || partySize < 1) {
+      return res.status(400).json({ error: "invalid_party_size", message: "party_size must be a positive integer" });
+    }
+    // Past date or too far in future → empty slots
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(date + "T00:00:00");
+    if (target < today || target > new Date(today.getTime() + 180 * 24 * 60 * 60 * 1000)) {
+      return res.json({ restaurant_id: V1_RESTAURANT_ID, date, party_size: partySize, timezone: V1_TIMEZONE, slots: [] });
+    }
+    // Oversized party → empty slots with reason
+    if (partySize > V1_MAX_PARTY_SIZE) {
+      return res.status(400).json({ error: "party_too_large", message: `Maximum party size is ${V1_MAX_PARTY_SIZE}` });
+    }
+    const all = await storage.getReservations();
+    const active = all.filter(r => r.date === date && !["cancelled", "no-show"].includes(r.status));
+    const counts: Record<string, number> = {};
+    for (const r of active) counts[r.time] = (counts[r.time] ?? 0) + 1;
+    const slots = getV1SlotsForDate(date).map(({ time24, label }) => {
+      const booked = counts[label] ?? 0;
+      const remaining = Math.max(0, V1_TOTAL_TABLES - booked);
+      return { time: time24, available: remaining > 0, tables_remaining: remaining };
+    });
+    res.json({ restaurant_id: V1_RESTAURANT_ID, date, party_size: partySize, timezone: V1_TIMEZONE, slots });
+  });
+
+  // POST /v1/restaurants/:restaurantId/reservations
+  app.post("/v1/restaurants/:restaurantId/reservations", requireApiKey, async (req, res) => {
+    if (req.params.restaurantId !== V1_RESTAURANT_ID) {
+      return res.status(404).json({ error: "restaurant_not_found", message: `Unknown restaurant '${req.params.restaurantId}'. Use 'paolas'.` });
+    }
+    const { date, time, party_size, customer_name, customer_phone, customer_email, occasion, notes, source } = req.body;
+    if (!date || !time || !party_size || !customer_name || !customer_phone) {
+      return res.status(400).json({ error: "missing_fields", message: "date, time, party_size, customer_name, customer_phone are all required" });
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date))) {
+      return res.status(400).json({ error: "invalid_date", message: "date must be YYYY-MM-DD" });
+    }
+    const size = parseInt(String(party_size));
+    if (isNaN(size) || size < 1) {
+      return res.status(400).json({ error: "invalid_party_size", message: "party_size must be a positive integer" });
+    }
+    if (size > V1_MAX_PARTY_SIZE) {
+      return res.status(400).json({ error: "party_too_large", message: `Maximum party size is ${V1_MAX_PARTY_SIZE}` });
+    }
+    // Map 24h time → internal slot label
+    const slotMap = getV1SlotsForDate(String(date));
+    const matched = slotMap.find(s => s.time24 === String(time));
+    if (!matched) {
+      const valid = slotMap.map(s => s.time24).join(", ");
+      return res.status(400).json({ error: "invalid_time", message: `Invalid time '${time}' for ${date}. Valid options: ${valid}` });
+    }
+    // Count active bookings for this slot (near-atomic: read then write in same tick)
+    const all = await storage.getReservations();
+    const slotCount = all.filter(r =>
+      r.date === String(date) && r.time === matched.label && !["cancelled", "no-show"].includes(r.status)
+    ).length;
+    if (slotCount >= V1_TOTAL_TABLES) {
+      return res.status(409).json({ error: "slot_unavailable", message: "This time slot is fully booked. Please choose another time." });
+    }
+    // Build comments from optional fields
+    const extras: string[] = [];
+    if (occasion) extras.push(`Occasion: ${occasion}`);
+    if (customer_email) extras.push(`Email: ${customer_email}`);
+    if (notes) extras.push(notes);
+    const reservation = await storage.createReservation({
+      customerName: String(customer_name).trim(),
+      phoneNumber: String(customer_phone).trim(),
+      date: String(date),
+      time: matched.label,
+      partySize: size,
+      tableId: 0,
+      tableName: "TBC",
+      comments: extras.join(" | "),
+      status: "booked",
+      groupId: null,
+      takenBy: source ? String(source) : "seated-b2c",
+      previousStatus: null,
+    });
+    await storage.upsertGuest(reservation.customerName, reservation.phoneNumber, reservation.date, reservation.partySize, false).catch(() => {});
+    res.status(201).json({
+      id: reservation.id,
+      status: "confirmed",
+      restaurant_id: V1_RESTAURANT_ID,
+      date: reservation.date,
+      time: String(time),
+      party_size: reservation.partySize,
+    });
+  });
+
   // ── Public API (B2C app) ──────────────────────────────────────────────────
   // All routes require: X-API-Key: <PUBLIC_API_KEY env secret>
 

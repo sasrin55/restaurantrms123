@@ -1,0 +1,90 @@
+I'm connecting this RMS to a separate B2C mobile app (Seated, an Expo React Native app).
+The mobile app will go through a Node/Express proxy, not call you directly — so you
+only need to support server-to-server requests, not browser CORS.
+
+Please do the following and reply with everything in one message.
+
+PART 1 — Tell me what currently exists:
+
+1. The full public deployment URL of this Replit (the .replit.app URL, not .replit.dev).
+   Confirm the deployment is set to "Always On" / "Reserved VM" so it doesn't cold-start.
+2. The exact auth scheme. Header name, where the secret is stored (env var name),
+   and how to rotate it.
+3. List every existing HTTP endpoint with: method, full path, query/body parameters,
+   and a real sample JSON response (paste curl output, don't paraphrase).
+4. The database tables that hold restaurants, time slots, party-size rules, and
+   reservations. Column names and types.
+5. The restaurant ID / slug for Paola's Cosa Nostra in this system.
+6. What timezone times are stored in. (Should be Asia/Karachi local, not UTC.)
+
+PART 2 — If they don't already exist exactly like this, build these two endpoints:
+
+ENDPOINT A — availability lookup
+  GET /v1/restaurants/:restaurantId/availability?date=YYYY-MM-DD&party_size=N
+  Auth: X-API-Key header
+
+  Response 200:
+  {
+    "restaurant_id": "paolas",
+    "date": "2026-05-20",
+    "party_size": 4,
+    "timezone": "Asia/Karachi",
+    "slots": [
+      { "time": "19:00", "available": true,  "tables_remaining": 3 },
+      { "time": "19:30", "available": false, "tables_remaining": 0 },
+      { "time": "20:00", "available": true,  "tables_remaining": 5 }
+    ]
+  }
+
+  Rules:
+    - "time" is 24-hour HH:MM, restaurant-local.
+    - Return ALL slots the restaurant offers for that meal period — closed ones
+      with available:false. The app handles the grey-out.
+    - If the date is in the past or beyond the booking window, return 200 with
+      slots:[].
+
+ENDPOINT B — create reservation
+  POST /v1/restaurants/:restaurantId/reservations
+  Auth: X-API-Key header
+  Body:
+  {
+    "date": "2026-05-20",
+    "time": "19:30",
+    "party_size": 4,
+    "customer_name": "Raahim Shoukat",
+    "customer_phone": "+923001234567",
+    "customer_email": "raahim@example.com",
+    "occasion": "Birthday",
+    "notes": "Window table if possible",
+    "source": "seated-b2c"
+  }
+
+  Response 201 (success):
+  {
+    "id": "rsv_abc123",
+    "status": "confirmed",
+    "restaurant_id": "paolas",
+    "date": "2026-05-20",
+    "time": "19:30",
+    "party_size": 4
+  }
+
+  Response 409 (slot just filled — race condition):
+  { "error": "slot_unavailable", "message": "..." }
+
+  Rules:
+    - Must atomically decrement availability so two concurrent bookings can't
+      double-book the last table.
+    - Reject if party_size > restaurant's max party size, with 400 and a clear
+      error code.
+    - Phone in E.164 (+92...).
+
+PART 3 — Confirm
+
+  Once built, paste real curl commands and responses for:
+    - GET availability for Paola's, tomorrow, party of 4
+    - POST a reservation for tomorrow at 19:30, party of 4
+    - GET availability again to show tables_remaining decremented
+
+Don't change anything about the auth or admin side of the RMS — only add these
+two read/write endpoints and document what's already there.
