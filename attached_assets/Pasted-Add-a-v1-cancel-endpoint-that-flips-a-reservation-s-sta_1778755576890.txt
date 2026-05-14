@@ -1,0 +1,82 @@
+Add a v1 cancel endpoint that flips a reservation's status to "cancelled"
+WITHOUT deleting the row. This is for the B2C app, where a customer
+cancels their own reservation. The cancellation should:
+  - Update reservations.status = "cancelled"
+  - Update reservations.previous_status = the prior status (so staff
+    can see what state it was in before cancellation)
+  - Leave all other fields (date, time, party_size, customer details,
+    table_id, taken_by) untouched so staff have a full audit trail.
+  - The reservation should appear under "Cancellations & No-Shows"
+    in the dashboard, NOT be removed from the database.
+
+NEW ENDPOINT
+
+  PATCH /v1/restaurants/:restaurantId/reservations/:reservationId/cancel
+  Auth:  X-API-Key
+  Body:  { "phone": "+923001234567" }
+
+  The phone in the body must match reservations.phone_number for that
+  reservation — this prevents a leaked reservation ID from being used
+  by someone else to cancel.
+
+  Response 200:
+  {
+    "id": "...",
+    "status": "cancelled",
+    "previous_status": "confirmed",
+    "restaurant_id": "paolas",
+    "date": "...",
+    "time": "...",
+    "party_size": ...
+  }
+
+  Errors:
+    404 reservation_not_found    — id doesn't exist for this restaurant
+    403 phone_mismatch           — phone in body doesn't match reservation
+    409 already_cancelled        — reservation is already cancelled
+    409 cannot_cancel_completed  — status is "complete" or "seated"
+                                   (already happened — no cancel allowed)
+
+NOTES
+
+  - The existing legacy endpoint PATCH /api/public/bookings/:id/cancel
+    does similar work; you can share the underlying handler logic, just
+    expose it under the v1 path with the restaurantId scoping.
+
+  - Once cancelled, this reservation MUST stop occupying capacity. The
+    GET /v1/.../availability logic already filters by status != "cancelled"
+    (I assume — please verify) so tables_remaining recovers correctly
+    once a cancellation happens.
+
+  - If a reservation was "TBC" (table_id = 0) and is cancelled, it
+    should still leave the App Reservations tab — that tab filters on
+    table_id = 0 AND taken_by = "seated-b2c", so add an implicit
+    "AND status != 'cancelled'" to that filter too if not already there.
+
+VERIFY
+
+After implementing:
+
+  # 1. create a fake reservation
+  RID=$(curl -s -X POST -H "X-API-Key: seated_paolascosa" -H "Content-Type: application/json" \
+    -d '{"date":"2026-05-16","time":"14:30","party_size":2,"customer_name":"Cancel Test","customer_phone":"+923001112233","source":"seated-b2c"}' \
+    https://app.seated.pk/v1/restaurants/paolas/reservations | jq -r .id)
+  echo "created: $RID"
+
+  # 2. cancel it with the right phone
+  curl -i -X PATCH -H "X-API-Key: seated_paolascosa" -H "Content-Type: application/json" \
+    -d '{"phone":"+923001112233"}' \
+    "https://app.seated.pk/v1/restaurants/paolas/reservations/$RID/cancel"
+  # Expected: 200 with status=cancelled
+
+  # 3. try to cancel again
+  curl -i -X PATCH -H "X-API-Key: seated_paolascosa" -H "Content-Type: application/json" \
+    -d '{"phone":"+923001112233"}' \
+    "https://app.seated.pk/v1/restaurants/paolas/reservations/$RID/cancel"
+  # Expected: 409 already_cancelled
+
+  # 4. try to cancel a fake reservation with a wrong phone
+  curl -i -X PATCH -H "X-API-Key: seated_paolascosa" -H "Content-Type: application/json" \
+    -d '{"phone":"+999"}' \
+    "https://app.seated.pk/v1/restaurants/paolas/reservations/$RID/cancel"
+  # Expected: 403 phone_mismatch

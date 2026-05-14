@@ -1083,7 +1083,7 @@ export async function registerRoutes(
     });
   });
 
-  // PATCH /api/public/bookings/:id/cancel
+  // PATCH /api/public/bookings/:id/cancel  (legacy endpoint — kept for back-compat)
   // Body: { phone } — must match the reservation's phone number
   app.patch("/api/public/bookings/:id/cancel", requireApiKey, async (req, res) => {
     const reservation = await storage.getReservation(req.params.id);
@@ -1108,6 +1108,48 @@ export async function registerRoutes(
       id: updated!.id,
       status: updated!.status,
       message: "Booking cancelled successfully",
+    });
+  });
+
+  // ── V1: Customer self-cancel ───────────────────────────────────────────────
+  // PATCH /v1/restaurants/:restaurantId/reservations/:reservationId/cancel
+  // Body: { phone }  — must match reservations.phone_number to prove ownership
+  // Sets status = "cancelled", previousStatus = prior status, row kept intact.
+  app.patch("/v1/restaurants/:restaurantId/reservations/:reservationId/cancel", requireApiKey, async (req, res) => {
+    const { restaurantId, reservationId } = req.params;
+
+    if (restaurantId !== "paolas") {
+      return res.status(404).json({ error: "restaurant_not_found", message: `Unknown restaurant '${restaurantId}'` });
+    }
+
+    const reservation = await storage.getReservation(reservationId);
+    if (!reservation) {
+      return res.status(404).json({ error: "reservation_not_found", message: "Reservation not found" });
+    }
+
+    const { phone } = req.body;
+    if (!phone) {
+      return res.status(400).json({ error: "phone_required", message: "phone is required to verify ownership" });
+    }
+    if (normalizePhone(String(phone)) !== normalizePhone(reservation.phoneNumber)) {
+      return res.status(403).json({ error: "phone_mismatch", message: "Phone number does not match this reservation" });
+    }
+    if (reservation.status === "cancelled") {
+      return res.status(409).json({ error: "already_cancelled", message: "This reservation is already cancelled" });
+    }
+    if (["seated", "complete"].includes(reservation.status)) {
+      return res.status(409).json({ error: "cannot_cancel_completed", message: "Cannot cancel a reservation that is already seated or completed" });
+    }
+
+    const updated = await storage.updateReservationStatus(reservationId, "cancelled");
+    return res.json({
+      id: updated!.id,
+      status: updated!.status,
+      previous_status: updated!.previousStatus,
+      restaurant_id: restaurantId,
+      date: updated!.date,
+      time: updated!.time,
+      party_size: updated!.partySize,
     });
   });
 
