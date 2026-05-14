@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
-import { Smartphone, Users, Clock, Phone, CalendarDays, Loader2, CheckCircle2 } from "lucide-react";
+import { Smartphone, Users, Clock, Phone, CalendarDays, Loader2, CheckCircle2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -207,7 +207,21 @@ function AppReservationCard({
   allReservations: Reservation[];
 }) {
   const [showAssign, setShowAssign] = useState(false);
+  const [confirmDecline, setConfirmDecline] = useState(false);
+  const { toast } = useToast();
   const { occasion, email, notes } = parseComments(reservation.comments ?? "");
+
+  const declineMutation = useMutation({
+    mutationFn: () =>
+      apiRequest("PATCH", `/api/reservations/${reservation.id}/status`, { status: "cancelled" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
+      toast({ title: "Reservation declined", description: `${reservation.customerName}'s booking has been cancelled.` });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Could not decline the reservation. Please try again.", variant: "destructive" });
+    },
+  });
 
   return (
     <div
@@ -264,14 +278,55 @@ function AppReservationCard({
         </div>
       )}
 
-      {/* Action */}
-      <Button
-        data-testid={`button-assign-${reservation.id}`}
-        className="w-full bg-[#0D7377] hover:bg-[#0D7377]/90 text-white mt-1"
-        onClick={() => setShowAssign(true)}
-      >
-        Assign to Table
-      </Button>
+      {/* Actions */}
+      {confirmDecline ? (
+        <div className="flex flex-col gap-2 mt-1 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+          <p className="text-sm font-medium text-destructive text-center">Decline this reservation?</p>
+          <div className="flex gap-2">
+            <Button
+              data-testid={`button-decline-cancel-${reservation.id}`}
+              variant="outline"
+              className="flex-1"
+              onClick={() => setConfirmDecline(false)}
+              disabled={declineMutation.isPending}
+            >
+              Keep
+            </Button>
+            <Button
+              data-testid={`button-decline-confirm-${reservation.id}`}
+              variant="destructive"
+              className="flex-1"
+              onClick={() => declineMutation.mutate()}
+              disabled={declineMutation.isPending}
+            >
+              {declineMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Declining…</>
+              ) : (
+                "Yes, decline"
+              )}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex gap-2 mt-1">
+          <Button
+            data-testid={`button-decline-${reservation.id}`}
+            variant="outline"
+            className="flex-1 border-destructive/40 text-destructive hover:bg-destructive/5 hover:border-destructive"
+            onClick={() => setConfirmDecline(true)}
+          >
+            <X className="h-4 w-4 mr-1.5" />
+            Decline
+          </Button>
+          <Button
+            data-testid={`button-assign-${reservation.id}`}
+            className="flex-1 bg-[#0D7377] hover:bg-[#0D7377]/90 text-white"
+            onClick={() => setShowAssign(true)}
+          >
+            Assign to Table
+          </Button>
+        </div>
+      )}
 
       {showAssign && (
         <AssignTableModal
