@@ -1,6 +1,8 @@
 const WA_SERVICE_URL = process.env.WA_SERVICE_URL;
 const WA_API_KEY = process.env.WA_API_KEY;
 
+const SEND_TIMEOUT_MS = 20_000; // abort if the WA service doesn't respond in 20 s
+
 export async function sendWhatsAppConfirmation(
   name: string,
   phone: string,
@@ -14,14 +16,29 @@ export async function sendWhatsAppConfirmation(
   const payload: Record<string, string> = { name, phone };
   if (message) payload.message = message;
 
-  const res = await fetch(`${WA_SERVICE_URL}/send`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-API-Key": WA_API_KEY,
-    },
-    body: JSON.stringify(payload),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SEND_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(`${WA_SERVICE_URL}/send`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": WA_API_KEY,
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+  } catch (err: any) {
+    clearTimeout(timer);
+    if (err?.name === "AbortError") {
+      throw new Error(`WhatsApp service timed out after ${SEND_TIMEOUT_MS / 1000}s — the WA session may be stale and needs a restart`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 
   const body = await res.json().catch(() => ({})) as any;
 
