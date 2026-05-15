@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Clock, Users, Phone, MessageSquare, Pencil, Send, UserCheck } from "lucide-react";
+import { Clock, Users, Phone, MessageSquare, Pencil, Send, UserCheck, CheckCheck } from "lucide-react";
 import { formatName } from "@/lib/utils";
 
 export type ReservationStatus = "booked" | "seated" | "confirmed" | "no-show" | "complete" | "cancelled";
@@ -21,6 +21,7 @@ interface ReservationCardProps {
   onSecondaryAction?: () => void;
   onTertiaryAction?: () => void;
   onSendConfirmation?: () => void;
+  messageSent?: boolean;
 }
 
 const statusConfig: Record<ReservationStatus, { label: string; className: string }> = {
@@ -109,6 +110,7 @@ export function ReservationCard({
   onSecondaryAction,
   onTertiaryAction,
   onSendConfirmation,
+  messageSent,
 }: ReservationCardProps) {
   const statusStyle = statusConfig[status] ?? { label: status, className: "bg-gray-400 text-white" };
   const actions = getActionButtons(status);
@@ -214,13 +216,16 @@ export function ReservationCard({
           <Button
             size="sm"
             variant="outline"
-            onClick={onSendConfirmation}
+            onClick={messageSent ? undefined : onSendConfirmation}
             disabled={disabled}
-            className="gap-1.5 text-[#0D7377] border-[#0D7377]/40 hover:bg-[#0D7377]/10"
+            className={messageSent
+              ? "gap-1.5 text-green-600 border-green-500/50 bg-green-50 cursor-default pointer-events-none"
+              : "gap-1.5 text-[#0D7377] border-[#0D7377]/40 hover:bg-[#0D7377]/10"}
             data-testid={`button-send-wa-${id}`}
           >
-            <Send className="h-3.5 w-3.5" />
-            Send Confirmation Text
+            {messageSent
+              ? <><CheckCheck className="h-3.5 w-3.5" /> Message Sent</>
+              : <><Send className="h-3.5 w-3.5" /> Send Confirmation Text</>}
           </Button>
         )}
       </div>
@@ -244,6 +249,7 @@ interface ReservationRowProps {
   onSecondaryAction?: () => void;
   onTertiaryAction?: () => void;
   onSendConfirmation?: () => void;
+  messageSent?: boolean;
 }
 
 export function ReservationRow({
@@ -262,6 +268,7 @@ export function ReservationRow({
   onSecondaryAction,
   onTertiaryAction,
   onSendConfirmation,
+  messageSent,
 }: ReservationRowProps) {
   const statusStyle = statusConfig[status] ?? { label: status, className: "bg-gray-400 text-white" };
   const actions = getActionButtons(status);
@@ -329,13 +336,16 @@ export function ReservationRow({
             <Button
               size="sm"
               variant="outline"
-              onClick={onSendConfirmation}
+              onClick={messageSent ? undefined : onSendConfirmation}
               disabled={disabled}
-              className="gap-1.5 text-[#0D7377] border-[#0D7377]/40 hover:bg-[#0D7377]/10 whitespace-nowrap"
+              className={messageSent
+                ? "gap-1.5 text-green-600 border-green-500/50 bg-green-50 cursor-default pointer-events-none whitespace-nowrap"
+                : "gap-1.5 text-[#0D7377] border-[#0D7377]/40 hover:bg-[#0D7377]/10 whitespace-nowrap"}
               data-testid={`button-send-wa-row-${id}`}
             >
-              <Send className="h-3.5 w-3.5" />
-              Send Confirmation Text
+              {messageSent
+                ? <><CheckCheck className="h-3.5 w-3.5" /> Message Sent</>
+                : <><Send className="h-3.5 w-3.5" /> Send Confirmation Text</>}
             </Button>
           )}
         </div>

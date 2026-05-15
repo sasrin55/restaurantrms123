@@ -226,6 +226,8 @@ export default function ReservationsPage() {
   const [waPhone, setWaPhone] = useState("");
   const [waGuestName, setWaGuestName] = useState("");
   const [waSending, setWaSending] = useState(false);
+  const [waSentIds, setWaSentIds] = useState<Set<string>>(new Set());
+  const [waSendingForId, setWaSendingForId] = useState<string | null>(null);
 
   const deleteReservationMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -323,6 +325,7 @@ export default function ReservationsPage() {
     setWaGuestName(formatName(group.customerName));
     setWaPhone(group.phoneNumber);
     setWaMessage(msg);
+    setWaSendingForId(group.ids[0]);
     setWaDialogOpen(true);
   };
 
@@ -334,12 +337,16 @@ export default function ReservationsPage() {
         phone: waPhone,
         message: waMessage,
       });
+      if (waSendingForId) {
+        setWaSentIds(prev => new Set(prev).add(waSendingForId));
+      }
       setWaDialogOpen(false);
       toast({ title: "Message sent", description: "WhatsApp confirmation sent successfully." });
     } catch (err: any) {
       toast({ title: "Failed to send", description: err?.message || "Could not reach WhatsApp service.", variant: "destructive" });
     } finally {
       setWaSending(false);
+      setWaSendingForId(null);
     }
   };
 
@@ -787,6 +794,7 @@ export default function ReservationsPage() {
                           onSecondaryAction={() => handleGroupSecondaryAction(group)}
                           onTertiaryAction={() => handleGroupTertiaryAction(group)}
                           onSendConfirmation={() => handleOpenWaReminderDialog(group)}
+                          messageSent={waSentIds.has(group.ids[0])}
                         />
                       ))}
                     </div>
@@ -845,6 +853,7 @@ export default function ReservationsPage() {
                               onSecondaryAction={() => handleGroupSecondaryAction(group)}
                               onTertiaryAction={() => handleGroupTertiaryAction(group)}
                               onSendConfirmation={() => handleOpenWaReminderDialog(group)}
+                              messageSent={waSentIds.has(group.ids[0])}
                             />
                           ))}
                         </tbody>
