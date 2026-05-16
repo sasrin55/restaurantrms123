@@ -16,7 +16,8 @@ import { ChevronLeft, ChevronRight, Trash2, ArrowRight, Clock, Users, Phone } fr
 import type { Reservation } from "@shared/schema";
 import { format, addDays, subDays, isToday } from "date-fns";
 import { restaurantTables, TABLE_SECTIONS, getTablesBySection, type TableSection } from "@/lib/tables";
-import { getTimeSlotsForDate, getPeriodLabel } from "@/lib/timeSlots";
+import { getPeriodLabel } from "@/lib/timeSlots";
+import { useTimeSlots } from "@/hooks/use-time-slots";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -28,7 +29,8 @@ export default function TablesPage() {
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const dateStr = format(selectedDate, "yyyy-MM-dd");
 
-  const slots = getTimeSlotsForDate(selectedDate);
+  const { getSlotsForDate } = useTimeSlots();
+  const slots = getSlotsForDate(selectedDate);
 
   useEffect(() => {
     setSelectedSlot(null);
