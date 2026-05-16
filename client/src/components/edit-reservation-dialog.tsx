@@ -21,7 +21,8 @@ import {
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Reservation } from "@shared/schema";
 import { restaurantTables, TABLE_SECTIONS, getTablesBySection } from "@/lib/tables";
-import { ALL_SLOTS, getPeriodLabel } from "@/lib/timeSlots";
+import { getPeriodLabel } from "@/lib/timeSlots";
+import { useTimeSlots } from "@/hooks/use-time-slots";
 import { StaffSelect } from "@/components/staff-select";
 
 interface EditReservationDialogProps {
@@ -39,6 +40,7 @@ export function EditReservationDialog({
   onOpenChange,
 }: EditReservationDialogProps) {
   const { toast } = useToast();
+  const { dbSlots } = useTimeSlots();
   const [customerName, setCustomerName] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -229,18 +231,25 @@ export function EditReservationDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {(() => {
-                    const periods = Array.from(new Set(ALL_SLOTS.map(s => s.period)));
+                    const slotsToShow = dbSlots.length > 0
+                      ? dbSlots.filter(s => s.isActive)
+                      : [];
+                    const periods = Array.from(new Set(slotsToShow.map(s => s.period)));
+                    if (slotsToShow.length === 0) return <div className="px-2 py-1.5 text-sm text-muted-foreground">Loading…</div>;
                     return periods.map(period => (
                       <div key={period}>
                         <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                          {getPeriodLabel(period)}
+                          {getPeriodLabel(period as any)}
                         </div>
-                        {ALL_SLOTS.filter(s => s.period === period).map(s => (
-                          <SelectItem key={s.label} value={s.label}>{s.label}</SelectItem>
+                        {slotsToShow.filter(s => s.period === period).sort((a,b) => a.sortOrder - b.sortOrder).map(s => (
+                          <SelectItem key={s.id} value={s.label}>{s.label}</SelectItem>
                         ))}
                       </div>
                     ));
                   })()}
+                  {time && !dbSlots.some(s => s.label === time) && (
+                    <SelectItem key="__current__" value={time}>{time}</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>

@@ -719,6 +719,37 @@ export async function registerRoutes(
     res.status(204).end();
   });
 
+  // ── Time Slots ────────────────────────────────────────────────────────────
+  app.get("/api/time-slots", async (_req, res) => {
+    const slots = await storage.getTimeSlots();
+    res.json(slots);
+  });
+
+  app.post("/api/time-slots", async (req, res) => {
+    const { label, period, appliesTo, sortOrder } = req.body;
+    if (!label || !period || !appliesTo) {
+      return res.status(400).json({ error: "label, period and appliesTo are required" });
+    }
+    const slot = await storage.createTimeSlot({ label, period, appliesTo, sortOrder: sortOrder ?? 99, isActive: true });
+    res.status(201).json(slot);
+  });
+
+  app.patch("/api/time-slots/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+    const updated = await storage.updateTimeSlot(id, req.body);
+    if (!updated) return res.status(404).json({ error: "Not found" });
+    res.json(updated);
+  });
+
+  app.delete("/api/time-slots/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+    const ok = await storage.deleteTimeSlot(id);
+    if (!ok) return res.status(404).json({ error: "Not found" });
+    res.status(204).end();
+  });
+
   // ── WhatsApp send endpoint ─────────────────────────────────────────────────
   // POST /api/whatsapp/send  { "name": "...", "phone": "...", "message": "..." }
   app.post("/api/whatsapp/send", async (req, res) => {

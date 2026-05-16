@@ -1,6 +1,6 @@
-import { type User, type InsertUser, type Reservation, type InsertReservation, type Guest, type InsertGuest, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type DbMenuItem, type InsertMenuItem, type Call, type InsertCall, type WaitlistEntry, type InsertWaitlistEntry, type StaffMember, type InsertStaffMember, users, reservations, guests, orders, orderItems, menuItems, calls, waitlistEntries, staffMembers } from "@shared/schema";
+import { type User, type InsertUser, type Reservation, type InsertReservation, type Guest, type InsertGuest, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type DbMenuItem, type InsertMenuItem, type Call, type InsertCall, type WaitlistEntry, type InsertWaitlistEntry, type StaffMember, type InsertStaffMember, type DbTimeSlot, type InsertTimeSlot, users, reservations, guests, orders, orderItems, menuItems, calls, waitlistEntries, staffMembers, timeSlots } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and } from "drizzle-orm";
+import { eq, desc, sql, and, asc } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -52,6 +52,12 @@ export interface IStorage {
   getStaffMembers(): Promise<StaffMember[]>;
   addStaffMember(name: string): Promise<StaffMember>;
   deleteStaffMember(id: number): Promise<boolean>;
+
+  getTimeSlots(): Promise<DbTimeSlot[]>;
+  createTimeSlot(slot: InsertTimeSlot): Promise<DbTimeSlot>;
+  updateTimeSlot(id: number, updates: Partial<DbTimeSlot>): Promise<DbTimeSlot | undefined>;
+  deleteTimeSlot(id: number): Promise<boolean>;
+  seedTimeSlotsIfEmpty(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -396,6 +402,51 @@ export class DatabaseStorage implements IStorage {
   async deleteStaffMember(id: number): Promise<boolean> {
     const result = await db.delete(staffMembers).where(eq(staffMembers.id, id)).returning();
     return result.length > 0;
+  }
+
+  async getTimeSlots(): Promise<DbTimeSlot[]> {
+    return db.select().from(timeSlots).orderBy(asc(timeSlots.appliesTo), asc(timeSlots.sortOrder));
+  }
+
+  async createTimeSlot(slot: InsertTimeSlot): Promise<DbTimeSlot> {
+    const [created] = await db.insert(timeSlots).values(slot).returning();
+    return created;
+  }
+
+  async updateTimeSlot(id: number, updates: Partial<DbTimeSlot>): Promise<DbTimeSlot | undefined> {
+    const { id: _id, ...rest } = updates as any;
+    const [updated] = await db.update(timeSlots).set(rest).where(eq(timeSlots.id, id)).returning();
+    return updated;
+  }
+
+  async deleteTimeSlot(id: number): Promise<boolean> {
+    const result = await db.delete(timeSlots).where(eq(timeSlots.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async seedTimeSlotsIfEmpty(): Promise<void> {
+    const existing = await db.select().from(timeSlots).limit(1);
+    if (existing.length > 0) return;
+
+    const SEED = [
+      { label: "9:00 AM - 10:30 AM",  period: "breakfast", appliesTo: "weekday", sortOrder: 0 },
+      { label: "10:45 AM - 12:00 PM", period: "brunch",    appliesTo: "weekday", sortOrder: 1 },
+      { label: "12:30 PM - 2:30 PM",  period: "lunch",     appliesTo: "weekday", sortOrder: 2 },
+      { label: "2:30 PM - 4:30 PM",   period: "lunch",     appliesTo: "weekday", sortOrder: 3 },
+      { label: "4:30 PM - 6:30 PM",   period: "tea",       appliesTo: "weekday", sortOrder: 4 },
+      { label: "6:45 PM - 8:30 PM",   period: "dinner",    appliesTo: "weekday", sortOrder: 5 },
+      { label: "8:45 PM - 10:15 PM",  period: "dinner",    appliesTo: "weekday", sortOrder: 6 },
+      { label: "10:30 PM - 12:00 AM", period: "dinner",    appliesTo: "weekday", sortOrder: 7 },
+      { label: "10:00 AM - 12:00 PM", period: "breakfast", appliesTo: "weekend", sortOrder: 0 },
+      { label: "12:00 PM - 2:00 PM",  period: "brunch",    appliesTo: "weekend", sortOrder: 1 },
+      { label: "2:30 PM - 4:30 PM",   period: "lunch",     appliesTo: "weekend", sortOrder: 2 },
+      { label: "4:30 PM - 6:30 PM",   period: "tea",       appliesTo: "weekend", sortOrder: 3 },
+      { label: "6:45 PM - 8:30 PM",   period: "dinner",    appliesTo: "weekend", sortOrder: 4 },
+      { label: "8:45 PM - 10:15 PM",  period: "dinner",    appliesTo: "weekend", sortOrder: 5 },
+      { label: "10:30 PM - 12:00 AM", period: "dinner",    appliesTo: "weekend", sortOrder: 6 },
+    ];
+    await db.insert(timeSlots).values(SEED.map(s => ({ ...s, isActive: true })));
+    console.log("[seed] Time slots seeded.");
   }
 }
 

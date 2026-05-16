@@ -30,7 +30,8 @@ import { StaffSelect } from "@/components/staff-select";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { restaurantTables, TABLE_SECTIONS, getTablesBySection } from "@/lib/tables";
-import { getTimeSlotsForDate, isMonday, getPeriodLabel, type MealPeriod } from "@/lib/timeSlots";
+import { isMonday, getPeriodLabel, type MealPeriod } from "@/lib/timeSlots";
+import { useTimeSlots } from "@/hooks/use-time-slots";
 import restaurantBg from "@/assets/images/restaurant-bg.jpg";
 
 function ordinalSuffix(n: number): string {
@@ -235,7 +236,8 @@ export default function NewCustomerPage() {
     setTakenBy("");
   };
 
-  const timeSlots = getTimeSlotsForDate(effectiveDate);
+  const { getSlotsForDate } = useTimeSlots();
+  const timeSlots = getSlotsForDate(effectiveDate);
   const groupedSlots = timeSlots.reduce<Record<MealPeriod, typeof timeSlots>>((acc, slot) => {
     if (!acc[slot.period]) acc[slot.period] = [];
     acc[slot.period].push(slot);

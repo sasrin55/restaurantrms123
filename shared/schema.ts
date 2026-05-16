@@ -150,6 +150,20 @@ export const insertStaffMemberSchema = createInsertSchema(staffMembers).omit({ i
 export type InsertStaffMember = z.infer<typeof insertStaffMemberSchema>;
 export type StaffMember = typeof staffMembers.$inferSelect;
 
+// ── Time Slots ───────────────────────────────────────────────────────────────
+export const timeSlots = pgTable("time_slots", {
+  id: serial("id").primaryKey(),
+  label: text("label").notNull(),
+  period: text("period").notNull(),
+  appliesTo: text("applies_to").notNull().default("weekday"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+});
+
+export const insertTimeSlotSchema = createInsertSchema(timeSlots).omit({ id: true });
+export type InsertTimeSlot = z.infer<typeof insertTimeSlotSchema>;
+export type DbTimeSlot = typeof timeSlots.$inferSelect;
+
 export const insertOrderSchema = createInsertSchema(orders).omit({
   id: true,
   createdAt: true,

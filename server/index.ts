@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedV5IfNeeded, fixDataIssues } from "./seed";
+import { storage } from "./storage";
 import { startAutoCompleteJob } from "./autoComplete";
 
 const app = express();
@@ -65,6 +66,7 @@ app.use((req, res, next) => {
 (async () => {
   await seedV5IfNeeded();
   await fixDataIssues();
+  await storage.seedTimeSlotsIfEmpty();
   startAutoCompleteJob();
   await registerRoutes(httpServer, app);
 
