@@ -35,11 +35,16 @@ function parseComments(raw: string) {
 const SLOT_ORDER = [
   "9:00 AM - 10:30 AM",
   "10:00 AM - 12:00 PM",
-  "10:45 AM - 12:15 PM",
+  "10:45 AM - 12:00 PM",
   "12:00 PM - 2:00 PM",
   "12:30 PM - 2:30 PM",
   "2:30 PM - 4:30 PM",
   "4:30 PM - 6:30 PM",
+  "6:45 PM - 8:30 PM",
+  "8:45 PM - 10:15 PM",
+  "10:30 PM - 12:00 AM",
+  // Legacy labels for old records
+  "10:45 AM - 12:15 PM",
   "6:45 PM - 8:15 PM",
   "8:30 PM - 10:00 PM",
 ];

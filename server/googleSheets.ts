@@ -94,35 +94,26 @@ interface TimeSlotSection {
 function getSectionsForDate(dateStr: string): TimeSlotSection[] {
   const [y, m, d] = dateStr.split('-').map(Number);
   const dow = new Date(y, m - 1, d).getDay();
-  if (dow === 5) {
-    return [
-      { label: "Breakfast — 9:00 AM - 10:30 AM",  timeKey: "9:00 AM - 10:30 AM" },
-      { label: "Brunch — 10:45 AM - 12:15 PM",     timeKey: "10:45 AM - 12:15 PM" },
-      { label: "Lunch — 12:30 PM - 2:30 PM",       timeKey: "12:30 PM - 2:30 PM" },
-      { label: "Lunch — 2:30 PM - 4:30 PM",        timeKey: "2:30 PM - 4:30 PM" },
-      { label: "Tea — 5:00 PM - 7:00 PM",          timeKey: "5:00 PM - 7:00 PM" },
-      { label: "Dinner — 7:30 PM - 9:30 PM",       timeKey: "7:30 PM - 9:30 PM" },
-      { label: "Dinner — 9:45 PM - 11:45 PM",      timeKey: "9:45 PM - 11:45 PM" },
-    ];
-  }
   if (dow === 0 || dow === 6) {
     return [
       { label: "Breakfast — 10:00 AM - 12:00 PM",  timeKey: "10:00 AM - 12:00 PM" },
-      { label: "Brunch — 12:15 PM - 2:15 PM",      timeKey: "12:15 PM - 2:15 PM" },
+      { label: "Brunch — 12:00 PM - 2:00 PM",      timeKey: "12:00 PM - 2:00 PM" },
       { label: "Lunch — 2:30 PM - 4:30 PM",        timeKey: "2:30 PM - 4:30 PM" },
-      { label: "Tea — 5:00 PM - 7:00 PM",          timeKey: "5:00 PM - 7:00 PM" },
-      { label: "Dinner — 7:30 PM - 9:30 PM",       timeKey: "7:30 PM - 9:30 PM" },
-      { label: "Dinner — 9:45 PM - 11:45 PM",      timeKey: "9:45 PM - 11:45 PM" },
+      { label: "Tea — 4:30 PM - 6:30 PM",          timeKey: "4:30 PM - 6:30 PM" },
+      { label: "Dinner — 6:45 PM - 8:30 PM",       timeKey: "6:45 PM - 8:30 PM" },
+      { label: "Dinner — 8:45 PM - 10:15 PM",      timeKey: "8:45 PM - 10:15 PM" },
+      { label: "Dinner — 10:30 PM - 12:00 AM",     timeKey: "10:30 PM - 12:00 AM" },
     ];
   }
   return [
     { label: "Breakfast — 9:00 AM - 10:30 AM",    timeKey: "9:00 AM - 10:30 AM" },
-    { label: "Brunch — 10:45 AM - 12:15 PM",      timeKey: "10:45 AM - 12:15 PM" },
+    { label: "Brunch — 10:45 AM - 12:00 PM",      timeKey: "10:45 AM - 12:00 PM" },
     { label: "Lunch — 12:30 PM - 2:30 PM",        timeKey: "12:30 PM - 2:30 PM" },
     { label: "Lunch — 2:30 PM - 4:30 PM",         timeKey: "2:30 PM - 4:30 PM" },
-    { label: "Tea — 5:00 PM - 7:00 PM",           timeKey: "5:00 PM - 7:00 PM" },
-    { label: "Dinner — 7:00 PM - 9:00 PM",        timeKey: "7:00 PM - 9:00 PM" },
-    { label: "Dinner — 9:00 PM - 11:00 PM",       timeKey: "9:00 PM - 11:00 PM" },
+    { label: "Tea — 4:30 PM - 6:30 PM",           timeKey: "4:30 PM - 6:30 PM" },
+    { label: "Dinner — 6:45 PM - 8:30 PM",        timeKey: "6:45 PM - 8:30 PM" },
+    { label: "Dinner — 8:45 PM - 10:15 PM",       timeKey: "8:45 PM - 10:15 PM" },
+    { label: "Dinner — 10:30 PM - 12:00 AM",      timeKey: "10:30 PM - 12:00 AM" },
   ];
 }
 

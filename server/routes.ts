@@ -801,20 +801,22 @@ export async function registerRoutes(
   // 24-hour start time → internal slot label
   const V1_WEEKDAY_SLOTS = [
     { time24: "09:00", label: "9:00 AM - 10:30 AM" },
-    { time24: "10:45", label: "10:45 AM - 12:15 PM" },
+    { time24: "10:45", label: "10:45 AM - 12:00 PM" },
     { time24: "12:30", label: "12:30 PM - 2:30 PM" },
     { time24: "14:30", label: "2:30 PM - 4:30 PM" },
     { time24: "16:30", label: "4:30 PM - 6:30 PM" },
-    { time24: "18:45", label: "6:45 PM - 8:15 PM" },
-    { time24: "20:30", label: "8:30 PM - 10:00 PM" },
+    { time24: "18:45", label: "6:45 PM - 8:30 PM" },
+    { time24: "20:45", label: "8:45 PM - 10:15 PM" },
+    { time24: "22:30", label: "10:30 PM - 12:00 AM" },
   ];
   const V1_WEEKEND_SLOTS = [
     { time24: "10:00", label: "10:00 AM - 12:00 PM" },
     { time24: "12:00", label: "12:00 PM - 2:00 PM" },
     { time24: "14:30", label: "2:30 PM - 4:30 PM" },
     { time24: "16:30", label: "4:30 PM - 6:30 PM" },
-    { time24: "18:45", label: "6:45 PM - 8:15 PM" },
-    { time24: "20:30", label: "8:30 PM - 10:00 PM" },
+    { time24: "18:45", label: "6:45 PM - 8:30 PM" },
+    { time24: "20:45", label: "8:45 PM - 10:15 PM" },
+    { time24: "22:30", label: "10:30 PM - 12:00 AM" },
   ];
 
   function getV1SlotsForDate(dateStr: string) {
@@ -954,20 +956,22 @@ export async function registerRoutes(
   // Time slots mirrored from client/src/lib/timeSlots.ts
   const PUBLIC_WEEKDAY_SLOTS = [
     "9:00 AM - 10:30 AM",
-    "10:45 AM - 12:15 PM",
+    "10:45 AM - 12:00 PM",
     "12:30 PM - 2:30 PM",
     "2:30 PM - 4:30 PM",
     "4:30 PM - 6:30 PM",
-    "6:45 PM - 8:15 PM",
-    "8:30 PM - 10:00 PM",
+    "6:45 PM - 8:30 PM",
+    "8:45 PM - 10:15 PM",
+    "10:30 PM - 12:00 AM",
   ];
   const PUBLIC_WEEKEND_SLOTS = [
     "10:00 AM - 12:00 PM",
     "12:00 PM - 2:00 PM",
     "2:30 PM - 4:30 PM",
     "4:30 PM - 6:30 PM",
-    "6:45 PM - 8:15 PM",
-    "8:30 PM - 10:00 PM",
+    "6:45 PM - 8:30 PM",
+    "8:45 PM - 10:15 PM",
+    "10:30 PM - 12:00 AM",
   ];
   // Max active bookings per slot before flagging as fully booked
   const PUBLIC_SLOT_CAPACITY = 20;

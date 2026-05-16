@@ -5,8 +5,9 @@ import { pool } from "./db";
 
 const SLOT_MAP: Record<string, string> = {
   "Breakfast 9 AM - 10:30 AM":    "9:00 AM - 10:30 AM",
-  "Brunch 10:45 PM - 12:15 PM":   "10:45 AM - 12:15 PM",
-  "Brunch 10:45 PM - 12:00 PM":   "10:45 AM - 12:15 PM",
+  "Brunch 10:45 PM - 12:15 PM":   "10:45 AM - 12:00 PM",
+  "Brunch 10:45 PM - 12:00 PM":   "10:45 AM - 12:00 PM",
+  "10:45 AM - 12:15 PM":          "10:45 AM - 12:00 PM",
   "Breakfast 10 AM - 12 PM":      "10:00 AM - 12:00 PM",
   "Brunch 12:15 PM - 2 PM":       "12:00 PM - 2:00 PM",
   "Lunch Slot 12:30 PM":          "12:30 PM - 2:30 PM",
@@ -14,12 +15,14 @@ const SLOT_MAP: Record<string, string> = {
   "Lunch Slot 2:30 PM":           "2:30 PM - 4:30 PM",
   "Tea Time Slot 5 PM":           "4:30 PM - 6:30 PM",
   "Tea Time Slot 4:30 PM":        "4:30 PM - 6:30 PM",
-  "Dinner Slot 6:45 PM - 8:15PM": "6:45 PM - 8:15 PM",
-  "Dinner Slot 7:00 - 9:00 PM":   "6:45 PM - 8:15 PM",
-  "Dinner Slot 7:30 - 9:30 PM":   "6:45 PM - 8:15 PM",
-  "Dinner 8:30 PM - 10:00 PM":    "8:30 PM - 10:00 PM",
-  "Dinner 9:00 PM - 11:00 PM":    "8:30 PM - 10:00 PM",
-  "Dinner 9:45 PM - 11:45 PM":    "8:30 PM - 10:00 PM",
+  "Dinner Slot 6:45 PM - 8:15PM": "6:45 PM - 8:30 PM",
+  "Dinner Slot 7:00 - 9:00 PM":   "6:45 PM - 8:30 PM",
+  "Dinner Slot 7:30 - 9:30 PM":   "6:45 PM - 8:30 PM",
+  "6:45 PM - 8:15 PM":            "6:45 PM - 8:30 PM",
+  "Dinner 8:30 PM - 10:00 PM":    "8:45 PM - 10:15 PM",
+  "Dinner 9:00 PM - 11:00 PM":    "8:45 PM - 10:15 PM",
+  "Dinner 9:45 PM - 11:45 PM":    "8:45 PM - 10:15 PM",
+  "8:30 PM - 10:00 PM":           "8:45 PM - 10:15 PM",
 };
 
 const TABLE_MAP: Record<string, { id: number; name: string }> = {
