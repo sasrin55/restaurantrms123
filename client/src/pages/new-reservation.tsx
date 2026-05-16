@@ -89,11 +89,25 @@ export default function NewCustomerPage() {
 
   const effectiveDate = mode === "walkin" ? new Date() : date;
 
+  const parseStartMin = (label: string): number => {
+    const start = (label || "").split("-")[0].trim();
+    const [timePart, ampm] = start.split(" ");
+    if (!timePart || !ampm) return -1;
+    const [h, m] = timePart.split(":").map(Number);
+    const hours = ampm === "PM" && h !== 12 ? h + 12 : ampm === "AM" && h === 12 ? 0 : h;
+    return hours * 60 + (m || 0);
+  };
+
+  const selectedStartMin = parseStartMin(time);
+
   const bookedTableMap: Record<number, any> = existingReservations
     .filter((r: any) => {
       if (!effectiveDate) return false;
       const selectedDate = format(effectiveDate, "yyyy-MM-dd");
-      return r.date === selectedDate && r.time === time && r.status !== "complete" && r.status !== "cancelled" && r.status !== "no-show";
+      if (r.date !== selectedDate) return false;
+      if (r.status === "complete" || r.status === "cancelled" || r.status === "no-show") return false;
+      // Match by start time so legacy labels (e.g. "6:45 PM - 8:15 PM") still conflict with new labels ("6:45 PM - 8:30 PM")
+      return selectedStartMin >= 0 && parseStartMin(r.time) === selectedStartMin;
     })
     .reduce((acc: Record<number, any>, r: any) => {
       acc[r.tableId] = r;

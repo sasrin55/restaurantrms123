@@ -425,6 +425,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async seedTimeSlotsIfEmpty(): Promise<void> {
+    // Fix-up pass: rename any slots that were seeded with incorrect labels
+    // (new labels that don't match what's stored in existing reservations)
+    const LABEL_FIXES: Record<string, string> = {
+      "6:45 PM - 8:30 PM":  "6:45 PM - 8:15 PM",
+      "8:45 PM - 10:15 PM": "8:30 PM - 10:00 PM",
+    };
+    for (const [wrong, correct] of Object.entries(LABEL_FIXES)) {
+      await db.update(timeSlots)
+        .set({ label: correct })
+        .where(eq(timeSlots.label, wrong));
+    }
+
     const existing = await db.select().from(timeSlots).limit(1);
     if (existing.length > 0) return;
 
@@ -434,15 +446,15 @@ export class DatabaseStorage implements IStorage {
       { label: "12:30 PM - 2:30 PM",  period: "lunch",     appliesTo: "weekday", sortOrder: 2 },
       { label: "2:30 PM - 4:30 PM",   period: "lunch",     appliesTo: "weekday", sortOrder: 3 },
       { label: "4:30 PM - 6:30 PM",   period: "tea",       appliesTo: "weekday", sortOrder: 4 },
-      { label: "6:45 PM - 8:30 PM",   period: "dinner",    appliesTo: "weekday", sortOrder: 5 },
-      { label: "8:45 PM - 10:15 PM",  period: "dinner",    appliesTo: "weekday", sortOrder: 6 },
+      { label: "6:45 PM - 8:15 PM",   period: "dinner",    appliesTo: "weekday", sortOrder: 5 },
+      { label: "8:30 PM - 10:00 PM",  period: "dinner",    appliesTo: "weekday", sortOrder: 6 },
       { label: "10:30 PM - 12:00 AM", period: "dinner",    appliesTo: "weekday", sortOrder: 7 },
       { label: "10:00 AM - 12:00 PM", period: "breakfast", appliesTo: "weekend", sortOrder: 0 },
       { label: "12:00 PM - 2:00 PM",  period: "brunch",    appliesTo: "weekend", sortOrder: 1 },
       { label: "2:30 PM - 4:30 PM",   period: "lunch",     appliesTo: "weekend", sortOrder: 2 },
       { label: "4:30 PM - 6:30 PM",   period: "tea",       appliesTo: "weekend", sortOrder: 3 },
-      { label: "6:45 PM - 8:30 PM",   period: "dinner",    appliesTo: "weekend", sortOrder: 4 },
-      { label: "8:45 PM - 10:15 PM",  period: "dinner",    appliesTo: "weekend", sortOrder: 5 },
+      { label: "6:45 PM - 8:15 PM",   period: "dinner",    appliesTo: "weekend", sortOrder: 4 },
+      { label: "8:30 PM - 10:00 PM",  period: "dinner",    appliesTo: "weekend", sortOrder: 5 },
       { label: "10:30 PM - 12:00 AM", period: "dinner",    appliesTo: "weekend", sortOrder: 6 },
     ];
     await db.insert(timeSlots).values(SEED.map(s => ({ ...s, isActive: true })));

@@ -16,8 +16,7 @@ import { ChevronLeft, ChevronRight, Trash2, ArrowRight, Clock, Users, Phone } fr
 import type { Reservation } from "@shared/schema";
 import { format, addDays, subDays, isToday } from "date-fns";
 import { restaurantTables, TABLE_SECTIONS, getTablesBySection, type TableSection } from "@/lib/tables";
-import { getPeriodLabel } from "@/lib/timeSlots";
-import { useTimeSlots } from "@/hooks/use-time-slots";
+import { getPeriodLabel, getTimePeriodForLabel, ALL_SLOTS } from "@/lib/timeSlots";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -28,9 +27,6 @@ export default function TablesPage() {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const dateStr = format(selectedDate, "yyyy-MM-dd");
-
-  const { getSlotsForDate } = useTimeSlots();
-  const slots = getSlotsForDate(selectedDate);
 
   useEffect(() => {
     setSelectedSlot(null);
@@ -56,9 +52,27 @@ export default function TablesPage() {
     },
   });
 
-  const activeReservations = reservations.filter((r) => {
-    if (r.date !== dateStr) return false;
-    if (r.status === "complete" || r.status === "cancelled" || r.status === "no-show") return false;
+  // Derive time-slot chips from actual reservation times for this day (handles legacy labels)
+  const todaysReservations = reservations.filter(
+    (r) => r.date === dateStr && r.status !== "complete" && r.status !== "cancelled" && r.status !== "no-show"
+  );
+
+  const parseStartMinutes = (label: string): number => {
+    const start = label.split("-")[0].trim(); // "4:30 PM"
+    const [timePart, ampm] = start.split(" ");
+    const [h, m] = timePart.split(":").map(Number);
+    const hours = ampm === "PM" && h !== 12 ? h + 12 : ampm === "AM" && h === 12 ? 0 : h;
+    return hours * 60 + (m || 0);
+  };
+
+  const slots = Array.from(new Set(todaysReservations.map((r) => r.time)))
+    .map((label) => ({
+      label,
+      period: getTimePeriodForLabel(label) ?? (ALL_SLOTS.find(s => s.label === label)?.period ?? "dinner"),
+    }))
+    .sort((a, b) => parseStartMinutes(a.label) - parseStartMinutes(b.label));
+
+  const activeReservations = todaysReservations.filter((r) => {
     if (selectedSlot && r.time !== selectedSlot) return false;
     return true;
   });
