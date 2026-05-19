@@ -14,6 +14,8 @@ import {
 import { format, parseISO as parseDateISO } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatName, isValidPhone } from "@/lib/utils";
+import { GuestTagChips, GuestTagPicker, useTagOptions } from "@/components/guest-tags";
+import type { GuestTagOption } from "@shared/schema";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Guest {
@@ -262,7 +264,7 @@ function SingleSelect<T extends string>({ value, onChange, options, placeholder,
 function MultiSelect<T extends string>({ value, onChange, options, placeholder, testId }: {
   value: T[];
   onChange: (v: T[]) => void;
-  options: { value: T; label: string }[];
+  options: { value: T; label: string; color?: string }[];
   placeholder: string;
   testId?: string;
 }) {
@@ -310,6 +312,9 @@ function MultiSelect<T extends string>({ value, onChange, options, placeholder, 
                 onChange={() => toggle(o.value)}
                 className="rounded border-gray-300 accent-[#0D7377]"
               />
+              {o.color && (
+                <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: o.color }} />
+              )}
               {o.label}
             </label>
           ))}
@@ -424,9 +429,17 @@ export default function GuestListPage() {
     queryKey: ["/api/guests"],
   });
 
+  const { data: tagOptionData = [] } = useTagOptions();
+
   const deleteGuestMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/guests/${id}`),
     onSuccess:  () => queryClient.refetchQueries({ queryKey: ["/api/guests"] }),
+  });
+
+  const updateTagsMutation = useMutation({
+    mutationFn: ({ id, tags }: { id: string; tags: string[] }) =>
+      apiRequest("PATCH", `/api/guests/${id}`, { tags }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/guests"] }),
   });
 
   // Partition valid vs hidden
@@ -434,17 +447,11 @@ export default function GuestListPage() {
   const hiddenGuests = guests.filter(g => !isValidPhone(g.phone) || g.isWalkIn);
   const baseGuests   = showHidden ? guests : validGuests;
 
-  // All distinct tags across the visible set
-  const allTags = useMemo(() => {
-    const set = new Set<string>();
-    guests.forEach(g => (g.tags ?? []).forEach(t => set.add(t)));
-    return Array.from(set).sort();
-  }, [guests]);
-
-  const tagOptions = useMemo<{ value: string; label: string }[]>(() => [
+  // Tag filter options: "Untagged" + all options from API
+  const tagFilterOptions = useMemo<{ value: string; label: string; color?: string }[]>(() => [
     { value: "untagged", label: "Untagged" },
-    ...allTags.map(t => ({ value: t, label: t })),
-  ], [allTags]);
+    ...tagOptionData.map(t => ({ value: t.label, label: t.label, color: t.color })),
+  ], [tagOptionData]);
 
   // Apply filters then search
   const filteredGuests = useMemo(() => {
@@ -534,7 +541,7 @@ export default function GuestListPage() {
           <MultiSelect
             value={filters.tags}
             onChange={v => updateFilter("tags", v)}
-            options={tagOptions}
+            options={tagFilterOptions}
             placeholder="Tags"
             testId="select-filter-tags"
           />
@@ -676,13 +683,25 @@ export default function GuestListPage() {
                     </div>
                   )}
 
-                  {guest.tags && guest.tags.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {guest.tags.slice(0, 3).map(tag => (
-                        <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
-                      ))}
-                    </div>
-                  )}
+                  {/* Tags row: colored chips + inline picker */}
+                  <div className="mt-2" onClick={e => e.stopPropagation()}>
+                    {guest.tags && guest.tags.length > 0 && (
+                      <GuestTagChips
+                        tags={guest.tags}
+                        tagOptions={tagOptionData}
+                        max={3}
+                        size="xs"
+                        className="mb-1.5"
+                      />
+                    )}
+                    <GuestTagPicker
+                      value={guest.tags ?? []}
+                      onChange={tags => updateTagsMutation.mutate({ id: guest.id, tags })}
+                      tagOptions={tagOptionData}
+                      placeholder={guest.tags?.length ? "Edit tags" : "Add tags"}
+                      testId={`button-tag-picker-${guest.id}`}
+                    />
+                  </div>
 
                   <GuestOrderStats guestId={guest.id} />
                 </CardContent>

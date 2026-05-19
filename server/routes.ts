@@ -20,6 +20,9 @@ export async function registerRoutes(
     }
   }).catch(console.error);
 
+  // Seed default guest tag options
+  storage.seedTagOptionsIfEmpty().catch(err => console.error("Failed to seed tag options:", err));
+
   app.get("/api/reservations", async (req, res) => {
     const reservations = await storage.getReservations();
     res.json(reservations);
@@ -1186,6 +1189,39 @@ export async function registerRoutes(
       time: updated!.time,
       party_size: updated!.partySize,
     });
+  });
+
+  // ── Guest Tag Options ──────────────────────────────────────────────────────
+
+  app.get("/api/tags", async (req, res) => {
+    const tags = await storage.getTagOptions();
+    res.json(tags);
+  });
+
+  app.post("/api/tags", async (req, res) => {
+    const { label, color } = req.body;
+    if (!label || typeof label !== "string" || !color || typeof color !== "string") {
+      return res.status(400).json({ error: "label and color are required" });
+    }
+    const tag = await storage.createTagOption(label.trim(), color);
+    res.status(201).json(tag);
+  });
+
+  app.patch("/api/tags/:id", async (req, res) => {
+    const { label, color, sortOrder } = req.body;
+    const updates: { label?: string; color?: string; sortOrder?: number } = {};
+    if (label !== undefined) updates.label = String(label).trim();
+    if (color !== undefined) updates.color = String(color);
+    if (sortOrder !== undefined) updates.sortOrder = Number(sortOrder);
+    const updated = await storage.updateTagOption(req.params.id, updates);
+    if (!updated) return res.status(404).json({ error: "Tag not found" });
+    res.json(updated);
+  });
+
+  app.delete("/api/tags/:id", async (req, res) => {
+    const deleted = await storage.deleteTagOption(req.params.id);
+    if (!deleted) return res.status(404).json({ error: "Tag not found" });
+    res.json({ success: true });
   });
 
   return httpServer;

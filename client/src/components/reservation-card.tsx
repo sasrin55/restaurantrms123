@@ -2,6 +2,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Clock, Users, Phone, MessageSquare, Pencil, Send, UserCheck, CheckCheck } from "lucide-react";
 import { formatName } from "@/lib/utils";
+import { GuestTagChips } from "@/components/guest-tags";
+import type { GuestTagOption } from "@shared/schema";
 
 export type ReservationStatus = "booked" | "seated" | "confirmed" | "no-show" | "complete" | "cancelled";
 
@@ -15,6 +17,8 @@ interface ReservationCardProps {
   phone: string;
   comments?: string;
   takenBy?: string;
+  guestTags?: string[];
+  tagOptions?: GuestTagOption[];
   disabled?: boolean;
   onEdit?: () => void;
   onPrimaryAction?: () => void;
@@ -104,6 +108,8 @@ export function ReservationCard({
   phone,
   comments,
   takenBy,
+  guestTags,
+  tagOptions,
   disabled,
   onEdit,
   onPrimaryAction,
@@ -118,13 +124,21 @@ export function ReservationCard({
   return (
     <Card className="p-4 bg-card border border-border" data-testid={`reservation-card-${id}`}>
       <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 flex-wrap">
           <h3 className="font-semibold text-foreground text-base truncate">{formatName(guestName)}</h3>
           <span
             className={`px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${statusStyle.className}`}
           >
             {statusStyle.label}
           </span>
+          {guestTags && guestTags.length > 0 && tagOptions && (
+            <GuestTagChips
+              tags={guestTags}
+              tagOptions={tagOptions}
+              max={2}
+              size="xs"
+            />
+          )}
         </div>
         <Button
           variant="outline"
@@ -243,6 +257,8 @@ interface ReservationRowProps {
   phone: string;
   comments?: string;
   takenBy?: string;
+  guestTags?: string[];
+  tagOptions?: GuestTagOption[];
   disabled?: boolean;
   onEdit?: () => void;
   onPrimaryAction?: () => void;
@@ -262,6 +278,8 @@ export function ReservationRow({
   phone,
   comments,
   takenBy,
+  guestTags,
+  tagOptions,
   disabled,
   onEdit,
   onPrimaryAction,
@@ -275,7 +293,14 @@ export function ReservationRow({
 
   return (
     <tr className="border-b border-border" data-testid={`reservation-row-${id}`}>
-      <td className="py-3 px-3 text-foreground font-medium whitespace-nowrap sticky left-0 z-10 bg-background shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)]">{formatName(guestName)}</td>
+      <td className="py-3 px-3 text-foreground font-medium whitespace-nowrap sticky left-0 z-10 bg-background shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)]">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span>{formatName(guestName)}</span>
+          {guestTags && guestTags.length > 0 && tagOptions && (
+            <GuestTagChips tags={guestTags} tagOptions={tagOptions} max={2} size="xs" />
+          )}
+        </div>
+      </td>
       <td className="py-3 px-3 text-muted-foreground whitespace-nowrap">{time}</td>
       <td className="py-3 px-3 text-muted-foreground whitespace-nowrap">{partySize}</td>
       <td className="py-3 px-3 text-muted-foreground whitespace-nowrap">{tableNumber}</td>

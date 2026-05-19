@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Reservation, type InsertReservation, type Guest, type InsertGuest, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type DbMenuItem, type InsertMenuItem, type Call, type InsertCall, type WaitlistEntry, type InsertWaitlistEntry, type StaffMember, type InsertStaffMember, type DbTimeSlot, type InsertTimeSlot, users, reservations, guests, orders, orderItems, menuItems, calls, waitlistEntries, staffMembers, timeSlots } from "@shared/schema";
+import { type User, type InsertUser, type Reservation, type InsertReservation, type Guest, type InsertGuest, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type DbMenuItem, type InsertMenuItem, type Call, type InsertCall, type WaitlistEntry, type InsertWaitlistEntry, type StaffMember, type InsertStaffMember, type DbTimeSlot, type InsertTimeSlot, type GuestTagOption, type InsertGuestTagOption, users, reservations, guests, orders, orderItems, menuItems, calls, waitlistEntries, staffMembers, timeSlots, guestTagOptions } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc } from "drizzle-orm";
 
@@ -58,6 +58,12 @@ export interface IStorage {
   updateTimeSlot(id: number, updates: Partial<DbTimeSlot>): Promise<DbTimeSlot | undefined>;
   deleteTimeSlot(id: number): Promise<boolean>;
   seedTimeSlotsIfEmpty(): Promise<void>;
+
+  getTagOptions(): Promise<GuestTagOption[]>;
+  createTagOption(label: string, color: string): Promise<GuestTagOption>;
+  updateTagOption(id: string, updates: { label?: string; color?: string; sortOrder?: number }): Promise<GuestTagOption | undefined>;
+  deleteTagOption(id: string): Promise<boolean>;
+  seedTagOptionsIfEmpty(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -459,6 +465,54 @@ export class DatabaseStorage implements IStorage {
     ];
     await db.insert(timeSlots).values(SEED.map(s => ({ ...s, isActive: true })));
     console.log("[seed] Time slots seeded.");
+  }
+
+  async getTagOptions(): Promise<GuestTagOption[]> {
+    return db.select().from(guestTagOptions).orderBy(asc(guestTagOptions.sortOrder), asc(guestTagOptions.createdAt));
+  }
+
+  async createTagOption(label: string, color: string): Promise<GuestTagOption> {
+    const existing = await db.select().from(guestTagOptions).orderBy(desc(guestTagOptions.sortOrder)).limit(1);
+    const nextOrder = existing.length > 0 ? existing[0].sortOrder + 1 : 0;
+    const [tag] = await db.insert(guestTagOptions).values({ label, color, isDefault: false, sortOrder: nextOrder }).returning();
+    return tag;
+  }
+
+  async updateTagOption(id: string, updates: { label?: string; color?: string; sortOrder?: number }): Promise<GuestTagOption | undefined> {
+    const [updated] = await db.update(guestTagOptions).set(updates).where(eq(guestTagOptions.id, id)).returning();
+    return updated;
+  }
+
+  async deleteTagOption(id: string): Promise<boolean> {
+    // Get label first so we can remove it from all guest tag arrays
+    const [tag] = await db.select().from(guestTagOptions).where(eq(guestTagOptions.id, id));
+    if (!tag) return false;
+
+    // Remove tag label from all guests that have it
+    // Note: tags are stored as string label arrays, not IDs
+    const allGuests = await db.select({ id: guests.id, tags: guests.tags }).from(guests);
+    for (const guest of allGuests) {
+      if ((guest.tags ?? []).includes(tag.label)) {
+        const newTags = (guest.tags ?? []).filter(t => t !== tag.label);
+        await db.update(guests).set({ tags: newTags }).where(eq(guests.id, guest.id));
+      }
+    }
+
+    const result = await db.delete(guestTagOptions).where(eq(guestTagOptions.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async seedTagOptionsIfEmpty(): Promise<void> {
+    const existing = await db.select().from(guestTagOptions).limit(1);
+    if (existing.length > 0) return;
+    const DEFAULTS = [
+      { label: "VVIP",                color: "#b00000", isDefault: true, sortOrder: 0 },
+      { label: "Government Official", color: "#0a4a96", isDefault: true, sortOrder: 1 },
+      { label: "Owner's Friend",      color: "#c47900", isDefault: true, sortOrder: 2 },
+      { label: "Loyal Customer",      color: "#234148", isDefault: true, sortOrder: 3 },
+    ];
+    await db.insert(guestTagOptions).values(DEFAULTS);
+    console.log("[seed] Guest tag options seeded.");
   }
 }
 

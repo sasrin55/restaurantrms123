@@ -164,6 +164,20 @@ export const insertTimeSlotSchema = createInsertSchema(timeSlots).omit({ id: tru
 export type InsertTimeSlot = z.infer<typeof insertTimeSlotSchema>;
 export type DbTimeSlot = typeof timeSlots.$inferSelect;
 
+// ── Guest Tag Options ─────────────────────────────────────────────────────────
+export const guestTagOptions = pgTable("guest_tag_options", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  label: text("label").notNull(),
+  color: text("color").notNull().default("#0D7377"),
+  isDefault: boolean("is_default").notNull().default(false),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertGuestTagOptionSchema = createInsertSchema(guestTagOptions).omit({ id: true, createdAt: true });
+export type InsertGuestTagOption = z.infer<typeof insertGuestTagOptionSchema>;
+export type GuestTagOption = typeof guestTagOptions.$inferSelect;
+
 export const insertOrderSchema = createInsertSchema(orders).omit({
   id: true,
   createdAt: true,

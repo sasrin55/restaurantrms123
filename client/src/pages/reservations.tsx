@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { formatName } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -36,6 +36,8 @@ import {
 } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { ReservationCard, ReservationRow, type ReservationStatus } from "@/components/reservation-card";
+import { useTagOptions } from "@/components/guest-tags";
+import type { Guest } from "@shared/schema";
 import { EditReservationDialog } from "@/components/edit-reservation-dialog";
 import { Plus, Search, Calendar, LayoutGrid, List, Loader2, Send, Upload, Users, Clock, Phone, Table2, XCircle, AlertTriangle, CheckCircle2, X } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -209,6 +211,16 @@ export default function ReservationsPage() {
   const { data: reservations = [], isLoading } = useQuery<Reservation[]>({
     queryKey: ["/api/reservations"],
   });
+
+  const { data: tagOptions = [] } = useTagOptions();
+  const { data: allGuests = [] } = useQuery<Guest[]>({ queryKey: ["/api/guests"] });
+  const guestTagMap = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const g of allGuests) {
+      if (g.tags && g.tags.length > 0) map.set(g.phone, g.tags);
+    }
+    return map;
+  }, [allGuests]);
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
@@ -791,6 +803,8 @@ export default function ReservationsPage() {
                           phone={group.phoneNumber}
                           comments={group.comments}
                           takenBy={group.takenBy}
+                          guestTags={guestTagMap.get(group.phoneNumber)}
+                          tagOptions={tagOptions}
                           disabled={group.ids.some(id => deletingIds.has(id))}
                           onEdit={() => handleEdit(group.reservations[0], group.reservations)}
                           onPrimaryAction={() => handleGroupPrimaryAction(group)}
@@ -850,6 +864,8 @@ export default function ReservationsPage() {
                               phone={group.phoneNumber}
                               comments={group.comments}
                               takenBy={group.takenBy}
+                              guestTags={guestTagMap.get(group.phoneNumber)}
+                              tagOptions={tagOptions}
                               disabled={group.ids.some(id => deletingIds.has(id))}
                               onEdit={() => handleEdit(group.reservations[0], group.reservations)}
                               onPrimaryAction={() => handleGroupPrimaryAction(group)}

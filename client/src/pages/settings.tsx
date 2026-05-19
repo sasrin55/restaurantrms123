@@ -24,10 +24,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, X, Plus, Pencil, Trash2, Check, Clock, ChevronUp, ChevronDown } from "lucide-react";
+import { Search, X, Plus, Pencil, Trash2, Check, Clock, ChevronUp, ChevronDown, Tag } from "lucide-react";
 import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { getPeriodLabel, type MealPeriod } from "@/lib/timeSlots";
-import type { Reservation, DbTimeSlot } from "@shared/schema";
+import type { Reservation, DbTimeSlot, GuestTagOption } from "@shared/schema";
+import { useTagOptions } from "@/components/guest-tags";
 
 // ── Reservation Log ────────────────────────────────────────────────────────────
 
@@ -318,6 +319,61 @@ export default function SettingsPage() {
     createMutation.mutate({ label, period, appliesTo: slotsTab, sortOrder: visibleSlots.length });
   };
 
+  // — Guest Tags state —
+  const { data: tags = [], isLoading: tagsLoading } = useTagOptions();
+  const [addingTag, setAddingTag] = useState(false);
+  const [newTagLabel, setNewTagLabel] = useState("");
+  const [newTagColor, setNewTagColor] = useState("#0D7377");
+  const [editingTagId, setEditingTagId] = useState<string | null>(null);
+  const [editTagLabel, setEditTagLabel] = useState("");
+  const [editTagColor, setEditTagColor] = useState("#0D7377");
+  const [deletingTag, setDeletingTag] = useState<GuestTagOption | null>(null);
+
+  const createTagMutation = useMutation({
+    mutationFn: (data: { label: string; color: string }) => apiRequest("POST", "/api/tags", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tags"] });
+      setAddingTag(false);
+      setNewTagLabel("");
+      setNewTagColor("#0D7377");
+      toast({ title: "Tag created" });
+    },
+    onError: () => toast({ title: "Failed to create tag", variant: "destructive" }),
+  });
+
+  const updateTagMutation = useMutation({
+    mutationFn: ({ id, label, color }: { id: string; label: string; color: string }) =>
+      apiRequest("PATCH", `/api/tags/${id}`, { label, color }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tags"] });
+      setEditingTagId(null);
+      toast({ title: "Tag updated" });
+    },
+    onError: () => toast({ title: "Failed to update tag", variant: "destructive" }),
+  });
+
+  const deleteTagMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/tags/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tags"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/guests"] });
+      setDeletingTag(null);
+      toast({ title: "Tag deleted" });
+    },
+    onError: () => toast({ title: "Failed to delete tag", variant: "destructive" }),
+  });
+
+  const handleStartEditTag = (tag: GuestTagOption) => {
+    setEditingTagId(tag.id);
+    setEditTagLabel(tag.label);
+    setEditTagColor(tag.color);
+  };
+
+  const handleSaveTag = () => {
+    if (!editTagLabel.trim() || !editingTagId) return;
+    updateTagMutation.mutate({ id: editingTagId, label: editTagLabel.trim(), color: editTagColor });
+  };
+
   return (
     <div className="p-6 sm:p-8 max-w-5xl space-y-12">
 
@@ -385,6 +441,115 @@ export default function SettingsPage() {
                 onCancel={() => setAddingSlot(false)}
                 isPending={createMutation.isPending}
               />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Guest Tags section ── */}
+      <div>
+        <h2 className="text-base font-semibold text-foreground mb-1">Guest Tags</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Create tags to label guests (e.g. VVIP, Government Official). Tags appear on reservation cards and the guest list.
+          Renaming a tag does not update existing guest records — reassign manually if needed.
+        </p>
+
+        <div className="border border-border rounded-xl bg-card overflow-hidden max-w-2xl">
+          <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between">
+            <span className="text-sm font-medium text-muted-foreground">
+              {tags.length} tag{tags.length !== 1 ? "s" : ""}
+            </span>
+            {!addingTag && (
+              <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" onClick={() => setAddingTag(true)} data-testid="button-add-tag">
+                <Plus className="h-3.5 w-3.5" /> Add Tag
+              </Button>
+            )}
+          </div>
+          <div className="p-3 space-y-1">
+            {tagsLoading ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">Loading…</div>
+            ) : tags.length === 0 && !addingTag ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">No tags yet. Add your first tag above.</div>
+            ) : (
+              tags.map(tag => (
+                editingTagId === tag.id ? (
+                  <div key={tag.id} className="flex items-center gap-2 p-2 rounded-lg border border-[#0D7377]/30 bg-[#0D7377]/5">
+                    <input
+                      type="color"
+                      value={editTagColor}
+                      onChange={e => setEditTagColor(e.target.value)}
+                      className="h-7 w-9 rounded border border-border cursor-pointer p-0.5 bg-white"
+                      data-testid={`input-edit-tag-color-${tag.id}`}
+                    />
+                    <Input
+                      value={editTagLabel}
+                      onChange={e => setEditTagLabel(e.target.value)}
+                      className="h-7 text-sm flex-1"
+                      onKeyDown={e => { if (e.key === "Enter") handleSaveTag(); if (e.key === "Escape") setEditingTagId(null); }}
+                      autoFocus
+                      data-testid={`input-edit-tag-label-${tag.id}`}
+                    />
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-green-600 hover:bg-green-50" onClick={handleSaveTag} disabled={updateTagMutation.isPending}>
+                      <Check className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground" onClick={() => setEditingTagId(null)}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div key={tag.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors group" data-testid={`tag-row-${tag.id}`}>
+                    <span className="w-4 h-4 rounded-full shrink-0 border border-white/20" style={{ backgroundColor: tag.color }} />
+                    <span className="text-sm font-medium flex-1 truncate">{tag.label}</span>
+                    {tag.isDefault && (
+                      <Badge variant="outline" className="text-[10px] font-normal shrink-0 text-muted-foreground">default</Badge>
+                    )}
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleStartEditTag(tag)} data-testid={`button-edit-tag-${tag.id}`}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => setDeletingTag(tag)} data-testid={`button-delete-tag-${tag.id}`}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                )
+              ))
+            )}
+            {addingTag && (
+              <div className="border border-dashed border-border rounded-lg p-3 bg-muted/30 space-y-3">
+                <div className="flex items-center gap-2">
+                  <div>
+                    <Label className="text-xs mb-1 block">Color</Label>
+                    <input
+                      type="color"
+                      value={newTagColor}
+                      onChange={e => setNewTagColor(e.target.value)}
+                      className="h-8 w-11 rounded border border-border cursor-pointer p-0.5 bg-white"
+                      data-testid="input-new-tag-color"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <Label className="text-xs mb-1 block">Tag Label</Label>
+                    <Input
+                      value={newTagLabel}
+                      onChange={e => setNewTagLabel(e.target.value)}
+                      placeholder="e.g. VIP, Corporate"
+                      className="h-8 text-sm"
+                      onKeyDown={e => e.key === "Enter" && newTagLabel.trim() && createTagMutation.mutate({ label: newTagLabel.trim(), color: newTagColor })}
+                      autoFocus
+                      data-testid="input-new-tag-label"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 justify-end">
+                  <Button size="sm" variant="ghost" onClick={() => { setAddingTag(false); setNewTagLabel(""); }} disabled={createTagMutation.isPending} data-testid="button-cancel-new-tag">
+                    <X className="h-3.5 w-3.5 mr-1" /> Cancel
+                  </Button>
+                  <Button size="sm" onClick={() => newTagLabel.trim() && createTagMutation.mutate({ label: newTagLabel.trim(), color: newTagColor })} disabled={!newTagLabel.trim() || createTagMutation.isPending} data-testid="button-save-new-tag">
+                    <Check className="h-3.5 w-3.5 mr-1" /> Add Tag
+                  </Button>
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -475,7 +640,29 @@ export default function SettingsPage() {
         )}
       </div>
 
-      {/* ── Delete confirm dialog ── */}
+      {/* ── Delete tag confirm dialog ── */}
+      <AlertDialog open={!!deletingTag} onOpenChange={open => !open && setDeletingTag(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this tag?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "<strong>{deletingTag?.label}</strong>" will be removed from all guests that have it assigned. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deletingTag && deleteTagMutation.mutate(deletingTag.id)}
+              data-testid="button-confirm-delete-tag"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Delete slot confirm dialog ── */}
       <AlertDialog open={!!deletingSlot} onOpenChange={open => !open && setDeletingSlot(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

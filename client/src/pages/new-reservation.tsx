@@ -33,6 +33,7 @@ import { restaurantTables, TABLE_SECTIONS, getTablesBySection } from "@/lib/tabl
 import { isMonday, getPeriodLabel, type MealPeriod } from "@/lib/timeSlots";
 import { useTimeSlots } from "@/hooks/use-time-slots";
 import restaurantBg from "@/assets/images/restaurant-bg.jpg";
+import { GuestTagPicker, useTagOptions } from "@/components/guest-tags";
 
 function ordinalSuffix(n: number): string {
   const s = ["th", "st", "nd", "rd"];
@@ -80,6 +81,9 @@ export default function NewCustomerPage() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [comments, setComments] = useState("");
   const [takenBy, setTakenBy] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  const { data: tagOptions = [] } = useTagOptions();
 
   const { data: existingReservations = [] } = useQuery<any[]>({
     queryKey: ["/api/reservations"],
@@ -146,9 +150,23 @@ export default function NewCustomerPage() {
       });
       return Promise.all(promises);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/guests"] });
+      // Apply tags to the guest record if any tags were selected (reservation mode only, with real phone)
+      if (mode === "reservation" && selectedTags.length > 0 && !noPhone && phoneNumber.trim()) {
+        try {
+          const guestsData: any[] = await apiRequest("GET", "/api/guests");
+          const guest = guestsData.find((g: any) => g.phone === phoneNumber.trim());
+          if (guest) {
+            const merged = Array.from(new Set([...(guest.tags ?? []), ...selectedTags]));
+            await apiRequest("PATCH", `/api/guests/${guest.id}`, { tags: merged });
+            queryClient.invalidateQueries({ queryKey: ["/api/guests"] });
+          }
+        } catch (e) {
+          console.warn("Failed to apply tags to guest:", e);
+        }
+      }
       setConfirmed(true);
     },
     onError: (err: any) => {
@@ -248,6 +266,7 @@ export default function NewCustomerPage() {
     setSelectedTables([]);
     setConfirmed(false);
     setTakenBy("");
+    setSelectedTags([]);
   };
 
   const { getSlotsForDate } = useTimeSlots();
@@ -719,6 +738,19 @@ export default function NewCustomerPage() {
                 onChange={setTakenBy}
                 placeholder="Select staff member"
                 testId="input-taken-by"
+              />
+            </div>
+          )}
+
+          {mode === "reservation" && tagOptions.length > 0 && (
+            <div className="space-y-2 mb-4">
+              <Label className="text-muted-foreground text-sm">Guest Tags <span className="text-xs">(optional)</span></Label>
+              <GuestTagPicker
+                value={selectedTags}
+                onChange={setSelectedTags}
+                tagOptions={tagOptions}
+                placeholder="Add tags to this guest"
+                testId="button-tag-picker-new-res"
               />
             </div>
           )}
