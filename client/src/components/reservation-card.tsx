@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Clock, Users, Phone, MessageSquare, Pencil, Send, UserCheck, CheckCheck } from "lucide-react";
 import { formatName } from "@/lib/utils";
 import { GuestTagChips } from "@/components/guest-tags";
@@ -296,6 +297,24 @@ export function ReservationRow({
       <td className="py-3 px-3 text-foreground font-medium whitespace-nowrap sticky left-0 z-10 bg-background shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)]">
         <div className="flex items-center gap-1.5 flex-wrap">
           <span>{formatName(guestName)}</span>
+          {comments && comments.trim() && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[#0D7377] hover:bg-[#0D7377]/10 transition-colors"
+                  aria-label="View reservation notes"
+                  data-testid={`button-comments-row-${id}`}
+                >
+                  <MessageSquare className="h-3.5 w-3.5" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 text-sm" align="start">
+                <p className="font-medium text-foreground mb-1">Notes</p>
+                <p className="text-muted-foreground whitespace-pre-wrap">{comments}</p>
+              </PopoverContent>
+            </Popover>
+          )}
           {guestTags && guestTags.length > 0 && tagOptions && (
             <GuestTagChips tags={guestTags} tagOptions={tagOptions} max={2} size="xs" />
           )}
