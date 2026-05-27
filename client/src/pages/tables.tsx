@@ -15,7 +15,7 @@ import {
 import { ChevronLeft, ChevronRight, Trash2, ArrowRight, Clock, Users, Phone } from "lucide-react";
 import type { Reservation } from "@shared/schema";
 import { format, addDays, subDays, isToday } from "date-fns";
-import { restaurantTables, TABLE_SECTIONS, getTablesBySection, type TableSection } from "@/lib/tables";
+import { restaurantTables, TABLE_SECTIONS, getTablesBySection, type TableSection, type RestaurantTable } from "@/lib/tables";
 import { getPeriodLabel, getTimePeriodForLabel, ALL_SLOTS } from "@/lib/timeSlots";
 import { useTimeSlots } from "@/hooks/use-time-slots";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -40,6 +40,9 @@ export default function TablesPage() {
     refetchInterval: 30_000,
   });
 
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverTableId, setDragOverTableId] = useState<number | null>(null);
+
   const cancelMutation = useMutation({
     mutationFn: (id: string) =>
       apiRequest("PATCH", `/api/reservations/${id}/status`, { status: "cancelled" }),
@@ -53,6 +56,38 @@ export default function TablesPage() {
     },
   });
 
+  // Reassign a reservation to another table. `override` lets the host drop a guest onto an
+  // already-occupied table (the conflict then shows yellow until they resolve it).
+  const reassignMutation = useMutation({
+    mutationFn: ({ id, table }: { id: string; table: RestaurantTable }) =>
+      apiRequest("PATCH", `/api/reservations/${id}`, {
+        tableId: table.id,
+        tableName: `Table ${table.number}`,
+        override: true,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
+      setSelectedReservation(null);
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Could not move the guest.", variant: "destructive" });
+    },
+  });
+
+  const moveGuest = (reservation: Reservation, table: RestaurantTable) => {
+    if (reservation.tableId === table.id) return;
+    const occupant = todaysReservations.find(
+      (r) => r.tableId === table.id && r.id !== reservation.id && timesOverlap(r.time, reservation.time)
+    );
+    reassignMutation.mutate({ id: reservation.id, table });
+    toast({
+      title: `Moved to Table ${table.number}`,
+      description: occupant
+        ? `Now double-booked with ${formatName(occupant.customerName)} — table flagged for reassignment.`
+        : `${formatName(reservation.customerName)} moved.`,
+    });
+  };
+
   const { getSlotsForDate } = useTimeSlots();
   const dbSlots = getSlotsForDate(selectedDate);
 
@@ -60,13 +95,36 @@ export default function TablesPage() {
     (r) => r.date === dateStr && r.status !== "complete" && r.status !== "cancelled" && r.status !== "no-show"
   );
 
-  const parseStartMinutes = (label: string): number => {
-    const start = (label || "").split("-")[0].trim();
-    const [timePart, ampm] = start.split(" ");
-    if (!timePart || !ampm) return 9999;
+  const parseClock = (s: string): number | null => {
+    const [timePart, ampm] = s.trim().split(" ");
+    if (!timePart || !ampm) return null;
     const [h, m] = timePart.split(":").map(Number);
+    if (isNaN(h)) return null;
     const hours = ampm === "PM" && h !== 12 ? h + 12 : ampm === "AM" && h === 12 ? 0 : h;
     return hours * 60 + (m || 0);
+  };
+
+  const parseStartMinutes = (label: string): number => {
+    return parseClock((label || "").split("-")[0]) ?? 9999;
+  };
+
+  // Turn a slot label ("8:30 PM - 10:00 PM" or single "8:30 PM") into [startMin, endMin).
+  // A single time with no end is treated as a 2-hour seating.
+  const rangeOf = (label: string): [number, number] | null => {
+    const parts = (label || "").split("-");
+    const start = parseClock(parts[0]);
+    if (start === null) return null;
+    const end = parts[1] ? parseClock(parts[1]) : null;
+    return [start, end ?? start + 120];
+  };
+
+  // Two reservations conflict only when their seating windows actually overlap.
+  const timesOverlap = (a: string, b: string): boolean => {
+    if (a === b) return true;
+    const ra = rangeOf(a);
+    const rb = rangeOf(b);
+    if (!ra || !rb) return a === b;
+    return ra[0] < rb[1] && rb[0] < ra[1];
   };
 
   // Show all DB slots for the day; also include any reservation times not in the DB list (legacy labels)
@@ -86,9 +144,14 @@ export default function TablesPage() {
   });
 
   const getTableStatus = (tableId: number) => {
-    const reservation = activeReservations.find((r) => r.tableId === tableId);
-    if (!reservation) return { status: "available" as const, reservation: null };
-    return { status: reservation.status as "booked" | "confirmed" | "seated" | "no-show", reservation };
+    const list = activeReservations
+      .filter((r) => r.tableId === tableId)
+      .sort((a, b) => parseStartMinutes(a.time) - parseStartMinutes(b.time));
+    if (list.length === 0) return { status: "available" as const, reservation: null, list };
+    // Double-booking: two+ parties whose windows overlap.
+    const conflict = list.some((r, i) => list.some((o, j) => j > i && timesOverlap(r.time, o.time)));
+    if (conflict) return { status: "conflict" as const, reservation: list[0], list };
+    return { status: list[0].status as "booked" | "confirmed" | "seated" | "no-show", reservation: list[0], list };
   };
 
   const availableCount = restaurantTables.filter(
@@ -106,36 +169,75 @@ export default function TablesPage() {
     confirmed: { badge: "bg-green-600 text-white",   card: "bg-green-50 ring-1 ring-green-300 hover:bg-green-100",    icon: "#16a34a" },
     seated:    { badge: "bg-[#4A5D23] text-white",   card: "bg-[#4A5D23]/5 ring-1 ring-[#4A5D23]/30 hover:bg-[#4A5D23]/10", icon: "#4A5D23" },
     "no-show": { badge: "bg-orange-500 text-white",  card: "bg-orange-50 ring-1 ring-orange-200 hover:bg-orange-100", icon: "#f97316" },
+    conflict:  { badge: "bg-yellow-500 text-white",  card: "bg-yellow-50 ring-2 ring-yellow-400 hover:bg-yellow-100", icon: "#eab308" },
   };
 
   const STATUS_LABEL: Record<string, string> = {
-    booked: "Booked", confirmed: "Confirmed", seated: "Seated", "no-show": "No Show",
+    booked: "Booked", confirmed: "Confirmed", seated: "Seated", "no-show": "No Show", conflict: "Double-booked",
   };
 
+  // A bordered, draggable card for one guest sitting on a table. Tap to manage, drag to reassign.
+  const renderGuestChip = (r: Reservation) => (
+    <div
+      key={r.id}
+      role="button"
+      tabIndex={0}
+      draggable
+      onClick={(e) => { e.stopPropagation(); setSelectedReservation(r); }}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); setSelectedReservation(r); } }}
+      onDragStart={(e) => { e.stopPropagation(); setDraggingId(r.id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", r.id); }}
+      onDragEnd={() => { setDraggingId(null); setDragOverTableId(null); }}
+      className={`w-full rounded-lg border bg-white/80 px-2 py-1.5 text-center shadow-sm transition-shadow hover:shadow cursor-grab active:cursor-grabbing ${
+        draggingId === r.id ? "opacity-40" : ""
+      }`}
+      data-testid={`guest-chip-${r.id}`}
+      title="Drag to another table, or tap to move / manage"
+    >
+      <span className="block font-medium text-foreground text-sm leading-tight" data-testid={`text-guest-${r.tableId}`}>
+        {formatName(r.customerName)}
+      </span>
+      <span className="block text-[11px] text-muted-foreground">{r.time}</span>
+    </div>
+  );
+
   const renderTableCard = (table: ReturnType<typeof getTablesBySection>[0]) => {
-    const { status, reservation } = getTableStatus(table.id);
+    const { status, list } = getTableStatus(table.id);
     const isAvailable = status === "available";
     const style = STATUS_STYLE[status] ?? STATUS_STYLE["booked"];
     const iconColor = isAvailable ? "#94a3b8" : style.icon;
+    const isDropTarget = dragOverTableId === table.id && !!draggingId;
+    const draggedFromHere = list.some((r) => r.id === draggingId);
 
     const handleCardClick = () => {
-      if (!isAvailable && reservation) {
-        setSelectedReservation(reservation);
-      } else if (isAvailable) {
+      if (isAvailable) {
         const slotParam = selectedSlot ? `&slot=${encodeURIComponent(selectedSlot)}` : "";
         navigate(`/new-reservation?tableId=${table.id}&tableNumber=${encodeURIComponent(table.number)}&date=${dateStr}${slotParam}`);
       }
     };
 
+    const handleDrop = (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragOverTableId(null);
+      const id = e.dataTransfer.getData("text/plain") || draggingId;
+      setDraggingId(null);
+      const r = id ? todaysReservations.find((x) => x.id === id) : null;
+      if (r) moveGuest(r, table);
+    };
+
     return (
       <Card
         key={table.id}
-        className={`p-4 flex flex-col items-center justify-center transition-colors cursor-pointer ${
-          isAvailable
+        className={`p-4 flex flex-col items-center justify-center transition-colors ${isAvailable ? "cursor-pointer" : ""} ${
+          isDropTarget && !draggedFromHere
+            ? "bg-teal-50 ring-2 ring-[#0D7377]"
+            : isAvailable
             ? "bg-white hover:bg-green-50 hover:ring-1 hover:ring-green-300"
             : style.card
         }`}
         onClick={handleCardClick}
+        onDragOver={(e) => { e.preventDefault(); if (draggingId && !draggedFromHere) setDragOverTableId(table.id); }}
+        onDragLeave={(e) => { if (e.currentTarget === e.target) setDragOverTableId((id) => (id === table.id ? null : id)); }}
+        onDrop={handleDrop}
         data-testid={`table-card-${table.id}`}
       >
         <svg width="48" height="32" viewBox="0 0 48 32" fill="none" className="mb-3">
@@ -158,21 +260,22 @@ export default function TablesPage() {
             <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50" data-testid={`badge-status-${table.id}`}>
               Available
             </Badge>
-            <span className="text-[10px] text-muted-foreground/60">Tap to book</span>
+            <span className="text-[10px] text-muted-foreground/60">{isDropTarget ? "Drop to move here" : "Tap to book"}</span>
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-1">
-            <Badge className={style.badge} data-testid={`badge-status-${table.id}`}>
+          <div className="flex flex-col items-center gap-1.5 w-full">
+            <Badge className={`${style.badge} gap-1`} data-testid={`badge-status-${table.id}`}>
+              {status === "conflict" && <span aria-hidden>⚠</span>}
               {STATUS_LABEL[status] ?? status}
             </Badge>
-            {reservation && (
-              <>
-                <span className="font-medium text-foreground text-center mt-1 text-sm leading-tight" data-testid={`text-guest-${table.id}`}>
-                  {formatName(reservation.customerName)}
-                </span>
-                <span className="text-[11px] text-muted-foreground text-center">{reservation.time}</span>
-              </>
+            {status === "conflict" && (
+              <span className="text-[10px] text-yellow-700 text-center font-medium">
+                {list.length} parties — reassign one
+              </span>
             )}
+            <div className="flex flex-col gap-1 w-full mt-0.5">
+              {list.map(renderGuestChip)}
+            </div>
           </div>
         )}
       </Card>
@@ -269,6 +372,53 @@ export default function TablesPage() {
                   <Phone className="h-4 w-4 shrink-0" />
                   <span>{selectedReservation.phoneNumber}</span>
                 </div>
+              </div>
+
+              {/* Tap-to-move table picker */}
+              <div className="pt-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Move to table</p>
+                <div className="max-h-52 overflow-y-auto -mx-1 px-1 space-y-3">
+                  {TABLE_SECTIONS.map((section: TableSection) => (
+                    <div key={section}>
+                      <p className="text-[10px] font-medium text-muted-foreground/70 uppercase tracking-widest mb-1.5">{section}</p>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {getTablesBySection(section).map((t) => {
+                          const isCurrent = t.id === selectedReservation.tableId;
+                          const occupant = todaysReservations.find(
+                            (r) => r.tableId === t.id && r.id !== selectedReservation.id && timesOverlap(r.time, selectedReservation.time)
+                          );
+                          const tooSmall = selectedReservation.partySize > t.maxCapacity;
+                          return (
+                            <button
+                              key={t.id}
+                              disabled={isCurrent || reassignMutation.isPending}
+                              onClick={() => moveGuest(selectedReservation, t)}
+                              title={
+                                isCurrent ? "Current table"
+                                : occupant ? `Occupied by ${formatName(occupant.customerName)} — will double-book`
+                                : tooSmall ? `Seats ${t.maxCapacity}, party of ${selectedReservation.partySize}`
+                                : "Move here"
+                              }
+                              className={[
+                                "relative rounded-md border px-1 py-1.5 text-xs font-medium transition-colors disabled:cursor-default",
+                                isCurrent
+                                  ? "border-[#0D7377] bg-[#0D7377]/10 text-[#0D7377]"
+                                  : occupant
+                                  ? "border-yellow-300 bg-yellow-50 text-yellow-800 hover:bg-yellow-100"
+                                  : "border-border bg-white text-foreground hover:border-green-400 hover:bg-green-50",
+                              ].join(" ")}
+                              data-testid={`move-target-${t.id}`}
+                            >
+                              {t.number}
+                              {occupant && <span className="absolute -top-1 -right-1 text-[10px]" aria-hidden>⚠</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground/70 mt-1.5">⚠ = already taken at this time; moving there double-books it (allowed).</p>
               </div>
             </div>
           )}

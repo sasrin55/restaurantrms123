@@ -100,7 +100,7 @@ export async function registerRoutes(
   });
 
   app.patch("/api/reservations/:id", async (req, res) => {
-    const { date, time, partySize, tableId, tableName, phoneNumber, comments, customerName } = req.body;
+    const { date, time, partySize, tableId, tableName, phoneNumber, comments, customerName, override } = req.body;
     const updates: any = {};
     if (date !== undefined) updates.date = date;
     if (time !== undefined) updates.time = time;
@@ -111,8 +111,10 @@ export async function registerRoutes(
     if (comments !== undefined) updates.comments = comments;
     if (customerName !== undefined) updates.customerName = customerName;
 
-    // If the edit changes table/date/time, block conflicts with other reservations (exclude self)
-    if (updates.tableId !== undefined || updates.date !== undefined || updates.time !== undefined) {
+    // If the edit changes table/date/time, block conflicts with other reservations (exclude self).
+    // `override: true` lets a host intentionally move a guest onto an occupied table (the Tables
+    // page then flags the double-booking yellow until they resolve it).
+    if (!override && (updates.tableId !== undefined || updates.date !== undefined || updates.time !== undefined)) {
       const current = await storage.getReservation(req.params.id);
       if (current) {
         const checkTableId = updates.tableId ?? current.tableId;
