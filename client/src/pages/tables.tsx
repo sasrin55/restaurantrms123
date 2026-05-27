@@ -67,7 +67,6 @@ export default function TablesPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
-      setSelectedReservation(null);
     },
     onError: () => {
       toast({ title: "Error", description: "Could not move the guest.", variant: "destructive" });
@@ -76,16 +75,28 @@ export default function TablesPage() {
 
   const moveGuest = (reservation: Reservation, table: RestaurantTable) => {
     if (reservation.tableId === table.id) return;
+    // Who's already on the target at an overlapping time? They get bumped and need a new table.
     const occupant = todaysReservations.find(
       (r) => r.tableId === table.id && r.id !== reservation.id && timesOverlap(r.time, reservation.time)
     );
-    reassignMutation.mutate({ id: reservation.id, table });
-    toast({
-      title: `Moved to Table ${table.number}`,
-      description: occupant
-        ? `Now double-booked with ${formatName(occupant.customerName)} — table flagged for reassignment.`
-        : `${formatName(reservation.customerName)} moved.`,
-    });
+    reassignMutation.mutate(
+      { id: reservation.id, table },
+      {
+        onSuccess: () => {
+          if (occupant) {
+            // Hand the host straight to relocating the displaced guest.
+            toast({
+              title: `Table ${table.number} is now double-booked`,
+              description: `Pick a new table for ${formatName(occupant.customerName)}.`,
+            });
+            setSelectedReservation(occupant);
+          } else {
+            toast({ title: `Moved to Table ${table.number}`, description: `${formatName(reservation.customerName)} moved.` });
+            setSelectedReservation(null);
+          }
+        },
+      }
+    );
   };
 
   const { getSlotsForDate } = useTimeSlots();
@@ -358,6 +369,13 @@ export default function TablesPage() {
           </DialogHeader>
           {selectedReservation && (
             <div className="space-y-3 py-1">
+              {todaysReservations.some(
+                (r) => r.tableId === selectedReservation.tableId && r.id !== selectedReservation.id && timesOverlap(r.time, selectedReservation.time)
+              ) && (
+                <div className="rounded-lg border-2 border-yellow-400 bg-yellow-50 px-3 py-2 text-xs text-yellow-800 font-medium">
+                  ⚠ {selectedReservation.tableName} is double-booked. Move this guest to a free table below to resolve it.
+                </div>
+              )}
               <p className="font-semibold text-foreground text-lg">{selectedReservation.customerName}</p>
               <div className="space-y-1.5 text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
