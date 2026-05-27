@@ -68,8 +68,12 @@ export default function TablesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
     },
-    onError: () => {
-      toast({ title: "Error", description: "Could not move the guest.", variant: "destructive" });
+    onError: (err: any) => {
+      toast({
+        title: "Could not move the guest",
+        description: String(err?.message || err) || "Unknown error",
+        variant: "destructive",
+      });
     },
   });
 
