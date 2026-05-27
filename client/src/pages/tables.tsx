@@ -56,14 +56,14 @@ export default function TablesPage() {
     },
   });
 
-  // Reassign a reservation to another table. `override` lets the host drop a guest onto an
-  // already-occupied table (the conflict then shows yellow until they resolve it).
+  // Reassign a reservation to another table via the dedicated table-only endpoint, which
+  // allows landing on an occupied table (flagged yellow) without weakening the double-booking
+  // guard used everywhere else.
   const reassignMutation = useMutation({
     mutationFn: ({ id, table }: { id: string; table: RestaurantTable }) =>
-      apiRequest("PATCH", `/api/reservations/${id}`, {
+      apiRequest("PATCH", `/api/reservations/${id}/table`, {
         tableId: table.id,
         tableName: `Table ${table.number}`,
-        override: true,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });

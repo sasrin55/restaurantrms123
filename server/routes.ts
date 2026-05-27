@@ -100,7 +100,7 @@ export async function registerRoutes(
   });
 
   app.patch("/api/reservations/:id", async (req, res) => {
-    const { date, time, partySize, tableId, tableName, phoneNumber, comments, customerName, override } = req.body;
+    const { date, time, partySize, tableId, tableName, phoneNumber, comments, customerName } = req.body;
     const updates: any = {};
     if (date !== undefined) updates.date = date;
     if (time !== undefined) updates.time = time;
@@ -111,10 +111,8 @@ export async function registerRoutes(
     if (comments !== undefined) updates.comments = comments;
     if (customerName !== undefined) updates.customerName = customerName;
 
-    // If the edit changes table/date/time, block conflicts with other reservations (exclude self).
-    // `override: true` lets a host intentionally move a guest onto an occupied table (the Tables
-    // page then flags the double-booking yellow until they resolve it).
-    if (!override && (updates.tableId !== undefined || updates.date !== undefined || updates.time !== undefined)) {
+    // If the edit changes table/date/time, block conflicts with other reservations (exclude self)
+    if (updates.tableId !== undefined || updates.date !== undefined || updates.time !== undefined) {
       const current = await storage.getReservation(req.params.id);
       if (current) {
         const checkTableId = updates.tableId ?? current.tableId;
@@ -138,6 +136,27 @@ export async function registerRoutes(
 
     updateReservationInSheet(reservation).catch(err =>
       console.error("Google Sheets edit sync error:", err)
+    );
+
+    res.json(reservation);
+  });
+
+  // Reassign a guest's TABLE only. Intentionally skips the double-booking guard so a host can
+  // move a guest onto an occupied table (the Tables page flags that yellow until resolved).
+  // It changes nothing else (date/time/party untouched) and is the ONLY place double-booking
+  // is allowed — the create + edit routes above keep their guard fully intact.
+  app.patch("/api/reservations/:id/table", async (req, res) => {
+    const { tableId, tableName } = req.body;
+    if (typeof tableId !== "number" || typeof tableName !== "string") {
+      return res.status(400).json({ error: "tableId (number) and tableName (string) are required" });
+    }
+    const reservation = await storage.updateReservation(req.params.id, { tableId, tableName });
+    if (!reservation) {
+      return res.status(404).json({ error: "Reservation not found" });
+    }
+
+    updateReservationInSheet(reservation).catch(err =>
+      console.error("Google Sheets table-move sync error:", err)
     );
 
     res.json(reservation);
