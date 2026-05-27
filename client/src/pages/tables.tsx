@@ -60,12 +60,18 @@ export default function TablesPage() {
   // allows landing on an occupied table (flagged yellow) without weakening the double-booking
   // guard used everywhere else.
   const reassignMutation = useMutation({
-    mutationFn: ({ id, table }: { id: string; table: RestaurantTable }) =>
-      apiRequest("PATCH", `/api/reservations/${id}/table`, {
+    mutationFn: async ({ id, table }: { id: string; table: RestaurantTable }) => {
+      const res = await apiRequest("PATCH", `/api/reservations/${id}/table`, {
         tableId: table.id,
         tableName: `Table ${table.number}`,
-      }),
-    onSuccess: () => {
+      });
+      return (await res.json()) as Reservation;
+    },
+    onSuccess: (updated) => {
+      // Reflect the move instantly off the returned row, then revalidate in the background.
+      queryClient.setQueryData<Reservation[]>(["/api/reservations"], (old) =>
+        old ? old.map((r) => (r.id === updated.id ? { ...r, ...updated } : r)) : old
+      );
       queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
     },
     onError: (err: any) => {
