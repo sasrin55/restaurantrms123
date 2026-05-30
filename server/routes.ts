@@ -789,6 +789,37 @@ export async function registerRoutes(
     }
   });
 
+  // ── WhatsApp tab data (proxies the WA service; key stays server-side) ────
+  // Sent-message log: success/failure + reason for failures.
+  app.get("/api/whatsapp/messages", async (_req, res) => {
+    const base = process.env.WA_SERVICE_URL;
+    const key = process.env.WA_API_KEY;
+    if (!base || !key) return res.json({ configured: false, messages: [] });
+    try {
+      const r = await fetch(`${base}/api/messages`, { headers: { "X-API-Key": key } });
+      if (!r.ok) return res.status(502).json({ configured: true, error: `WA service ${r.status}`, messages: [] });
+      const messages = await r.json();
+      res.json({ configured: true, messages });
+    } catch (err: any) {
+      res.status(502).json({ configured: true, error: err?.message || "WA service unreachable", messages: [] });
+    }
+  });
+
+  // Live connection status per phone + re-link QR (rendered client-side).
+  app.get("/api/whatsapp/status", async (_req, res) => {
+    const base = process.env.WA_SERVICE_URL;
+    const key = process.env.WA_API_KEY;
+    if (!base || !key) return res.json({ configured: false, phones: [] });
+    try {
+      const r = await fetch(`${base}/api/status`, { headers: { "X-API-Key": key } });
+      if (!r.ok) return res.status(502).json({ configured: true, error: `WA service ${r.status}`, phones: [] });
+      const data = await r.json();
+      res.json({ configured: true, phones: data.phones ?? [] });
+    } catch (err: any) {
+      res.status(502).json({ configured: true, error: err?.message || "WA service unreachable", phones: [] });
+    }
+  });
+
   // ── WhatsApp test endpoint ─────────────────────────────────────────────────
   // POST /api/admin/test-whatsapp  { "name": "...", "phone": "..." }
   // Use this to verify the WA microservice connection without making a real reservation.

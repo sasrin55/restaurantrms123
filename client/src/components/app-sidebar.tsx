@@ -33,6 +33,7 @@ import {
   CheckCircle2,
   XCircle,
   Smartphone,
+  MessageSquare,
 } from "lucide-react";
 import paolasLogo from "@/assets/images/paolas-logo.png";
 
@@ -74,6 +75,11 @@ const generalItems = [
     title: "Servers",
     url: "/servers",
     icon: Bell,
+  },
+  {
+    title: "WhatsApp",
+    url: "/whatsapp",
+    icon: MessageSquare,
   },
   {
     title: "Inventory Management",
